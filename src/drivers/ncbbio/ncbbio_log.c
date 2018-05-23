@@ -481,6 +481,11 @@ int ncbbio_log_close(NC_bb *ncbbp) {
     ncbbp->total_time += t2 - t1;
     ncbbp->close_time += t2 - t1;
 
+    ncmpii_update_bb_counter(ncbbp->total_time, ncbbp->create_time, ncbbp->enddef_time, ncbbp->put_time, ncbbp->flush_time, ncbbp->close_time,
+    ncbbp->flush_replay_time, ncbbp->flush_data_rd_time, ncbbp->flush_put_time, ncbbp->flush_wait_time,
+    ncbbp->put_data_wr_time, ncbbp->put_meta_wr_time, ncbbp->put_num_wr_time,
+    ncbbp->total_data, ncbbp->total_meta, ncbbp->max_buffer);
+
 #ifdef PNETCDF_DEBUG
     /* Print accounting info in debug build */
     MPI_Reduce(&(ncbbp->total_time), &total_time, 1, MPI_DOUBLE, MPI_MAX, 0,

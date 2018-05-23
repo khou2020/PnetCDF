@@ -639,6 +639,17 @@ ncmpi_strerror(int err);
 extern const char*
 ncmpi_strerrno(int err);
 
+/* bb performance numbers */
+
+extern int
+ncmpi_inq_bb_time(double *log_total_time, double *log_create_time, double *log_enddef_time, double *log_put_time, double *log_flush_time, double *log_close_time);
+
+extern int
+ncmpi_inq_bb_time_put(double *put_data_wr_time, double *put_meta_wr_time, double *put_num_wr_time);
+
+extern int
+ncmpi_inq_bb_time_flush(double *flush_replay_time, double *flush_data_rd_time, double *flush_put_time, double *flush_wait_time);
+
 /* Begin File Functions */
 
 extern int

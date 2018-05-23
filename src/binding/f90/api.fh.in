@@ -265,6 +265,38 @@ INTERFACE
     INTEGER FUNCTION nfmpi_inq_malloc_list()
     END     FUNCTION nfmpi_inq_malloc_list
 
+    INTEGER FUNCTION nfmpi_inq_bb_time(ttotal, tcreate, tenddef, tput, tflush, tclose)
+                     @USE_MPIF_HEADER@
+                     DOUBLE PRECISION,              INTENT(OUT) :: ttotal
+                     DOUBLE PRECISION,              INTENT(OUT) :: tcreate
+                     DOUBLE PRECISION,              INTENT(OUT) :: tenddef
+                     DOUBLE PRECISION,              INTENT(OUT) :: tput
+                     DOUBLE PRECISION,              INTENT(OUT) :: tflush
+                     DOUBLE PRECISION,              INTENT(OUT) :: tclose
+    END     FUNCTION nfmpi_inq_bb_time
+
+    INTEGER FUNCTION nfmpi_inq_bb_time_put(put_data_wr_time, put_meta_wr_time, put_num_wr_time)
+                     @USE_MPIF_HEADER@
+                     DOUBLE PRECISION,              INTENT(OUT) :: put_data_wr_time
+                     DOUBLE PRECISION,              INTENT(OUT) :: put_meta_wr_time
+                     DOUBLE PRECISION,              INTENT(OUT) :: put_num_wr_time
+    END     FUNCTION nfmpi_inq_bb_time_put
+
+    INTEGER FUNCTION nfmpi_inq_bb_time_flush(treplay, trd, tput, twait)
+                     @USE_MPIF_HEADER@
+                     DOUBLE PRECISION,              INTENT(OUT) :: treplay
+                     DOUBLE PRECISION,              INTENT(OUT) :: trd
+                     DOUBLE PRECISION,              INTENT(OUT) :: tput
+                     DOUBLE PRECISION,              INTENT(OUT) :: twait
+    END     FUNCTION nfmpi_inq_bb_time_flush
+    
+    INTEGER FUNCTION nfmpi_inq_bb_size(datasize, metasize, buffersize)
+                     @USE_MPIF_HEADER@
+                     INTEGER(KIND=MPI_OFFSET_KIND), INTENT(OUT) :: datasize
+                     INTEGER(KIND=MPI_OFFSET_KIND), INTENT(OUT) :: metasize
+                     INTEGER(KIND=MPI_OFFSET_KIND), INTENT(OUT) :: buffersize
+    END     FUNCTION nfmpi_inq_bb_size
+
 !
 ! Dimension APIs
 !

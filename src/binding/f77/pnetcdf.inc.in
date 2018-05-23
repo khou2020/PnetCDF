@@ -820,6 +820,10 @@
       integer  nfmpi_inq_malloc_list
       integer  nfmpi_inq_files_opened
       integer  nfmpi_inq_recsize
+      integer  nfmpi_inq_bb_time
+      integer  nfmpi_inq_bb_time_put
+      integer  nfmpi_inq_bb_time_flush
+      integer  nfmpi_inq_bb_size
 
       external nfmpi_inq
       external nfmpi_inq_ndims
@@ -834,6 +838,10 @@
       external nfmpi_inq_malloc_list
       external nfmpi_inq_files_opened
       external nfmpi_inq_recsize
+      external nfmpi_inq_bb_time
+      external nfmpi_inq_bb_time_put
+      external nfmpi_inq_bb_time_flush
+      external nfmpi_inq_bb_size
 !
 ! dimension routines:
 !

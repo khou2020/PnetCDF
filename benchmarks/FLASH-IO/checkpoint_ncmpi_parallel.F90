@@ -154,7 +154,8 @@
 
           err = nfmpi_enddef(ncid)
           if (err .NE. NF_NOERR) call check(err, "nfmpi_enddef")
-      end subroutine write_header_info
+          
+        end subroutine write_header_info
 
 !----------------------------------------------------------------------------
 ! subroutine checkpoint_wr
@@ -201,8 +202,8 @@
 
       integer block_no
       integer i, j
-      integer ngid
-      integer err
+      integer ngid 
+      integer err, ierr
 
       integer n_to_left(0:16383)  ! must extend from 0 to NumPEs-1
 
@@ -346,7 +347,7 @@
       err = nfmpi_create(MPI_COMM_WORLD, trim(filename), cmode, &
                          file_info, ncid)
       if (err .NE. NF_NOERR) call check(err, "nfmpi_create")
-
+      
       call MPI_Info_free(file_info, err)
 
       err = nfmpi_get_file_info(ncid, info_used)
@@ -384,6 +385,11 @@
                              nzones_block, &
                              unklabels, &
                              varid)
+        
+        if (use_indep_io) then
+              err = nfmpi_begin_indep_data(ncid)
+              if (err .NE. NF_NOERR) call check(err, "nfmpi_begin_indep_data")
+        endif
 
 #ifdef TIMERS
       print *, 'header: MyPE = ', MyPE, ' time = ',  &
@@ -407,8 +413,13 @@
           err = nfmpi_iput_vara_int(ncid, varid(1), starts, counts, lrefine, reqs(1))
           if (err .NE. NF_NOERR) call check(err, "nfmpi_iput_vara_int: lrefine")
       else
-          err = nfmpi_put_vara_int_all(ncid, varid(1), starts, counts, lrefine)
-          if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int_all: lrefine")
+            if (use_indep_io) then
+                  err = nfmpi_put_vara_int(ncid, varid(1), starts, counts, lrefine)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int: lrefine")
+            else
+                  err = nfmpi_put_vara_int_all(ncid, varid(1), starts, counts, lrefine)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int_all: lrefine")
+            endif            
       endif
 
 #ifdef TIMERS
@@ -425,8 +436,13 @@
           err = nfmpi_iput_vara_int(ncid, varid(2), starts, counts, nodetype, reqs(2))
           if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int: nodetype")
       else
-          err = nfmpi_put_vara_int_all(ncid, varid(2), starts, counts, nodetype)
-          if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int_all: nodetype")
+            if (use_indep_io) then
+                  err = nfmpi_put_vara_int(ncid, varid(2), starts, counts, nodetype)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int: lrefine")
+            else
+                  err = nfmpi_put_vara_int_all(ncid, varid(2), starts, counts, nodetype)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int_all: nodetype")
+            endif
       endif
 
 #ifdef TIMERS
@@ -447,8 +463,13 @@
           err = nfmpi_iput_vara_int(ncid, varid(3), starts, counts, gid, reqs(3))
           if (err .NE. NF_NOERR) call check(err, "nfmpi_iput_vara_int: gid")
       else
-          err = nfmpi_put_vara_int_all(ncid, varid(3), starts, counts, gid)
-          if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int_all: gid")
+            if (use_indep_io) then
+                  err = nfmpi_put_vara_int(ncid, varid(3), starts, counts, gid)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int: lrefine")
+            else
+                  err = nfmpi_put_vara_int_all(ncid, varid(3), starts, counts, gid)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_int_all: gid")
+            endif
       endif
 
 #ifdef TIMERS
@@ -474,8 +495,13 @@
           err = nfmpi_iput_vara_double(ncid, varid(4), starts, counts, coord_buf, reqs(4))
           if (err .NE. NF_NOERR) call check(err, "nfmpi_iput_vara_double: coord")
       else
-          err = nfmpi_put_vara_double_all(ncid, varid(4), starts, counts, coord_buf)
-          if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double_all: coord")
+            if (use_indep_io) then
+                  err = nfmpi_put_vara_double(ncid, varid(4), starts, counts, coord_buf)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double: lrefine")
+            else
+                  err = nfmpi_put_vara_double_all(ncid, varid(4), starts, counts, coord_buf)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double_all: coord")
+            endif
       endif
 
 #ifdef TIMERS
@@ -497,8 +523,13 @@
           err = nfmpi_iput_vara_double(ncid, varid(5), starts, counts, bs_buf, reqs(5))
           if (err .NE. NF_NOERR) call check(err, "nfmpi_iput_vara_double: size")
       else
-          err = nfmpi_put_vara_double_all(ncid, varid(5), starts, counts, bs_buf)
-          if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double_all: size")
+            if (use_indep_io) then
+                  err = nfmpi_put_vara_double(ncid, varid(5), starts, counts, bs_buf)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double: size")
+            else
+                  err = nfmpi_put_vara_double_all(ncid, varid(5), starts, counts, bs_buf)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double_all: size")
+            endif
       endif
 
 #ifdef TIMERS
@@ -522,8 +553,13 @@
           err = nfmpi_iput_vara_double(ncid, varid(6), starts, counts, bb_buf, reqs(6))
           if (err .NE. NF_NOERR) call check(err, "nfmpi_iput_vara_double: bnd_box")
       else
-          err = nfmpi_put_vara_double_all(ncid, varid(6), starts, counts, bb_buf)
-          if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double_all: bnd_box")
+            if (use_indep_io) then
+                  err = nfmpi_put_vara_double(ncid, varid(6), starts, counts, bb_buf)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double: bnd_box")
+            else
+                  err = nfmpi_put_vara_double_all(ncid, varid(6), starts, counts, bb_buf)
+                  if (err .NE. NF_NOERR) call check(err, "nfmpi_put_vara_double_all: bnd_box")
+            endif
       endif
 
 #ifdef TIMERS
@@ -578,40 +614,60 @@
       counts(4) = lnblocks
 
       do i = 1, nvar
-         record_label = unklabels(i)
+            record_label = unklabels(i)
 
-         if (.NOT. use_nonblocking_io) then
-            ! when using nonblocking flexible API, we don't even need unk_buf
-            unk_buf(1, 1:nxb, 1:nyb, 1:nzb, :) =        &
-                unk(i, nguard+1     : nguard+nxb,       &
-                       nguard*k2d+1 : nguard*k2d+nyb,   &
-                       nguard*k3d+1 : nguard*k3d+nzb, :)
-         endif
+            if (.NOT. use_nonblocking_io) then
+                  ! when using nonblocking flexible API, we don't even need unk_buf
+                  unk_buf(1, 1:nxb, 1:nyb, 1:nzb, :) =        &
+                        unk(i, nguard+1     : nguard+nxb,       & 
+                              nguard*k2d+1 : nguard*k2d+nyb,   & 
+                              nguard*k3d+1 : nguard*k3d+nzb, :)
+            endif
 
-         if (use_nonblocking_io) then
-            err = nfmpi_iput_vara(ncid, varid(6+i), starts, counts, &
-                                  unk(i, 1, 1, 1, 1), 1_MPI_OFFSET_KIND, buftype, reqs(i+6))
-            if (err .NE. NF_NOERR) &
-                call check(err, "nfmpi_iput_vara: unknowns")
-         else
-            err = nfmpi_put_vara_double_all(ncid, varid(6+i), starts, counts, unk_buf)
-            if (err .NE. NF_NOERR) &
-                call check(err, "nfmpi_put_vara_double_all: unknowns")
-         endif
+            if (use_nonblocking_io) then
+                  err = nfmpi_iput_vara(ncid, varid(6+i), starts, counts, &
+                                          unk(i, 1, 1, 1, 1), 1_MPI_OFFSET_KIND, buftype, reqs(i+6))
+                  if (err .NE. NF_NOERR) &
+                        call check(err, "nfmpi_iput_vara: unknowns")
+            else
+                  if (use_indep_io) then
+                        err = nfmpi_put_vara_double(ncid, varid(6+i), starts, counts, unk_buf)
+                        if (err .NE. NF_NOERR) &
+                        call check(err, "nfmpi_put_vara_double: unknowns")
+                  else
+                        err = nfmpi_put_vara_double_all(ncid, varid(6+i), starts, counts, unk_buf)
+                        if (err .NE. NF_NOERR) &
+                        call check(err, "nfmpi_put_vara_double_all: unknowns")
+                  endif
+            endif
       enddo
 
       if (use_nonblocking_io) then
-          ! wait for the nonblocking I/O to complete
-          err = nfmpi_wait_all(ncid, nvar+6, reqs, stats)
-          if (err .NE. NF_NOERR) &
-              call check(err, "nfmpi_wait_all: unknowns")
+            ! wait for the nonblocking I/O to complete
+            if (use_indep_io) then
+                  err = nfmpi_wait(ncid, nvar+6, reqs, stats)
+                  if (err .NE. NF_NOERR) &
+                        call check(err, "nfmpi_wait: unknowns")
 
-          ! check the status of each nonblocking request
-          do i=1, nvar+6
-             write(str,'(I2)') i
-             if (stats(i) .NE. NF_NOERR) &
-                 call check(stats(i), 'In nfmpi_wait_all req '//trim(str))
-          enddo
+                  ! check the status of each nonblocking request
+                  do i=1, nvar+6
+                        write(str,'(I2)') i
+                        if (stats(i) .NE. NF_NOERR) &
+                        call check(stats(i), 'In nfmpi_wait req '//trim(str))
+                  enddo
+            else
+                  err = nfmpi_wait_all(ncid, nvar+6, reqs, stats)
+                  if (err .NE. NF_NOERR) &
+                        call check(err, "nfmpi_wait_all: unknowns")
+                  
+                  ! check the status of each nonblocking request
+                  do i=1, nvar+6
+                        write(str,'(I2)') i
+                        if (stats(i) .NE. NF_NOERR) &
+                        call check(stats(i), 'In nfmpi_wait_all req '//trim(str))
+                  enddo
+            endif
+
           call MPI_Type_free(buftype, err)
       endif
 
@@ -630,10 +686,16 @@
       err = nfmpi_inq_put_size(ncid, put_size)
       if (err .NE. NF_NOERR) call check(err, "nfmpi_inq_put_size")
 
+      barr_time =  MPI_Wtime()
+      if (.NOT. use_indep_io) then
+            call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      endif
+      barr_time = MPI_Wtime() - barr_time
+
       err = nfmpi_close(ncid);
       if (err .NE. NF_NOERR) call check(err, "nfmpi_close")
 
-      chk_t(3) = MPI_Wtime() - chk_t(3)
+      chk_t(3) = MPI_Wtime() - chk_t(3) - barr_time
 
       checkpoint_wr_ncmpi_par = put_size
 

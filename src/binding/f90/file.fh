@@ -382,3 +382,42 @@ function nf90mpi_inq_file_format(path, format)
   nf90mpi_inq_file_format = nfmpi_inq_file_format(path, format)
 end function nf90mpi_inq_file_format
 
+! -------
+function nf90mpi_inq_bb_time(ttotal, tcreate, tenddef, tput, tflush, tclose)
+  DOUBLE PRECISION ,                intent(out) :: ttotal
+  DOUBLE PRECISION ,                intent(out) :: tcreate
+  DOUBLE PRECISION ,                intent(out) :: tenddef
+  DOUBLE PRECISION ,                intent(out) :: tput
+  DOUBLE PRECISION ,                intent(out) :: tflush
+  DOUBLE PRECISION ,                intent(out) :: tclose
+  integer                                       :: nf90mpi_inq_bb_time
+  nf90mpi_inq_bb_time = nfmpi_inq_bb_time(ttotal, tcreate, tenddef, tput, tflush, tclose)
+end function nf90mpi_inq_bb_time
+
+! -------
+function nf90mpi_inq_bb_time_put(put_data_wr_time, put_meta_wr_time, put_num_wr_time)
+  DOUBLE PRECISION ,                intent(out) :: put_data_wr_time
+  DOUBLE PRECISION ,                intent(out) :: put_meta_wr_time
+  DOUBLE PRECISION ,                intent(out) :: put_num_wr_time
+  integer                                       :: nf90mpi_inq_bb_time_put
+  nf90mpi_inq_bb_time_put = nfmpi_inq_bb_time_put(put_data_wr_time, put_meta_wr_time, put_num_wr_time)
+end function nf90mpi_inq_bb_time_put
+
+! -------
+function nf90mpi_inq_bb_time_flush(treplay, trd, tput, twait)
+  DOUBLE PRECISION ,                intent(out) :: treplay
+  DOUBLE PRECISION ,                intent(out) :: trd
+  DOUBLE PRECISION ,                intent(out) :: tput
+  DOUBLE PRECISION ,                intent(out) :: twait
+  integer                                       :: nf90mpi_inq_bb_time_put
+  nf90mpi_inq_bb_time_flush = nfmpi_inq_bb_time_flush(treplay, trd, tput, twait)
+end function nf90mpi_inq_bb_time_flush
+
+! -------
+function nf90mpi_inq_bb_size(datasize, metasize, buffersize)
+  integer (kind = MPI_OFFSET_KIND), intent(out) :: datasize
+  integer (kind = MPI_OFFSET_KIND), intent(out) :: metasize
+  integer (kind = MPI_OFFSET_KIND), intent(out) :: buffersize
+  integer                                       :: nf90mpi_inq_bb_size
+  nf90mpi_inq_bb_size = nfmpi_inq_bb_size(datasize, metasize, buffersize)
+end function nf90mpi_inq_bb_size

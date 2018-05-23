@@ -118,6 +118,7 @@ AH_TEMPLATE([ENABLE_LARGE_REQ],         [Define if to enable single large MPI-IO
 AH_TEMPLATE([ENABLE_NULL_BYTE_HEADER_PADDING], [Define if to enable strict null-byte padding in file header])
 AH_TEMPLATE([BUILD_DRIVER_BB],          [Define if to enable burst buffer feature])
 AH_TEMPLATE([PNETCDF_PROFILING],        [Define if to enable PnetCDF internal performance profiling])
+AH_TEMPLATE([ENABLE_DWSTAGING],        [Define if to enable datawarp staging api wrapper])
 dnl AH_TEMPLATE([HAVE_MPI_COUNT],       [Define if type MPI_Count is defined])
 
 AH_TOP([#ifndef _CONFIG_H
@@ -1452,6 +1453,20 @@ if test "x$enable_profiling" = "xyes" ; then
 fi
 AC_SUBST(PNETCDF_PROFILING)
 AM_CONDITIONAL(PNETCDF_PROFILING, [test x$enable_profiling = xyes])
+
+AC_ARG_ENABLE([staging],
+   [AS_HELP_STRING([--enable-staging],
+                   [Enable time and memory profiling. @<:@default: disabled@:>@])],
+   [enable_staging=${enableval}], [enable_staging=no]
+)
+
+ENABLE_DWSTAGING=0
+if test "x$enable_staging" = "xyes" ; then
+   AC_DEFINE(ENABLE_DWSTAGING)
+   ENABLE_DWSTAGING=1
+fi
+AC_SUBST(ENABLE_DWSTAGING)
+AM_CONDITIONAL(ENABLE_DWSTAGING, [test x$enable_staging = xyes])
 
 dnl build test programs and benchmark programs
 AM_CONDITIONAL(BUILD_TESTSETS, [true])
