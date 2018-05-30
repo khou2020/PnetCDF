@@ -260,7 +260,7 @@ int
 ncbbio_init(NC_bb *ncbbp)
 {
     int err;
-    
+
     /* If logfile are not initialized, we initialize the logfile */
     if (!ncbbp->inited){
         /* Init log file */
@@ -349,7 +349,7 @@ ncbbio_redef(void *ncdp)
      * After redef, our record in the log can become out dated due to change in varid, dimsize ... etc.
      * Flush the log to ensure we have a fresh start
      */
-    
+
     if (ncbbp->inited) {
         err = ncbbio_log_flush(ncbbp);
         if (err != NC_NOERR) return err;
@@ -402,7 +402,7 @@ ncbbio_abort(void *ncdp)
     NC_bb *ncbbp = (NC_bb*)ncdp;
 
     if (ncbbp == NULL) DEBUG_RETURN_ERROR(NC_EBADID)
-    
+
     err = ncbbp->ncmpio_driver->abort(ncbbp->ncp);
 
     MPI_Comm_free(&(ncbbp->comm));
@@ -517,9 +517,12 @@ ncbbio_cancel(void *ncdp,
     if (num_req == NC_REQ_ALL || num_req == NC_PUT_REQ_ALL || num_req == NC_GET_REQ_ALL){
         // Cancel all put requests
         if (num_req == NC_REQ_ALL || num_req == NC_PUT_REQ_ALL){
-            err = ncbbio_cancel_all_put_req(ncbbp);
-            if (status == NC_NOERR){
-                status = err;
+            /* Only handle put reqs in wr mode */
+            if (ncbbp->inited){
+                err = ncbbio_cancel_all_put_req(ncbbp);
+                if (status == NC_NOERR){
+                    status = err;
+                }
             }
         }
         // Cancel all get requests
@@ -560,24 +563,42 @@ ncbbio_cancel(void *ncdp,
      * The internal put list uses a continuous id, so we translate it by dividing the id by 2
      */
     if (nput > 0){
-        /* Cancel the request one by one */
-        for(i = 0; i < nput; i++){
-            // Skip NULL requests
-            if (req_ids[i] == NC_REQ_NULL){
-                stat = NC_NOERR;
-            }
-            else{
-                /* Try canceling the request
-                * Cancelation can fail if the request is already flushed to the file
-                */
-                err = ncbbio_cancel_put_req(ncbbp, (req_ids[i] / 2), &stat);
-                if (status == NC_NOERR){
-                    status = err;
+        /* Only handle put reqs in wr mode */
+        if (ncbbp->inited){
+            for(i = 0; i < nput; i++){
+                // Skip NULL requests
+                if (req_ids[i] == NC_REQ_NULL){
+                    stat = NC_NOERR;
+                }
+                else{
+                    /* Try canceling the request
+                    * Cancelation can fail if the request is already flushed to the file
+                    */
+                    err = ncbbio_cancel_put_req(ncbbp, (req_ids[i] / 2), &stat);
+                    if (status == NC_NOERR){
+                        status = err;
+                    }
+                }
+
+                if (statuses != NULL){
+                    statuses[i] = stat;
                 }
             }
+        }
+        else{
+            for(i = 0; i < nput; i++){
+                /* Any put req other than NULL req is invalid in rdonly mode */
+                if (req_ids[i] == NC_REQ_NULL){
+                    stat = NC_NOERR;
+                }
+                else{
+                    // Waiting can fail if there's problem writing request to file
+                    stat = NC_EINVAL_REQUEST;
+                }
 
-            if (statuses != NULL){
-                statuses[i] = stat;
+                if (statuses != NULL){
+                    statuses[i] = stat;
+                }
             }
         }
     }
@@ -689,9 +710,12 @@ ncbbio_wait(void *ncdp,
     if (num_reqs == NC_REQ_ALL || num_reqs == NC_PUT_REQ_ALL || num_reqs == NC_GET_REQ_ALL){
         // Wait all put requests
         if (num_reqs == NC_REQ_ALL || num_reqs == NC_PUT_REQ_ALL){
-            err = ncbbio_handle_all_put_req(ncbbp);
-            if (status == NC_NOERR){
-                status = err;
+            /* Only handle put reqs in wr mode */
+            if (ncbbp->inited){
+                err = ncbbio_handle_all_put_req(ncbbp);
+                if (status == NC_NOERR){
+                    status = err;
+                }
             }
         }
         // Wait all get requests
@@ -732,22 +756,41 @@ ncbbio_wait(void *ncdp,
      * The internal put list uses a continuous id, so we translate it by dividing the id by 2
      */
     if (nput > 0){
-        /* Handle the request one by one */
-        for(i = 0; i < nput; i++){
-            // Handle request, skiping NULL requests
-            if (req_ids[i] == NC_REQ_NULL){
-                stat = NC_NOERR;
-            }
-            else{
-                // Waiting can fail if there's problem writing request to file
-                err = ncbbio_handle_put_req(ncbbp, (req_ids[i] / 2), &stat);
-                if (status == NC_NOERR){
-                    status = err;
+        /* Handle requests if in wr mode */
+        if (ncbbp->inited){
+            /* Handle the request one by one */
+            for(i = 0; i < nput; i++){
+                // Handle request, skiping NULL requests
+                if (req_ids[i] == NC_REQ_NULL){
+                    stat = NC_NOERR;
+                }
+                else{
+                    // Waiting can fail if there's problem writing request to file
+                    err = ncbbio_handle_put_req(ncbbp, (req_ids[i] / 2), &stat);
+                    if (status == NC_NOERR){
+                        status = err;
+                    }
+                }
+
+                if (statuses != NULL){
+                    statuses[i] = stat;
                 }
             }
+        }
+        else{
+            for(i = 0; i < nput; i++){
+                /* Any put req other than NULL req is invalid in rdonly mode */
+                if (req_ids[i] == NC_REQ_NULL){
+                    stat = NC_NOERR;
+                }
+                else{
+                    // Waiting can fail if there's problem writing request to file
+                    stat = NC_EINVAL_REQUEST;
+                }
 
-            if (statuses != NULL){
-                statuses[i] = stat;
+                if (statuses != NULL){
+                    statuses[i] = stat;
+                }
             }
         }
     }

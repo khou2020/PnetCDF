@@ -1427,8 +1427,8 @@ BUILD_DRIVER_BB=0
 if test "x$enable_bbdriver" = "xyes" ; then
    AC_DEFINE(BUILD_DRIVER_BB)
    BUILD_DRIVER_BB=1
-   FFLAGS+=" -DBUILD_DRIVER_BB"
-   FCFLAGS+=" -DBUILD_DRIVER_BB"
+   FFLAGS+=" ${FC_DEFINE}BUILD_DRIVER_BB"
+   FCFLAGS+=" ${FC_DEFINE}BUILD_DRIVER_BB"
 fi
 AC_SUBST(BUILD_DRIVER_BB)
 AM_CONDITIONAL(BUILD_DRIVER_BB, [test x$enable_bbdriver = xyes])
@@ -1491,7 +1491,11 @@ if test "x${TESTOUTDIR}" = x ; then
 fi
 
 dnl find if gcc is available for compiling ncoffsets to run in sequential
-AC_PATH_PROG([SEQ_CC], [gcc], [$MPICC])
+if test "$cross_compiling" = yes; then
+   SEQ_CC=$MPICC
+else
+   AC_PATH_PROG([SEQ_CC], [gcc], [$MPICC])
+fi
 AC_SUBST(SEQ_CC)
 
 dnl Configuration Date
@@ -1595,6 +1599,7 @@ AM_CONDITIONAL(BUILD_DRIVER_FOO, [test x${debug} = xyes])
 
 AC_SUBST(enable_static)
 AC_SUBST(enable_shared)
+AM_CONDITIONAL(BUILD_SHARED_LIB, [test x${enable_shared} = xyes])
 
 AC_OUTPUT
 echo "------------------------------------------------------------------------------"

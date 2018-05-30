@@ -163,12 +163,9 @@ define([TEST_NFMPI_IPUT_VAR1],dnl
         DATATYPE_VAR1($1, value)
         doubleprecision val
         integer err_w, reqid(1), st(1)
-#if defined(BUILD_DRIVER_BB)
-        integer                 flag
-        integer                 err2
+        logical                 flag, bb_enable
         character*(MPI_MAX_INFO_VAL)     hint
         integer                 infoused
-#endif
 
         value = MAKE_TYPE($1, 5)!/* any value would do - only for error cases */
 
@@ -178,6 +175,19 @@ define([TEST_NFMPI_IPUT_VAR1],dnl
             call errore('APIFunc(create): ', err)
             return
         end if
+
+        ! Determine if burst buffer driver is being used
+        bb_enable = .FALSE.
+        err = nfmpi_inq_file_info(ncid, infoused)
+        if (err .eq. NF_NOERR) then
+            call MPI_Info_get(infoused, "nc_bb",
+     +            MPI_MAX_INFO_VAL, hint, flag, err)
+            if (flag) then
+                bb_enable = (hint .eq. 'enable')
+            endif
+            call MPI_Info_free(infoused, err);
+        endif
+
         call def_dims(ncid)
         call def_vars(ncid)
         err = APIFunc(enddef)(ncid)
@@ -221,19 +231,14 @@ define([TEST_NFMPI_IPUT_VAR1],dnl
                 MAKE_TYPE2($1, value, val)
                 err = iPutVar1($1)(ncid, i,
      +                index, value, reqid(1))
-#if defined(BUILD_DRIVER_BB) 
-                err2 = nfmpi_inq_file_info(ncid, infoused)
-                call MPI_Info_get(infoused, "nc_bb",
-     +                 MPI_MAX_INFO_VAL, hint, flag, err2)
-                if (flag .eq. 1) then
-                    if (hint .eq. 'enable') then
-                        if (err .eq. NF_NOERR) then
-                            err = nfmpi_flush(ncid)
-                        endif
+
+                ! Flush the buffer to reveal potential error
+                if (bb_enable) then
+                    if (err .eq. NF_NOERR) then
+                        err = nfmpi_flush(ncid)
                     endif
                 endif
-                call MPI_Info_free(infoused, err2);
-#endif
+
                 if (err .eq. NF_NOERR .or. err .eq. NF_ERANGE)
      +              err_w = APIFunc(wait_all)(ncid,1,reqid,st)
                 if (canConvert) then
@@ -289,12 +294,9 @@ define([TEST_NFMPI_IPUT_VAR],dnl
         DATATYPE($1, value, (MAX_NELS))
         doubleprecision val
         integer err_w, reqid(1), st(1)
-#if defined(BUILD_DRIVER_BB)
-        integer                 flag
-        integer                 err2
+        logical                 flag, bb_enable
         character*(MPI_MAX_INFO_VAL)     hint
         integer                 infoused
-#endif
 
         flags = IOR(NF_CLOBBER, extra_flags)
         err = FileCreate(scratch, flags)
@@ -302,6 +304,19 @@ define([TEST_NFMPI_IPUT_VAR],dnl
             call errore('APIFunc(create): ', err)
             return
         end if
+
+        ! Determine if burst buffer driver is being used
+        bb_enable = .FALSE.
+        err = nfmpi_inq_file_info(ncid, infoused)
+        if (err .eq. NF_NOERR) then
+            call MPI_Info_get(infoused, "nc_bb",
+     +            MPI_MAX_INFO_VAL, hint, flag, err)
+            if (flag) then
+                bb_enable = (hint .eq. 'enable')
+            endif
+            call MPI_Info_free(infoused, err);
+        endif
+
         call def_dims(ncid)
         call def_vars(ncid)
         err = APIFunc(enddef)(ncid)
@@ -335,19 +350,14 @@ define([TEST_NFMPI_IPUT_VAR],dnl
      +              inRange3(val, var_type(i), NFT_ITYPE($1))
 4           continue
             err = iPutVar($1)(ncid, i, value,reqid(1))
-#if defined(BUILD_DRIVER_BB) 
-            err2 = nfmpi_inq_file_info(ncid, infoused)
-            call MPI_Info_get(infoused, "nc_bb",
-     +             MPI_MAX_INFO_VAL, hint, flag, err2)
-            if (flag .eq. 1) then
-                if (hint .eq. 'enable') then
-                    if (err .eq. NF_NOERR) then
-                        err = nfmpi_flush(ncid)
-                    endif
+            
+            ! Flush the buffer to reveal potential error
+            if (bb_enable) then
+                if (err .eq. NF_NOERR) then
+                    err = nfmpi_flush(ncid)
                 endif
             endif
-            call MPI_Info_free(infoused, err2);
-#endif
+
             if (err .eq. NF_NOERR .or. err .eq. NF_ERANGE)
      +          err_w = APIFunc(wait_all)(ncid, 1, reqid, st)
                 ! NF_ERANGE is not a fatal error
@@ -413,19 +423,14 @@ C           Only test record variables here
      +                  inRange3(val, var_type(i), NFT_ITYPE($1))
 7               continue
                 err = iPutVar($1)(ncid, i, value,reqid(1))
-#if defined(BUILD_DRIVER_BB) 
-                err2 = nfmpi_inq_file_info(ncid, infoused)
-                call MPI_Info_get(infoused, "nc_bb",
-     +                 MPI_MAX_INFO_VAL, hint, flag, err2)
-                if (flag .eq. 1) then
-                    if (hint .eq. 'enable') then
-                        if (err .eq. NF_NOERR) then
-                            err = nfmpi_flush(ncid)
-                        endif
+
+                ! Flush the buffer to reveal potential error
+                if (bb_enable) then
+                    if (err .eq. NF_NOERR) then
+                        err = nfmpi_flush(ncid)
                     endif
                 endif
-                call MPI_Info_free(infoused, err2);
-#endif
+
                 if (err .eq. NF_NOERR .or. err .eq. NF_ERANGE)
      +              err_w = APIFunc(wait_all)(ncid, 1, reqid, st)
                     ! NF_ERANGE is not a fatal error?
@@ -487,12 +492,9 @@ define([TEST_NFMPI_IPUT_VARA],dnl
         doubleprecision val
         integer ud_shift
         integer err_w, reqid(1), st(1)
-#if defined(BUILD_DRIVER_BB)
-        integer                 flag
-        integer                 err2
+        logical                 flag, bb_enable
         character*(MPI_MAX_INFO_VAL)     hint
         integer                 infoused
-#endif
 
         flags = IOR(NF_CLOBBER, extra_flags)
         err = FileCreate(scratch, flags)
@@ -500,6 +502,19 @@ define([TEST_NFMPI_IPUT_VARA],dnl
             call errore('APIFunc(create): ', err)
             return
         end if
+
+        ! Determine if burst buffer driver is being used
+        bb_enable = .FALSE.
+        err = nfmpi_inq_file_info(ncid, infoused)
+        if (err .eq. NF_NOERR) then
+            call MPI_Info_get(infoused, "nc_bb",
+     +            MPI_MAX_INFO_VAL, hint, flag, err)
+            if (flag) then
+                bb_enable = (hint .eq. 'enable')
+            endif
+            call MPI_Info_free(infoused, err);
+        endif
+
         call def_dims(ncid)
         call def_vars(ncid)
         err = APIFunc(enddef)(ncid)
@@ -648,19 +663,14 @@ C           /* Check correct error returned even when nothing to put */
 10              continue
                 err = iPutVara($1)(ncid, i, start,
      +                  edge, value,reqid(1))
-#if defined(BUILD_DRIVER_BB) 
-                err2 = nfmpi_inq_file_info(ncid, infoused)
-                call MPI_Info_get(infoused, "nc_bb",
-     +                 MPI_MAX_INFO_VAL, hint, flag, err2)
-                if (flag .eq. 1) then
-                    if (hint .eq. 'enable') then
-                        if (err .eq. NF_NOERR) then
-                            err = nfmpi_flush(ncid)
-                        endif
+
+                ! Flush the buffer to reveal potential error
+                if (bb_enable) then
+                    if (err .eq. NF_NOERR) then
+                        err = nfmpi_flush(ncid)
                     endif
                 endif
-                call MPI_Info_free(infoused, err2);
-#endif
+
                 if (err .eq. NF_NOERR .or. err .eq. NF_ERANGE)
      +              err_w = APIFunc(wait_all)(ncid,1,reqid,st)
                     ! NF_ERANGE is not a fatal error?
@@ -729,12 +739,9 @@ define([TEST_NFMPI_IPUT_VARS],dnl
         doubleprecision val
         integer ud_shift
         integer err_w, reqid(1), st(1)
-#if defined(BUILD_DRIVER_BB)
-        integer                 flag
-        integer                 err2
+        logical                 flag, bb_enable
         character*(MPI_MAX_INFO_VAL)     hint
         integer                 infoused
-#endif
 
         flags = IOR(NF_CLOBBER, extra_flags)
         err = FileCreate(scratch, flags)
@@ -742,6 +749,19 @@ define([TEST_NFMPI_IPUT_VARS],dnl
             call errore('APIFunc(create): ', err)
             return
         end if
+
+        ! Determine if burst buffer driver is being used
+        bb_enable = .FALSE.
+        err = nfmpi_inq_file_info(ncid, infoused)
+        if (err .eq. NF_NOERR) then
+            call MPI_Info_get(infoused, "nc_bb",
+     +            MPI_MAX_INFO_VAL, hint, flag, err)
+            if (flag) then
+                bb_enable = (hint .eq. 'enable')
+            endif
+            call MPI_Info_free(infoused, err);
+        endif
+
         call def_dims(ncid)
         call def_vars(ncid)
         err = APIFunc(enddef)(ncid)
@@ -931,19 +951,14 @@ C*/
 12                   continue
                     err = iPutVars($1)(ncid, i,
      +                    index, count, stride, value,reqid(1))
-#if defined(BUILD_DRIVER_BB) 
-                    err2 = nfmpi_inq_file_info(ncid, infoused)
-                    call MPI_Info_get(infoused, "nc_bb",
-     +                     MPI_MAX_INFO_VAL, hint, flag, err2)
-                    if (flag .eq. 1) then
-                        if (hint .eq. 'enable') then
-                            if (err .eq. NF_NOERR) then
-                                err = nfmpi_flush(ncid)
-                            endif
+
+                    ! Flush the buffer to reveal potential error
+                    if (bb_enable) then
+                        if (err .eq. NF_NOERR) then
+                            err = nfmpi_flush(ncid)
                         endif
                     endif
-                    call MPI_Info_free(infoused, err2);
-#endif
+
                     if (err .eq. NF_NOERR .or. err .eq. NF_ERANGE)
      +                  err_w = APIFunc(wait_all)(ncid,1,reqid,st)
                     if (canConvert) then
@@ -1015,12 +1030,9 @@ define([TEST_NFMPI_IPUT_VARM],dnl
         doubleprecision val
         integer ud_shift
         integer err_w, reqid(1), st(1)
-#if defined(BUILD_DRIVER_BB)
-        integer                 flag
-        integer                 err2
+        logical                 flag, bb_enable
         character*(MPI_MAX_INFO_VAL)     hint
         integer                 infoused
-#endif
 
         flags = IOR(NF_NOCLOBBER, extra_flags)
         err = FileCreate(scratch, flags)
@@ -1028,6 +1040,19 @@ define([TEST_NFMPI_IPUT_VARM],dnl
             call errore('APIFunc(create): ', err)
             return
         end if
+
+        ! Determine if burst buffer driver is being used
+        bb_enable = .FALSE.
+        err = nfmpi_inq_file_info(ncid, infoused)
+        if (err .eq. NF_NOERR) then
+            call MPI_Info_get(infoused, "nc_bb",
+     +            MPI_MAX_INFO_VAL, hint, flag, err)
+            if (flag) then
+                bb_enable = (hint .eq. 'enable')
+            endif
+            call MPI_Info_free(infoused, err);
+        endif
+
         call def_dims(ncid)
         call def_vars(ncid)
         err = APIFunc(enddef)(ncid)
@@ -1225,19 +1250,14 @@ C*/
 14                  continue
                     err = iPutVarm($1)(ncid,i,
      +                   index,count, stride,imap, value,reqid(1))
-#if defined(BUILD_DRIVER_BB) 
-                    err2 = nfmpi_inq_file_info(ncid, infoused)
-                    call MPI_Info_get(infoused, "nc_bb",
-     +                     MPI_MAX_INFO_VAL, hint, flag, err2)
-                    if (flag .eq. 1) then
-                        if (hint .eq. 'enable') then
-                            if (err .eq. NF_NOERR) then
-                                err = nfmpi_flush(ncid)
-                            endif
+
+                    ! Flush the buffer to reveal potential error
+                    if (bb_enable) then
+                        if (err .eq. NF_NOERR) then
+                            err = nfmpi_flush(ncid)
                         endif
                     endif
-                    call MPI_Info_free(infoused, err2);
-#endif
+
                     if (err .eq. NF_NOERR .or. err .eq. NF_ERANGE)
      +                  err_w = APIFunc(wait_all)(ncid,1,reqid,st)
                     if (canConvert) then

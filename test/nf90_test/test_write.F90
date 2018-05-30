@@ -445,12 +445,9 @@
         integer ngatts
         integer recdim
         integer nok
-#if defined(BUILD_DRIVER_BB)
-        integer                 flag
-        integer                 err2
+        logical                 flag, bb_enable
         character*(MPI_MAX_INFO_VAL)     hint
         integer                 infoused
-#endif
 
         nok = 0
 
@@ -470,6 +467,19 @@
             call errore('nf90mpi_create: ', err)
             return
         end if
+
+        ! Determine if burst buffer driver is being used
+        bb_enable = .FALSE.
+        err = nf90mpi_inq_file_info(ncid, infoused)
+        if (err .eq. NF_NOERR) then
+            call MPI_Info_get(infoused, "nc_bb", &
+                MPI_MAX_INFO_VAL, hint, flag, err)
+            if (flag) then
+                bb_enable = (hint .eq. 'enable')
+            endif
+            call MPI_Info_free(infoused, err);
+        endif
+
         call def_dims(ncid)
         call def_vars(ncid)
         call put_atts(ncid)
@@ -547,17 +557,14 @@
         if (err .ne. NF90_NOERR) &
             call errore('nf90mpi_enddef: ', err)
         call put_vars(ncid)
-#if defined(BUILD_DRIVER_BB)
-        err2 = nf90mpi_inq_file_info(ncid, infoused)
-        call MPI_Info_get(infoused, "nc_bb", &
-               MPI_MAX_INFO_VAL, hint, flag, err2)
-        if (flag .eq. 1) then
-            if (hint .eq. 'enable') then
-                err = nf90mpi_flush(ncid)
+
+        ! Flush the buffer to reveal potential error
+        if (bb_enable) then
+            if (err .eq. NF_NOERR) then
+                err = nfmpi_flush(ncid)
             endif
         endif
-        call MPI_Info_free(infoused, err2);
-#endif
+
         err = nf90mpi_abort(ncid)
         if (err .ne. NF90_NOERR) then
             call errore('nf90mpi_abort of ncid failed: ', err)
