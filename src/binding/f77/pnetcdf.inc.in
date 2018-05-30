@@ -782,6 +782,8 @@
       integer  nfmpi_def_var_fill
       integer  nfmpi_inq_var_fill
       integer  nfmpi_fill_var_rec
+      integer  nfmpi_stage_out
+      integer  nfmpi_stage_out_env
 
       external nfmpi_create
       external nfmpi_open
@@ -803,7 +805,9 @@
       external nfmpi_def_var_fill
       external nfmpi_inq_var_fill
       external nfmpi_fill_var_rec
-
+      external nfmpi_stage_out
+      external nfmpi_stage_out_env
+      
 !
 ! general inquiry routines:
 !

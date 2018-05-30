@@ -168,6 +168,22 @@ function nf90mpi_delete(name, mpi_info)
   nf90mpi_delete = nfmpi_delete(name, mpi_info)
 end function nf90mpi_delete
 
+! -------
+function nf90mpi_stage_out(bb, pfs, iotime)
+  character (len = *), intent( in)  :: bb
+  character (len = *), intent( in)  :: pfs
+  DOUBLE PRECISION,    intent( out) :: iotime
+  integer                           :: nf90mpi_stage_out
+  nf90mpi_stage_out = nfmpi_stage_out(bb, pfs, iotime)
+end function nf90mpi_stage_out
+
+! -------
+function nf90mpi_stage_out_env(iotime)
+  DOUBLE PRECISION,    intent( out) :: iotime
+  integer                           :: nf90mpi_stage_out_env
+  nf90mpi_stage_out_env = nfmpi_stage_out_env(iotime)
+end function nf90mpi_stage_out_env
+
 !
 ! A single file level inquiry routine
 !

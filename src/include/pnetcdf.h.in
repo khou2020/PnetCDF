@@ -650,6 +650,17 @@ ncmpi_inq_bb_time_put(double *put_data_wr_time, double *put_meta_wr_time, double
 extern int
 ncmpi_inq_bb_time_flush(double *flush_replay_time, double *flush_data_rd_time, double *flush_put_time, double *flush_wait_time);
 
+extern int
+ncmpi_inq_bb_size(MPI_Offset *datasize, MPI_Offset *metasize, MPI_Offset *buffersize);
+
+/* stageout */
+
+extern int
+ncmpi_stage_out(char* bb, char* pfs, double *iotime);
+
+extern int
+ncmpi_stage_out_env(double *iotime);
+
 /* Begin File Functions */
 
 extern int

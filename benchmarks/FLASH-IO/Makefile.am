@@ -28,11 +28,11 @@ AM_FCFLAGS += $(FC_DEFINE)MAXBLOCKS=100
 AM_FCFLAGS += $(FC_DEFINE)IONMAX=13
 
 if !BUILD_TESTSETS
-noinst_PROGRAMS = flash_benchmark_io
+noinst_PROGRAMS = flash_benchmark_io flash_benchmark_io_logfs flash_benchmark_io_de
 else
 RUN_QUIETLY = -q
 endif
-check_PROGRAMS = flash_benchmark_io
+check_PROGRAMS = flash_benchmark_io flash_benchmark_io_logfs flash_benchmark_io_de
 
 TESTS =
 
@@ -42,8 +42,13 @@ flash_benchmark_io_SOURCES = get_mfluid_property.F90 \
                              checkpoint_ncmpi_parallel.F90 \
                              plotfile_ncmpi_parallel.F90
 
+flash_benchmark_io_logfs_SOURCES = ${flash_benchmark_io_SOURCES}
+flash_benchmark_io_de_SOURCES = ${flash_benchmark_io_SOURCES}
+
 # flash_benchmark_io_LDFLAGS = $(PNETCDF_LIB)
 flash_benchmark_io_LDADD   = -lpnetcdf
+flash_benchmark_io_logfs_LDADD   = -lpnetcdf
+flash_benchmark_io_de_LDADD   = -lpnetcdf
 
 EXTRA_DIST = block_boundary_data.fh \
              common.fh \

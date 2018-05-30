@@ -135,6 +135,18 @@ INTERFACE
                      INTEGER,                       INTENT(OUT)  :: status(count)
     END     FUNCTION nfmpi_cancel
 
+    INTEGER FUNCTION nfmpi_stage_out(bb, pfs, iotime)
+                     @USE_MPIF_HEADER@
+                     CHARACTER(len=*),              INTENT(IN)  :: bb
+                     CHARACTER(len=*),              INTENT(IN)  :: pfs
+                     DOUBLE PRECISION,              INTENT(OUT)  :: iotime
+    END     FUNCTION nfmpi_stage_out
+
+    INTEGER FUNCTION nfmpi_stage_out_env(iotime)
+                     @USE_MPIF_HEADER@
+                     DOUBLE PRECISION,              INTENT(OUT)  :: iotime
+    END     FUNCTION nfmpi_stage_out_env
+    
 !
 ! File inquiry APIs
 !
