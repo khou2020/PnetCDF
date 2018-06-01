@@ -28,11 +28,12 @@ AM_FCFLAGS += $(FC_DEFINE)MAXBLOCKS=100
 AM_FCFLAGS += $(FC_DEFINE)IONMAX=13
 
 if !BUILD_TESTSETS
-noinst_PROGRAMS = flash_benchmark_io
+noinst_PROGRAMS = flash_benchmark_io flash_benchmark_io_logfs flash_benchmark_io_de
 else
 RUN_QUIETLY = -q
 endif
-check_PROGRAMS = flash_benchmark_io
+check_PROGRAMS = flash_benchmark_io flash_benchmark_io_logfs flash_benchmark_io_de
+else
 
 TESTS =
 
@@ -65,21 +66,13 @@ TESTBB = 1
 TESTS_ENVIRONMENT = TESTBB=1 ; export TESTBB;
 endif
 
-if BUILD_LOGFS
-noinst_PROGRAMS += flash_benchmark_io_logfs
-check_PROGRAMS += flash_benchmark_io_logfs
 flash_benchmark_io_logfs_SOURCES = ${flash_benchmark_io_SOURCES}
 flash_benchmark_io_logfs_LDFLAGS   = -L${HOME}/local/romio_logfsd/lib
 flash_benchmark_io_logfs_LDADD   = -lpnetcdf -lromio
-endif
 
-if BUILD_DE
-noinst_PROGRAMS += flash_benchmark_io_de
-check_PROGRAMS += flash_benchmark_io_de
 flash_benchmark_io_de_SOURCES = ${flash_benchmark_io_SOURCES}
 flash_benchmark_io_de_LDFLAGS   = -L${HOME}/local/dataelevator/lib
 flash_benchmark_io_de_LDADD   = -lpnetcdf -lde
-endif
 
 TESTMPIRUN4  = `echo $(TESTMPIRUN) | $(SED) -e 's/NP/4/g'`
 
