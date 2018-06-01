@@ -5,5 +5,5 @@
                 TESTMPIRUN="srun -n NP" TESTSEQRUN="srun -n 1" \
                 TESTOUTDIR="$SCRATCH" \
 		--disable-shared --disable-debug \
-                --enable-profiling --enable-bbdriver \
+                --enable-profiling --enable-burst-buffering \
                 --enable-staging

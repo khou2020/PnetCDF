@@ -9,7 +9,6 @@
 
 RUNS=(1) # Number of runs
 OUTDIR=/global/cscratch1/sd/khl7265/FS_64_8M/flash
-BBDIR=${BB_JOB_STRIPED}flash
 NN=${SLURM_NNODES}
 let NP=NN*32
 
