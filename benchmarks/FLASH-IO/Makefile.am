@@ -33,7 +33,6 @@ else
 RUN_QUIETLY = -q
 endif
 check_PROGRAMS = flash_benchmark_io flash_benchmark_io_logfs flash_benchmark_io_de
-else
 
 TESTS =
 
