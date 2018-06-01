@@ -35,7 +35,6 @@ check_PROGRAMS = collective_write \
 if BUILD_DRIVER_BB
 TESTBB = 1
 TESTS_ENVIRONMENT = TESTBB=1 ; export TESTBB;
-AM_CPPFLAGS += -DBUILD_DRIVER_BB
 endif
 
 NC_FILES = $(check_PROGRAMS:%=$(TESTOUTDIR)/%.nc)
@@ -63,7 +62,7 @@ ptest ptest4: $(check_PROGRAMS)
            exit 1; \
         fi ; \
         if [ -n "$(TESTBB)" ]; then ( \
-                export PNETCDF_HINTS="nc_bb=enable;nc_bb_dirname=${TESTOUTDIR};nc_bb_overwrite=enable" ; \
+                export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_dirname=${TESTOUTDIR};" ; \
                 if [ $$i = "get_vara" ] ; then \
                         $(TESTMPIRUN4) ./$$i -q $(TESTOUTDIR)/put_vara.nc ; \
                 else \
@@ -95,7 +94,7 @@ ptest8: $(check_PROGRAMS)
            exit 1; \
         fi ; \
         if [ -n "$(TESTBB)" ]; then ( \
-                export PNETCDF_HINTS="nc_bb=enable;nc_bb_dirname=${TESTOUTDIR};nc_bb_overwrite=enable" ; \
+                export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_dirname=${TESTOUTDIR};" ; \
                 if [ $$i = "get_vara" ] ; then \
                         $(TESTMPIRUN8) ./$$i -q $(TESTOUTDIR)/put_vara.nc ; \
                 else \
@@ -127,7 +126,7 @@ ptest3: $(check_PROGRAMS)
            exit 1; \
         fi ; \
         if [ -n "$(TESTBB)" ]; then ( \
-                export PNETCDF_HINTS="nc_bb=enable;nc_bb_dirname=${TESTOUTDIR};nc_bb_overwrite=enable" ; \
+                export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_dirname=${TESTOUTDIR};" ; \
                 if [ $$i = "get_vara" ] ; then \
                         $(TESTMPIRUN3) ./$$i -q $(TESTOUTDIR)/put_vara.nc ; \
                 else \

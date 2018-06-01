@@ -16,23 +16,23 @@ range of burst buffer architecture.
  Build PnetCDF with burst buffer driver
 -----------------------------------------------------------------------------
 
-To build PnetCDF with burst buffer driver support, simply set "--enable-burstbuffer"
+To build PnetCDF with burst buffer driver support, simply set "--enable-burst-buffering"
 option at configure time:
 
-./configure --prefix=/path/to/install --enable-burstbuffer
+./configure --prefix=/path/to/install --enable-burst-buffering
 
 -----------------------------------------------------------------------------
  Running with burst buffer Driver
 -----------------------------------------------------------------------------
 
 The burst buffer driver is enable by setting file hints on file creation/opening.
-To enable burst buffer driver, set the hint "nc_bb" to enable.
+To enable burst buffer driver, set the hint "nc_burst_buf" to enable.
 
-MPI_Info_set(info, "nc_bb", "enable");
+MPI_Info_set(info, "nc_burst_buf", "enable");
 
 The hint can also be set using environment variable PNETCDF_HINTS.
 
-export PNETCDF_HINTS="nc_bb=enable"
+export PNETCDF_HINTS="nc_burst_buf=enable"
 
 -----------------------------------------------------------------------------
  Using PnetCDF with burst buffer driver
@@ -40,25 +40,24 @@ export PNETCDF_HINTS="nc_bb=enable"
 
 The burst buffer can be configured using hints. Here's a list of supported hints:
 
-Hint                    Values          Default  Description
-----                    ------          -------  -----------
-nc_bb                   enable/disable  disable  Whether burst buffer driver is enabled.
-nc_bb_dirname           <Valid POSIX    ./       Directory where log file will be
-                        Directory>               stored. This is usually set to the
-                                                 path where burst buffer is mounted.
-nc_bb_del_on_close      enable/disable  enable   Whether logfile should be deleted
-                                                 after closing the NetCDF file. It
-                                                 can be disabled when the scheduler
-                                                 will clean up the burst buffer
-                                                 automatically after the job is
-                                                 completed.
-nc_bb_flush_buffer_size <integer>       0        Amount of memory that can be used
-                                                 to flush the log. The unit is in
-                                                 bytes. 0 means unlimited. Any write
-                                                 request that is larger than the
-                                                 buffer size will not be buffered,
-                                                 instead, it will be written to PFS
-                                                 directly.
+Hint                            Values          Default     Description
+----                            ------          -------     -----------
+nc_burst_buf                    enable/disable  disable     Whether burst buffer driver is enabled.
+nc_burst_buf_dirname            <Valid POSIX    ./          Directory where log file will be
+                                    Directory>              stored. This is usually set to the
+                                                            path where burst buffer is mounted.
+nc_burst_buf_del_on_close       enable/disable  enable      Whether log file should be deleted
+                                                            after closing the NetCDF file. It
+                                                            can be disabled when the scheduler
+                                                            will clean up the burst buffer
+                                                            automatically after the job is
+                                                            completed.
+nc_burst_buf_flush_buffer_size  <integer>       0           Amount of memory that can be used
+                                                            to flush the log. The unit is in
+                                                            bytes. 0 means unlimited. User must 
+                                                            guarantee that it is larger than every
+                                                            single I/O request the program will make.
+                                                            Otherwise, the hint will not be followed.
 
 -----------------------------------------------------------------------------
  Submitting Job that Enables burst buffer Driver
@@ -73,20 +72,20 @@ We show an example script for enabling burst buffer driver on Cori at NERSC
 #SBATCH -t 00:10:00 
 #SBATCH -o output.txt 
 #DW jobdw capacity=1289GiB access_mode=private type=scratch pool=sm_pool 
-export PNETCDF_HINTS="nc_bb=enable;nc_bb_del_on_close=disable;nc_bb_dirname=${BB_JOB_PRIVATE}" 
+export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_dirname=${BB_JOB_PRIVATE}" 
 srun -n 1 ./myapplication 
 
 -----------------------------------------------------------------------------
  How does it work
 -----------------------------------------------------------------------------
 
-The burst buffer driver is a wraper driver of the defualt ncmpio (MPI-IO) driver.
-All I/O operations (blocking or nonblocking) regarding variable write are intercepted and cached
+The burst buffer driver is a wrapper driver of the default ncmpio (MPI-IO) driver.
+All I/O operations (blocking or non-blocking) regarding variable write are intercepted and cached
  on the burst buffer.
-Other I/O oeprations proceed to the ncmpio driver as usual.
+Other I/O operations proceed to the ncmpio driver as usual.
 To flush the data on the burst buffer. The burst buffer combine all cached I/O operations into a
  (larger) single I/O request in hope to yield better I/O performance.
-When the buffer size is not enough to accomodate all cached data, flushing will be done in 
+When the buffer size is not enough to accommodate all cached data, flushing will be done in 
 multiple rounds.
 The data on the burst buffer is flushed when:
     (1) The NetCDF file is closed
@@ -107,11 +106,11 @@ of different behaviors:
 caused by put operations, it will be hide by logging until the log is replayed.
 
 2. Partial flushing is not supported. Whenever there is a need of data on the burst 
-buffer, all data will be flushed to the PFS. It can cause an nonblocking request to 
+buffer, all data will be flushed to the PFS. It can cause an non-blocking request to 
 be processed before it is being waited on. It is not possible to cancel those requests 
 after flushing, doing so will get NC_EFLUSHED.
    
-3. Sequential consistancy is not guaranteed. The burst buffer driver does not consider 
+3. Sequential consistency is not guaranteed. The burst buffer driver does not consider 
 the order the data is cached when making combined MPI-IO request. As a result, if the 
 application write to the same place twice without flushing, the resulting NetCDF file 
 can contain either value regardless of the order they were written. User need to call 
