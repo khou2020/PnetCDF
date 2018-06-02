@@ -387,7 +387,7 @@ TestFunc(var1)_$1(VarArgs)
         MPI_Info infoused;
 
         ncmpi_inq_file_info(ncid, &infoused);
-        MPI_Info_get(infoused, "nc_bb", MPI_MAX_INFO_VAL - 1, hint, &flag);
+        MPI_Info_get(infoused, "nc_burst_buf", MPI_MAX_INFO_VAL - 1, hint, &flag);
         if (flag && strcasecmp(hint, "enable") == 0)
             bb_enabled = 1;
         MPI_Info_free(&infoused);
@@ -542,7 +542,7 @@ TestFunc(var)_$1(VarArgs)
         MPI_Info infoused;
 
         ncmpi_inq_file_info(ncid, &infoused);
-        MPI_Info_get(infoused, "nc_bb", MPI_MAX_INFO_VAL - 1, hint, &flag);
+        MPI_Info_get(infoused, "nc_burst_buf", MPI_MAX_INFO_VAL - 1, hint, &flag);
         if (flag && strcasecmp(hint, "enable") == 0)
             bb_enabled = 1;
         MPI_Info_free(&infoused);
@@ -625,9 +625,10 @@ TestFunc(var)_$1(VarArgs)
     err = PutVar1(text)(ncid, varid, index, "x");
     IF (err != NC_NOERR)
         error("put_var1_text: %s", APIFunc(strerror)(err));
-if (bb_enabled){
-err = ncmpi_flush(ncid);
-}
+
+    if (bb_enabled){
+        err = ncmpi_flush(ncid);
+    }
 
     for (i = 0; i < numVars; i++) {
         if (var_dimid[i][0] != RECDIM) continue; /* only record variables here */
@@ -721,7 +722,7 @@ TestFunc(vara)_$1(VarArgs)
         MPI_Info infoused;
 
         ncmpi_inq_file_info(ncid, &infoused);
-        MPI_Info_get(infoused, "nc_bb", MPI_MAX_INFO_VAL - 1, hint, &flag);
+        MPI_Info_get(infoused, "nc_burst_buf", MPI_MAX_INFO_VAL - 1, hint, &flag);
         if (flag && strcasecmp(hint, "enable") == 0)
             bb_enabled = 1;
         MPI_Info_free(&infoused);
@@ -964,7 +965,7 @@ TestFunc(vars)_$1(VarArgs)
         MPI_Info infoused;
 
         ncmpi_inq_file_info(ncid, &infoused);
-        MPI_Info_get(infoused, "nc_bb", MPI_MAX_INFO_VAL - 1, hint, &flag);
+        MPI_Info_get(infoused, "nc_burst_buf", MPI_MAX_INFO_VAL - 1, hint, &flag);
         if (flag && strcasecmp(hint, "enable") == 0)
             bb_enabled = 1;
         MPI_Info_free(&infoused);
@@ -1233,7 +1234,7 @@ TestFunc(varm)_$1(VarArgs)
         MPI_Info infoused;
 
         ncmpi_inq_file_info(ncid, &infoused);
-        MPI_Info_get(infoused, "nc_bb", MPI_MAX_INFO_VAL - 1, hint, &flag);
+        MPI_Info_get(infoused, "nc_burst_buf", MPI_MAX_INFO_VAL - 1, hint, &flag);
         if (flag && strcasecmp(hint, "enable") == 0)
             bb_enabled = 1;
         MPI_Info_free(&infoused);
