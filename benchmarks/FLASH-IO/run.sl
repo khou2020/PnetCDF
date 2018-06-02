@@ -4,6 +4,7 @@
 #SBATCH -t 00:10:00
 #SBATCH -o flash_1.txt
 #SBATCH -L scratch
+#SBATCH --gres=craynetwork:2
 #DW jobdw capacity=1289GiB access_mode=striped type=scratch
 #DW jobdw capacity=1289GiB access_mode=private type=scratch
 
@@ -141,8 +142,10 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
     
-    srun -n ${NP} ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll
-
+    srun -n ${NP} ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
+    srun -n 4 -N 1  /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob.log &
+    wait
+    
     echo "#%$: io_driver: de"
     echo "#%$: number_of_nodes: ${NN}"
     echo "#%$: number_of_proc: ${NP}"
