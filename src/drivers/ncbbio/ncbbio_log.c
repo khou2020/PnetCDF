@@ -48,8 +48,6 @@ int ncbbio_log_create(NC_bb* ncbbp, MPI_Info info) {
     t1 = MPI_Wtime();
 #endif
 
-    sleep(1000);
-
     /* Get rank and number of processes */
     err = MPI_Comm_rank(ncbbp->comm, &rank);
     if (err != MPI_SUCCESS) {

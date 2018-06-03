@@ -1,9 +1,11 @@
+#!/bin/bash
 #SBATCH -p debug
 #SBATCH -N 1 
 #SBATCH -C haswell
-#SBATCH -t 00:10:00
-#SBATCH -o flash_1.txt
-#SBATCH -L scratch
+#SBATCH -t 00:30:00
+#SBATCH -o flash_1_%j.txt
+#SBATCH -e flash_1_%j_err.txt
+#SBATCH -L SCRATCH
 #SBATCH --gres=craynetwork:2
 #DW jobdw capacity=1289GiB access_mode=striped type=scratch
 #DW jobdw capacity=1289GiB access_mode=private type=scratch
@@ -11,7 +13,8 @@
 RUNS=(1) # Number of runs
 OUTDIR=/global/cscratch1/sd/khl7265/FS_64_8M/flash
 NN=${SLURM_NNODES}
-let NP=NN*32
+let NP=NN*1
+#let NP=NN*32
 
 echo "mkdir -p ${OUTDIR}"
 mkdir -p ${OUTDIR}
@@ -44,7 +47,7 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
 
-    export PNETCDF_HINTS="nc_burst_buf_driver=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_dirname=${DW_JOB_PRIVATE}"
+    export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_dirname=${DW_JOB_PRIVATE}"
     srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
     unset PNETCDF_HINTS
 
@@ -65,7 +68,7 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
 
-    export PNETCDF_HINTS="nc_burst_buf_driver=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_dirname=${DW_JOB_STRIPED}"
+    export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_dirname=${DW_JOB_STRIPED}"
     srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
     unset PNETCDF_HINTS
 
@@ -86,7 +89,7 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
 
-    export PNETCDF_HINTS="nc_burst_buf_driver=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_sharedlog=enable;nc_burst_buf_dirname=${DW_JOB_STRIPED}"
+    export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_sharedlog=enable;nc_burst_buf_dirname=${DW_JOB_STRIPED}"
     srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
     unset PNETCDF_HINTS
 
@@ -107,10 +110,10 @@ do
     echo "rm -f ${DW_JOB_STRIPED}/*"
     rm -f ${DW_JOB_STRIPED}/*
 
-    export stageout_burst_buf_path="${DW_JOB_STRIPED}"
+    export stageout_bb_path="${DW_JOB_STRIPED}"
     export stageout_pfs_path="${OUTDIR}"
     srun -n ${NP} ./flash_benchmark_io ${DW_JOB_STRIPED}/flash_ blocking coll
-    unset stageout_burst_buf_path
+    unset stageout_bb_path
     unset stageout_pfs_path
 
     echo "ls -lah ${OUTDIR}"
@@ -143,7 +146,7 @@ do
     rm -f ${OUTDIR}/*
     
     srun -n ${NP} ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
-    srun -n 4 -N 1  /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob.log &
+    srun -n 4 -N 1  /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob_${NP}_${i}.log &
     wait
     
     echo "#%$: io_driver: de"
@@ -156,6 +159,8 @@ do
     
     echo '-----+-----++------------+++++++++--+---'
 
+done
+
 echo "BB Info: "
 module load dws
 sessID=$(dwstat sessions | grep $SLURM_JOBID | awk '{print $1}')
@@ -165,5 +170,3 @@ echo "instance ID is: "${instID}
 echo "fragments list:"
 echo "frag state instID capacity gran node"
 dwstat fragments | grep ${instID}
-
-
