@@ -2,7 +2,7 @@
 #SBATCH -p debug
 #SBATCH -N 1 
 #SBATCH -C haswell
-#SBATCH -t 00:30:00
+#SBATCH -t 00:20:00
 #SBATCH -o flash_1_%j.txt
 #SBATCH -e flash_1_%j_err.txt
 #SBATCH -L SCRATCH
@@ -36,6 +36,8 @@ do
     ls -lah ${OUTDIR}
     
     echo '-----+-----++------------+++++++++--+---'
+    
+    break
 
     # BB LPP P
 
@@ -145,8 +147,8 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
     
-    srun -n ${NP} ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
-    srun -n 4 -N 1  /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob_${NP}_${i}.log &
+    srun -n ${NP} --mem=60000 --gres=craynetwork:1 ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
+    srun -n ${NP} --mem=60000 --gres=craynetwork:1 /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob_${NP}_${i}.log &
     wait
     
     echo "#%$: io_driver: de"

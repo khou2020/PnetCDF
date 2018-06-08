@@ -66,7 +66,7 @@ TESTS_ENVIRONMENT = TESTBB=1 ; export TESTBB;
 endif
 
 flash_benchmark_io_logfs_SOURCES = ${flash_benchmark_io_SOURCES}
-flash_benchmark_io_logfs_LDFLAGS   = -L${top_builddir}/src/libs -L${HOME}/local/romio_logfsd/lib
+flash_benchmark_io_logfs_LDFLAGS   = -L${top_builddir}/src/libs -L${HOME}/local/romio_logfs/lib
 flash_benchmark_io_logfs_LDADD   = -lpnetcdf -lromio
 
 flash_benchmark_io_de_SOURCES = ${flash_benchmark_io_SOURCES}
