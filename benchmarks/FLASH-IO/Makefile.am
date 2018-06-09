@@ -28,11 +28,11 @@ AM_FCFLAGS += $(FC_DEFINE)MAXBLOCKS=100
 AM_FCFLAGS += $(FC_DEFINE)IONMAX=13
 
 if !BUILD_TESTSETS
-noinst_PROGRAMS = flash_benchmark_io flash_benchmark_io_logfs flash_benchmark_io_de
+noinst_PROGRAMS = flash_benchmark_io #flash_benchmark_io_logfs flash_benchmark_io_de
 else
 RUN_QUIETLY = -q
 endif
-check_PROGRAMS = flash_benchmark_io flash_benchmark_io_logfs flash_benchmark_io_de
+check_PROGRAMS = flash_benchmark_io #flash_benchmark_io_logfs flash_benchmark_io_de
 
 TESTS =
 

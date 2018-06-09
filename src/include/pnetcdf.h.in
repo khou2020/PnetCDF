@@ -671,6 +671,11 @@ ncmpi_stage_out(char* bb, char* pfs, double *iotime);
 extern int
 ncmpi_stage_out_env(double *iotime);
 
+/* MPI Finalize wrapper */
+
+extern int
+ncmpi_mpi_finalize();
+
 /* Begin File Functions */
 
 extern int

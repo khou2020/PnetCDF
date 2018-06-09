@@ -1,4 +1,5 @@
-      program flash_benchmark_io
+      program flash_benchmark_io          
+            use pnetcdf
 !
 ! This is a sample program that setups the FLASH data structures and
 ! drives the I/O routines.  It is intended for benchmarking the I/O
@@ -131,7 +132,7 @@
       call report_io_performance(verbose, local_blocks, time_io, chk_io, &
                                  corner_io, nocorner_io)
 
- 999  call MPI_Finalize(ierr)
+ 999  ierr = nf90mpi_mpi_finalize()
 
       end program flash_benchmark_io
 

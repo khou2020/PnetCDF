@@ -138,6 +138,13 @@ function nf90mpi_flush(ncid)
 
   nf90mpi_flush = nfmpi_flush(ncid)
 end function nf90mpi_flush
+
+! -------
+function nf90mpi_mpi_finalize()
+  integer                           :: nf90mpi_mpi_finalize
+  nf90mpi_mpi_finalize = nfmpi_mpi_finalize()
+end function nf90mpi_mpi_finalize
+
 ! -------
 function nf90mpi_sync_numrecs(ncid)
   integer, intent( in) :: ncid

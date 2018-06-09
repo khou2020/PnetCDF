@@ -782,6 +782,7 @@
       integer  nfmpi_inq_default_format
       integer  nfmpi_sync
       integer  nfmpi_flush
+      integer  nfmpi_mpi_finalize
       integer  nfmpi_abort
       integer  nfmpi_close
       integer  nfmpi_set_fill
@@ -805,6 +806,7 @@
       external nfmpi_inq_default_format
       external nfmpi_sync
       external nfmpi_flush
+      external nfmpi_mpi_finalize
       external nfmpi_abort
       external nfmpi_close
       external nfmpi_set_fill

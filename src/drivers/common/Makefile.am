@@ -37,7 +37,8 @@ C_SRCS    = utf8proc.c \
             check_name.c \
             pack_unpack.c \
             utils.c \
-            error_posix2nc.c
+            error_posix2nc.c \
+            misc.c
 
 if PNETCDF_PROFILING
     C_SRCS += profiling.c

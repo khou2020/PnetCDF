@@ -107,10 +107,10 @@ do
     echo "rm -f ${DW_JOB_STRIPED}/*"
     rm -f ${DW_JOB_STRIPED}/*
 
-    export stageout_burst_buf_path="${DW_JOB_STRIPED}"
+    export stageout_bb_path="${DW_JOB_STRIPED}"
     export stageout_pfs_path="${OUTDIR}"
     srun -n ${NP} ./flash_benchmark_io ${DW_JOB_STRIPED}/flash_ blocking coll
-    unset stageout_burst_buf_path
+    unset stageout_bb_path
     unset stageout_pfs_path
 
     echo "ls -lah ${OUTDIR}"
@@ -143,9 +143,9 @@ do
     rm -f ${OUTDIR}/*
     
     srun -n ${NP} ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
-    srun -n 4 -N 1  /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob.log &
+    srun -n ${NN} --ntasks-per-node=1 /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob.log &
     wait
-    
+
     echo "#%$: io_driver: de"
     echo "#%$: number_of_nodes: ${NN}"
     echo "#%$: number_of_proc: ${NP}"
