@@ -67,8 +67,26 @@ ifelse(`$1',`uchar',`ifdef(`PNETCDF',,`
                     else {
 ifelse(`$1',`schar',`ifdef(`PNETCDF',,``#'endif')')
                         if (bb_enabled){
-                            err = ncmpi_flush(ncid);
+                            if (err == NC_NOERR){
+                                err = ncmpi_flush(ncid);
+                            }
                         }
+                        IF (err != NC_ERANGE)
+                            EXPECT_ERR(NC_ERANGE, err)
+                        ELSE_NOK
+                    }
+ifelse(`$1',`uchar',`ifdef(`PNETCDF',,``#'endif')')'
+)dnl
+
+define(`PNETCDF_CHECK_ERANGE_ATT',`dnl
+ifelse(`$1',`uchar',`ifdef(`PNETCDF',,`
+`#'if !defined(USE_PNETCDF) || (PNETCDF_VERSION_MAJOR==1 && PNETCDF_VERSION_MINOR>=8)')',
+       `$1',`schar',`ifdef(`PNETCDF',,`
+`#'if defined(USE_PNETCDF) && PNETCDF_VERSION_MAJOR==1 && PNETCDF_VERSION_MINOR<7
+                    else if (cdf_format < NC_FORMAT_CDF5) {
+`#'else')')
+                    else {
+ifelse(`$1',`schar',`ifdef(`PNETCDF',,``#'endif')')
                         IF (err != NC_ERANGE)
                             EXPECT_ERR(NC_ERANGE, err)
                         ELSE_NOK
@@ -628,6 +646,8 @@ TestFunc(var)_$1(VarArgs)
 
     if (bb_enabled){
         err = ncmpi_flush(ncid);
+        IF (err != NC_NOERR)
+            error("ncmpi_flush: %s", APIFunc(strerror)(err));
     }
 
     for (i = 0; i < numVars; i++) {
@@ -840,12 +860,12 @@ ifdef(`PNETCDF',`dnl
                 start[j] = 0;
                 continue;
             }
-#ifdef RELAX_COORD_BOUND
-            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
-                EXPECT_ERR(NC_NOERR, err)
-#else
+#ifndef RELAX_COORD_BOUND
             IF (err != NC_EINVALCOORDS) /* not allowed even when edge[j]==0 */
                 EXPECT_ERR(NC_EINVALCOORDS, err)
+#else
+            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
+                EXPECT_ERR(NC_NOERR, err)
 #endif
             ELSE_NOK
             start[j] = var_shape[i][j]+1; /* out of boundary check */
@@ -1088,12 +1108,12 @@ ifdef(`PNETCDF',`dnl
                 start[j] = 0;
                 continue;
             }
-#ifdef RELAX_COORD_BOUND
-            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
-                EXPECT_ERR(NC_NOERR, err)
-#else
+#ifndef RELAX_COORD_BOUND
             IF (err != NC_EINVALCOORDS) /* not allowed even when edge[j]==0 */
                 EXPECT_ERR(NC_EINVALCOORDS, err)
+#else
+            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
+                EXPECT_ERR(NC_NOERR, err)
 #endif
             ELSE_NOK
             start[j] = var_shape[i][j]+1; /* out of boundary check */
@@ -1359,12 +1379,12 @@ ifdef(`PNETCDF',`dnl
                 start[j] = 0;
                 continue;
             }
-#ifdef RELAX_COORD_BOUND
-            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
-                EXPECT_ERR(NC_NOERR, err)
-#else
+#ifndef RELAX_COORD_BOUND
             IF (err != NC_EINVALCOORDS) /* not allowed even when edge[j]==0 */
                 EXPECT_ERR(NC_EINVALCOORDS, err)
+#else
+            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
+                EXPECT_ERR(NC_NOERR, err)
 #endif
             ELSE_NOK
             start[j] = var_shape[i][j]+1; /* out of boundary check */
@@ -1623,7 +1643,7 @@ TestFunc(att)_$1(AttVarArgs)
                         EXPECT_ERR(NC_NOERR, err)
                     ELSE_NOK
                 }
-                PNETCDF_CHECK_ERANGE($1)
+                PNETCDF_CHECK_ERANGE_ATT($1)
             }
         }
     }

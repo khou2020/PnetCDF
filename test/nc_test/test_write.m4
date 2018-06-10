@@ -614,6 +614,8 @@ ifdef(`PNETCDF',
     Put_Vars(ncid, numVars);
     if (bb_enabled){
         err = ncmpi_flush(ncid);
+        IF (err != NC_NOERR)
+            error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
     }
     err = APIFunc(abort)(ncid);
     IF (err != NC_NOERR)
@@ -983,6 +985,8 @@ ifdef(`PNETCDF',`dnl
             IF (err != NC_NOERR) EXPECT_ERR(NC_NOERR, err)
             if (bb_enabled) {
                 err = ncmpi_flush(ncid);
+                IF (err != NC_NOERR)
+                    error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
             }
         }
         else IF (err != NC_EINVALCOORDS) {
@@ -1117,6 +1121,8 @@ ifdef(`PNETCDF',`dnl
             IF (err != NC_NOERR) EXPECT_ERR(NC_NOERR, err)
             if (bb_enabled) {
                 err = ncmpi_flush(ncid);
+                IF (err != NC_NOERR)
+                    error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
             }
         }
         else IF (err != NC_EINVALCOORDS) {
@@ -1130,6 +1136,8 @@ ifdef(`PNETCDF',`dnl
             IF (err != NC_NOERR) EXPECT_ERR(NC_NOERR, err)
             if (bb_enabled) {
                 err = ncmpi_flush(ncid);
+                IF (err != NC_NOERR)
+                    error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
             }
         }
         else IF (err != NC_EEDGE) {
@@ -1161,12 +1169,12 @@ ifdef(`PNETCDF',`dnl
             if (var_dimid[i][j] == RECDIM) continue; /* skip record dim */
             start[j] = var_shape[i][j];
             err = PutVara(ncid, i, start, edge, buf, 0, datatype);
-#ifdef RELAX_COORD_BOUND
-            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
-                EXPECT_ERR(NC_NOERR, err)
-#else
+#ifndef RELAX_COORD_BOUND
             IF (err != NC_EINVALCOORDS) /* not allowed even when edge[j]==0 */
                 EXPECT_ERR(NC_EINVALCOORDS, err)
+#else
+            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
+                EXPECT_ERR(NC_NOERR, err)
 #endif
             ELSE_NOK
             start[j] = var_shape[i][j]+1; /* out of boundary check */
@@ -1322,6 +1330,8 @@ ifdef(`PNETCDF',`dnl
             IF (err != NC_NOERR) EXPECT_ERR(NC_NOERR, err)
             if (bb_enabled) {
                 err = ncmpi_flush(ncid);
+                IF (err != NC_NOERR)
+                    error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
             }
         }
         else IF (err != NC_EINVALCOORDS) {
@@ -1335,6 +1345,8 @@ ifdef(`PNETCDF',`dnl
             IF (err != NC_NOERR) EXPECT_ERR(NC_NOERR, err)
             if (bb_enabled) {
                 err = ncmpi_flush(ncid);
+                IF (err != NC_NOERR)
+                    error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
             }
         }
         else IF (err != NC_EEDGE) {
@@ -1372,12 +1384,12 @@ ifdef(`PNETCDF',`dnl
             if (var_dimid[i][j] == 0) continue; /* skip record dim */
             start[j] = var_shape[i][j];
             err = PutVars(ncid, i, start, edge, stride, buf, 0, datatype);
-#ifdef RELAX_COORD_BOUND
-            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
-                EXPECT_ERR(NC_NOERR, err)
-#else
+#ifndef RELAX_COORD_BOUND
             IF (err != NC_EINVALCOORDS) /* not allowed even when edge[j]==0 */
                 EXPECT_ERR(NC_EINVALCOORDS, err)
+#else
+            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
+                EXPECT_ERR(NC_NOERR, err)
 #endif
             ELSE_NOK
             start[j] = var_shape[i][j]+1; /* out of boundary check */
@@ -1563,6 +1575,8 @@ ifdef(`PNETCDF',`dnl
             IF (err != NC_NOERR) EXPECT_ERR(NC_NOERR, err)
             if (bb_enabled) {
                 err = ncmpi_flush(ncid);
+                IF (err != NC_NOERR)
+                    error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
             }
         }
         else IF (err != NC_EINVALCOORDS) {
@@ -1576,6 +1590,8 @@ ifdef(`PNETCDF',`dnl
             IF (err != NC_NOERR) EXPECT_ERR(NC_NOERR, err)
             if (bb_enabled) {
                 err = ncmpi_flush(ncid);
+                IF (err != NC_NOERR)
+                    error("ncmpi_flush of ncid failed: %s", ncmpi_strerror(err));
             }
         }
         else IF (err != NC_EEDGE) {
@@ -1613,12 +1629,12 @@ ifdef(`PNETCDF',`dnl
             if (var_dimid[i][j] == 0) continue; /* skip record dim */
             start[j] = var_shape[i][j];
             err = PutVarm(ncid, i, start, edge, stride, imap, buf, 0, datatype);
-#ifdef RELAX_COORD_BOUND
-            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
-                EXPECT_ERR(NC_NOERR, err)
-#else
+#ifndef RELAX_COORD_BOUND
             IF (err != NC_EINVALCOORDS) /* not allowed even when edge[j]==0 */
                 EXPECT_ERR(NC_EINVALCOORDS, err)
+#else
+            IF (err != NC_NOERR) /* allowed when edge[j]==0 */
+                EXPECT_ERR(NC_NOERR, err)
 #endif
             ELSE_NOK
             start[j] = var_shape[i][j]+1; /* out of boundary check */
