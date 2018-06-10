@@ -23,7 +23,9 @@ mkdir -p ${OUTDIR}
 for i in ${RUNS[@]}
 do
     # Ncmpio
-    
+
+    >&2 echo "========================== NCMPI =========================="
+
     echo "#%$: io_driver: ncmpi"
     echo "#%$: number_of_nodes: ${NN}"
     echo "#%$: number_of_proc: ${NP}"
@@ -48,6 +50,8 @@ do
 
     # Ncmpio NB
     
+    >&2 echo "========================== NCMPI NB =========================="
+
     echo "#%$: io_driver: ncmpi"
     echo "#%$: number_of_nodes: ${NN}"
     echo "#%$: number_of_proc: ${NP}"
@@ -71,6 +75,8 @@ do
     echo '-----+-----++------------+++++++++--+---'
 
     # BB LPP P
+    
+    >&2 echo "========================== BB LPP P =========================="
 
     echo "#%$: io_driver: bb_lpp_private"
     echo "#%$: number_of_nodes: ${NN}"
@@ -101,6 +107,8 @@ do
     echo '-----+-----++------------+++++++++--+---'
 
     # BB LPP S
+    
+    >&2 echo "========================== BB LPP S =========================="
 
     echo "#%$: io_driver: bb_lpn_striped"
     echo "#%$: number_of_nodes: ${NN}"
@@ -125,12 +133,16 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    echo "ls -lah ${DW_JOB_STRIPED}"
-    ls -lah ${DW_JOB_STRIPED}
-
+    if [$NP -lt 33] then
+        echo "ls -lah ${DW_JOB_STRIPED}"
+        ls -lah ${DW_JOB_STRIPED}
+    fi
+    
     echo '-----+-----++------------+++++++++--+---'
 
     # BB LPN S
+    
+    >&2 echo "========================== BB LPN S =========================="
 
     echo "#%$: io_driver: bb_lpn_striped"
     echo "#%$: number_of_nodes: ${NN}"
@@ -155,10 +167,16 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
+    if [$NP -lt 33] then
+        echo "ls -lah ${DW_JOB_STRIPED}"
+        ls -lah ${DW_JOB_STRIPED}
+    fi
 
     echo '-----+-----++------------+++++++++--+---'
 
     # Staging
+    
+    >&2 echo "========================== Stage =========================="
 
     echo "#%$: io_driver: stage"
     echo "#%$: number_of_nodes: ${NN}"
@@ -193,6 +211,8 @@ do
     echo '-----+-----++------------+++++++++--+---'
 
     # Staging Indep
+    
+    >&2 echo "========================== Stage Indep =========================="
 
     echo "#%$: io_driver: stage"
     echo "#%$: number_of_nodes: ${NN}"
@@ -227,7 +247,9 @@ do
     echo '-----+-----++------------+++++++++--+---'
 
     # LogFS
-    
+        
+    >&2 echo "========================== Logfs =========================="
+
     echo "#%$: io_driver: logfs"
     echo "#%$: number_of_nodes: ${NN}"
     echo "#%$: number_of_proc: ${NP}"
@@ -240,7 +262,7 @@ do
 
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io_logfs ${OUTDIR}/flash_ blocking coll
+    srun -n ${NP} ./flash_benchmark_io_logfs logfs:${OUTDIR}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -255,6 +277,8 @@ do
     echo '-----+-----++------------+++++++++--+---'
 
     # Data Elevator
+    
+    >&2 echo "========================== DE =========================="
 
     echo "#%$: io_driver: de"
     echo "#%$: number_of_nodes: ${NN}"
@@ -277,7 +301,11 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    
+    if [$NP -lt 33] then
+        echo "ls -lah ${DW_JOB_STRIPED}"
+        ls -lah ${DW_JOB_STRIPED}
+    fi
+
     echo '-----+-----++------------+++++++++--+---'
 
 done
