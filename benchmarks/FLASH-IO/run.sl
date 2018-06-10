@@ -24,6 +24,7 @@ for i in ${RUNS[@]}
 do
     # Ncmpio
 
+    echo "========================== NCMPI =========================="
     >&2 echo "========================== NCMPI =========================="
 
     echo "#%$: io_driver: ncmpi"
@@ -50,6 +51,7 @@ do
 
     # Ncmpio NB
     
+    echo "========================== NCMPI NB =========================="
     >&2 echo "========================== NCMPI NB =========================="
 
     echo "#%$: io_driver: ncmpi"
@@ -76,6 +78,7 @@ do
 
     # BB LPP P
     
+    echo "========================== BB LPP P =========================="
     >&2 echo "========================== BB LPP P =========================="
 
     echo "#%$: io_driver: bb_lpp_private"
@@ -108,6 +111,7 @@ do
 
     # BB LPP S
     
+    echo "========================== BB LPP S =========================="
     >&2 echo "========================== BB LPP S =========================="
 
     echo "#%$: io_driver: bb_lpn_striped"
@@ -133,7 +137,7 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    if [$NP -lt 33] then
+    if ["${NP}" -lt 33]; then
         echo "ls -lah ${DW_JOB_STRIPED}"
         ls -lah ${DW_JOB_STRIPED}
     fi
@@ -142,6 +146,7 @@ do
 
     # BB LPN S
     
+    echo "========================== BB LPN S =========================="
     >&2 echo "========================== BB LPN S =========================="
 
     echo "#%$: io_driver: bb_lpn_striped"
@@ -167,7 +172,7 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    if [$NP -lt 33] then
+    if ["${NP}" -lt 33]; then
         echo "ls -lah ${DW_JOB_STRIPED}"
         ls -lah ${DW_JOB_STRIPED}
     fi
@@ -176,6 +181,7 @@ do
 
     # Staging
     
+    echo "========================== Stage =========================="
     >&2 echo "========================== Stage =========================="
 
     echo "#%$: io_driver: stage"
@@ -212,6 +218,7 @@ do
 
     # Staging Indep
     
+    echo "========================== Stage Indep =========================="
     >&2 echo "========================== Stage Indep =========================="
 
     echo "#%$: io_driver: stage"
@@ -248,6 +255,7 @@ do
 
     # LogFS
         
+    echo "========================== Logfs =========================="
     >&2 echo "========================== Logfs =========================="
 
     echo "#%$: io_driver: logfs"
@@ -277,7 +285,8 @@ do
     echo '-----+-----++------------+++++++++--+---'
 
     # Data Elevator
-    
+
+    echo "========================== DE =========================="
     >&2 echo "========================== DE =========================="
 
     echo "#%$: io_driver: de"
@@ -301,7 +310,7 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    if [$NP -lt 33] then
+    if ["${NP}" -lt 33]; then
         echo "ls -lah ${DW_JOB_STRIPED}"
         ls -lah ${DW_JOB_STRIPED}
     fi
