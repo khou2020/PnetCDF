@@ -137,7 +137,7 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    if ["${NP}" -lt 33]; then
+    if [[ "${NP}" -lt 33 ]]; then
         echo "ls -lah ${DW_JOB_STRIPED}"
         ls -lah ${DW_JOB_STRIPED}
     fi
@@ -172,7 +172,7 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    if ["${NP}" -lt 33]; then
+    if [[ "${NP}" -lt 33 ]]; then
         echo "ls -lah ${DW_JOB_STRIPED}"
         ls -lah ${DW_JOB_STRIPED}
     fi
@@ -310,7 +310,7 @@ do
 
     echo "ls -lah ${OUTDIR}"
     ls -lah ${OUTDIR}
-    if ["${NP}" -lt 33]; then
+    if [[ "${NP}" -lt 33 ]]; then
         echo "ls -lah ${DW_JOB_STRIPED}"
         ls -lah ${DW_JOB_STRIPED}
     fi
