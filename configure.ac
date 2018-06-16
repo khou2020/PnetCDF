@@ -15,7 +15,7 @@ dnl
 
 dnl autoconf v2.69 was released in 2012-04-24
 AC_PREREQ([2.69])
-AC_INIT([parallel-netcdf],[1.9.0],[parallel-netcdf@mcs.anl.gov])
+AC_INIT([parallel-netcdf],[1.10.0.pre],[parallel-netcdf@mcs.anl.gov])
 
 dnl config.h.in will be created by autoreconf (autoheader)
 dnl call it right after AC_INIT, as suggested by autoconf
@@ -1526,7 +1526,7 @@ dnl Update the version information only immediately before a public release.
 dnl PnetCDF starts with 1:0:0 (shared library is first supported in 1.9.0)
 dnl because some package distributors, such as Debian, may have already built
 dnl PnetCDF with shared libraries.
-ABIVERSION="1:0:0"
+ABIVERSION="2:0:0"
 AC_SUBST(ABIVERSION)
 if test "$enable_versioning" = "yes" ; then
    ABIVERSIONFLAGS="-version-info \$(ABIVERSION)"
@@ -1573,7 +1573,7 @@ AC_CONFIG_FILES(Makefile \
                 examples/CXX/Makefile \
                 examples/F77/Makefile \
                 examples/F90/Makefile \
-                examples/burstbuffer/Makefile \
+                examples/burst_buffer/Makefile \
                 benchmarks/Makefile \
                 benchmarks/C/Makefile \
                 benchmarks/FLASH-IO/Makefile \
@@ -1597,7 +1597,7 @@ AC_CONFIG_FILES(Makefile \
                 test/nf90_test/Makefile \
                 test/nf90_test/tests.inc \
                 test/F90/Makefile \
-                test/burstbuffer/Makefile \
+                test/burst_buffer/Makefile \
 )
 
 dnl The following dependency is for configure.in and configure

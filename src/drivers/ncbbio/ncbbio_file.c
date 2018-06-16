@@ -79,11 +79,13 @@ ncbbio_create(MPI_Comm     comm,
     ncbbp->mode = cmode;
     ncbbp->ncmpio_driver = driver;  // ncmpio driver
     ncbbp->ncid = ncid;
-    ncbbp->isindep = 0; // Start at collective mode
     ncbbp->ncp = ncp;   // NC object used by ncmpio driver
     ncbbp->recdimsize = 0;
     ncbbp->recdimid = -1;   // Id of record dimension
     ncbbp->max_ndims = 0;   // Highest dimensionality among all variables
+    ncbbp->datalog_fd = NULL;
+    ncbbp->metalog_fd = NULL;
+    ncbbp->flag = NC_MODE_CREATE | NC_MODE_DEF;
     MPI_Comm_dup(comm, &(ncbbp->comm));
     MPI_Info_dup(info, &(ncbbp->info));
     ncbbio_extract_hint(ncbbp, info);   // Translate MPI hint into hint flags
@@ -135,11 +137,11 @@ ncbbio_open(MPI_Comm     comm,
     ncbbp->mode = omode;
     ncbbp->ncmpio_driver = driver;  // ncmpio driver
     ncbbp->ncid = ncid;
-    ncbbp->isindep = 0; // Start at collective mode
     ncbbp->ncp = ncp;   // NC object used by ncmpio driver
     ncbbp->recdimsize = 0;
     ncbbp->recdimid = -1;   // Id of record dimension
     ncbbp->max_ndims = 0;   // Highest dimensionality among all variables
+    ncbbp->flag = 0;
     MPI_Comm_dup(comm, &(ncbbp->comm));
     MPI_Info_dup(info, &(ncbbp->info));
     ncbbio_extract_hint(ncbbp, info);   // Translate MPI hint into hint flags
@@ -168,6 +170,7 @@ ncbbio_open(MPI_Comm     comm,
         ncbbp->inited = 1;
     }
     else{
+        fSet(ncbbp->flag, NC_MODE_RDONLY);
         ncbbp->inited = 0;
     }
     *ncpp = ncbbp;
@@ -182,7 +185,7 @@ ncbbio_open(MPI_Comm     comm,
 int
 ncbbio_close(void *ncdp)
 {
-    int err, status = NC_NOERR;
+    int status=NC_NOERR, err;
     NC_bb *ncbbp = (NC_bb*)ncdp;
 
     if (ncbbp == NULL) DEBUG_RETURN_ERROR(NC_EBADID)
@@ -192,10 +195,7 @@ ncbbio_close(void *ncdp)
      */
     if (ncbbp->inited){
         // Close log file
-        err = ncbbio_log_close(ncbbp);
-        if (status == NC_NOERR) {
-            status = err;
-        }
+        status = ncbbio_log_close(ncbbp, 1);
         // Clean up put list
         ncbbio_put_list_free(ncbbp);
         // Clean up metadata index
@@ -204,9 +204,7 @@ ncbbio_close(void *ncdp)
 
     // Call ncmpio driver
     err = ncbbp->ncmpio_driver->close(ncbbp->ncp);
-    if (status == NC_NOERR) {
-        status = err;
-    }
+    if (status == NC_NOERR) status = err;
 
     // Cleanup NC-bb object
     MPI_Comm_free(&(ncbbp->comm));
@@ -245,6 +243,8 @@ ncbbio_enddef(void *ncdp)
         err = ncbbio_init(ncbbp);
     }
     if (err != NC_NOERR) return err;
+
+    fClr(ncbbp->flag, NC_MODE_DEF);
 
     return NC_NOERR;
 }
@@ -335,6 +335,8 @@ ncbbio__enddef(void       *ncdp,
         ncbbp->inited = 1;
     }
 
+    fClr(ncbbp->flag, NC_MODE_DEF);
+
     return NC_NOERR;
 }
 
@@ -358,6 +360,8 @@ ncbbio_redef(void *ncdp)
     err = ncbbp->ncmpio_driver->redef(ncbbp->ncp);
     if (err != NC_NOERR) return err;
 
+    fSet(ncbbp->flag, NC_MODE_DEF);
+
     return NC_NOERR;
 }
 
@@ -373,7 +377,7 @@ ncbbio_begin_indep_data(void *ncdp)
     /* Independent mode
      * We keep track of current IO mode so we know what mode to use when flushing the log
      */
-    ncbbp->isindep = 1;
+    fSet(ncbbp->flag, NC_MODE_INDEP);
 
     return NC_NOERR;
 }
@@ -390,7 +394,7 @@ ncbbio_end_indep_data(void *ncdp)
     /* Collective mode
      * We keep track of current IO mode so we know what mode to use when flushing the log
      */
-    ncbbp->isindep = 0;
+    fClr(ncbbp->flag, NC_MODE_INDEP);
 
     return NC_NOERR;
 }
@@ -398,18 +402,38 @@ ncbbio_end_indep_data(void *ncdp)
 int
 ncbbio_abort(void *ncdp)
 {
-    int err;
+    int status=NC_NOERR, err;
+    int replay = 1;
     NC_bb *ncbbp = (NC_bb*)ncdp;
 
     if (ncbbp == NULL) DEBUG_RETURN_ERROR(NC_EBADID)
 
+    /* If log is initialized, we must close the log file
+     * Putlist and metadata index also needs to be cleaned up
+     */
+    if (ncbbp->inited){
+        /* No flushing on abort if in define mode */
+        if (fIsSet(ncbbp->flag, NC_MODE_DEF)){
+            replay = 0;
+        }
+        // Close log file
+        status = ncbbio_log_close(ncbbp, replay);
+        // Clean up put list
+        ncbbio_put_list_free(ncbbp);
+        // Clean up metadata index
+        ncbbio_metaidx_free(ncbbp);
+    }
+
+    // Call ncmpio driver
     err = ncbbp->ncmpio_driver->abort(ncbbp->ncp);
+    if (status == NC_NOERR) status = err;
 
     MPI_Comm_free(&(ncbbp->comm));
+    MPI_Info_free(&(ncbbp->info));
     NCI_Free(ncbbp->path);
     NCI_Free(ncbbp);
 
-    return err;
+    return status;
 }
 
 int
@@ -799,7 +823,7 @@ ncbbio_wait(void *ncdp,
      * ncmpio driver has it's own request id management, so we translate it by dividing the id by 2
      * We need to flush the log so new data can be read
      */
-    if (num_reqs > nput || !(ncbbp->isindep)){
+    if (num_reqs > nput || !(fIsSet(ncbbp->flag, NC_MODE_INDEP))){
         // Translate reqid to ncmpio reqid
         for(i = nput; i < num_reqs; i++){
             req_ids[i] /= 2;

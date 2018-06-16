@@ -13,6 +13,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#define _XOPEN_SOURCE 500
+#include <unistd.h> /* pwrite() pread() */
+
 #include <pnc_debug.h>
 #include <common.h>
 #include <pnetcdf.h>
@@ -36,7 +40,7 @@ int ncbbio_sharedfile_open(MPI_Comm comm, char *path, int flag, MPI_Info info, N
     f = (NC_bb_sharedfile*)NCI_Malloc(sizeof(NC_bb_sharedfile));
 
     /* Initialize metadata associate with the file
-     * We assum all processes within the given communicator is sharing the file
+     * We assume all processes within the given communicator is sharing the file
      * Due to file sharing, actual file position differs than the logical file position within the file view
      * TODO: Adjustable bsize
      */
@@ -168,8 +172,8 @@ int ncbbio_sharedfile_pwrite(NC_bb_sharedfile *f, void *buf, size_t count, off_t
         /* Block boundary are inclusive, as a result, final block is always partial (can be empty)
          * In this case, we can assume offend will always be larger than offstart
          */
-        // Compute physical offset of th eblock
-        offstart = i * f->nchanel * f->bsize;
+        // Compute physical offset of ith eblock
+        offstart = (i * f->nchanel + f->chanel) * f->bsize;
         // A block can be first and last block at the same time due to short write region
         // Last block must be partial
         // NOTE: offend must be computed before offstart, we reply on unadjusted offstart to mark the start position of the block
@@ -315,7 +319,7 @@ int ncbbio_sharedfile_pread(NC_bb_sharedfile *f, void *buf, size_t count, off_t 
          * In this case, we can assume offend will always be larger than offstart
          */
         // Compute physical offset of th eblock
-        offstart = i * f->nchanel * f->bsize;
+        offstart = (i * f->nchanel + f->chanel) * f->bsize;
         // A block can be first and last block at the same time due to short write region
         // Last block must be partial
         // NOTE: offend must be computed before offstart, we reply on unadjusted offstart to mark the start position of the block

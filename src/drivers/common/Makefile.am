@@ -19,7 +19,7 @@ endif
 noinst_LTLIBRARIES = libcommon.la
 
 H_SRCS = utf8proc_data.h \
-         utf8proc.h
+         utf8proc.h 
 
 M4FLAGS += -I${top_srcdir}/m4
 if ENABLE_ERANGE_FILL
@@ -38,7 +38,9 @@ C_SRCS    = utf8proc.c \
             pack_unpack.c \
             utils.c \
             error_posix2nc.c \
-            misc.c
+            misc.c \
+            hash_map.c
+
 
 if PNETCDF_PROFILING
     C_SRCS += profiling.c
