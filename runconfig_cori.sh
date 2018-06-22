@@ -6,4 +6,4 @@
                 TESTOUTDIR="$SCRATCH" \
 		--disable-shared --disable-debug \
                 --enable-profiling --enable-burst-buffering \
-                --enable-staging
+                --enable-staging --enable-large-req
