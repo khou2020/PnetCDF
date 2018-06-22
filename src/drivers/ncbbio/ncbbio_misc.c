@@ -7,26 +7,11 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-#include <sys/types.h>
-#include <dirent.h>
-#include <assert.h>
-#include "ncx.h"
-#include <limits.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <pnc_debug.h>
 #include <common.h>
-#include <pnetcdf.h>
-#include <ncbbio_driver.h>
 
-
-unsigned int hash(char* key){
+static unsigned int hash(const char* key){
     int i;
     unsigned int val = 0;
 
@@ -68,7 +53,7 @@ int ncbbio_get_node_comm(MPI_Comm global_comm, MPI_Comm *node_comm)
         DEBUG_RETURN_ERROR(NC_EMPI);
     }
 
-    for(i = 0; i < np; i++){   
+    for(i = 0; i < np; i++){
         name = buf + MPI_MAX_PROCESSOR_NAME * i;
         err = hash_map_add(&map, name, nnode);
         if (err == NC_NOERR){

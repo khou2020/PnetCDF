@@ -7,22 +7,15 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-#include <sys/types.h>
 #include <dirent.h>
-#include <assert.h>
-#include "ncx.h"
-#include <limits.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <stdint.h>
-#include <sys/stat.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/types.h>
 #include <pnc_debug.h>
 #include <common.h>
-#include <pnetcdf.h>
 #include <ncbbio_driver.h>
 
 /*
@@ -158,7 +151,7 @@ int ncbbio_log_create(NC_bb* ncbbp, MPI_Info info) {
         if (err != NC_NOERR){
             return err;
         }
-#endif                
+#endif
         err = MPI_Bcast(&masterrank, 1, MPI_INT, 0, ncbbp->logcomm);
         if (err != NC_NOERR){
             DEBUG_RETURN_ERROR(NC_EMPI);
