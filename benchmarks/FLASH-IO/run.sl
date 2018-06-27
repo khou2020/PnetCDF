@@ -157,7 +157,7 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
 
-    export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_sharedlog=enable;nc_burst_buf_dirname=${DW_JOB_STRIPED}"
+    export PNETCDF_HINTS="nc_burst_buf=enable;nc_burst_buf_del_on_close=disable;nc_burst_buf_overwrite=enable;nc_burst_buf_shared_logs=enable;nc_burst_buf_dirname=${DW_JOB_STRIPED}"
 
     STARTTIME=`date +%s.%N`
 
@@ -300,7 +300,7 @@ do
     STARTTIME=`date +%s.%N`
     
     srun -n ${NP} --mem=60000 --gres=craynetwork:1 ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
-    srun -n ${NP} --mem=60000 --gres=craynetwork:1 /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a -r dejob_${NP}_${i}.log &
+    srun -n ${NP} --mem=60000 --gres=craynetwork:1 /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a &
     wait
 
     ENDTIME=`date +%s.%N`
