@@ -114,7 +114,7 @@ do
     echo "========================== BB LPP S =========================="
     >&2 echo "========================== BB LPP S =========================="
 
-    echo "#%$: io_driver: bb_lpn_striped"
+    echo "#%$: io_driver: bb_lpp_striped"
     echo "#%$: number_of_nodes: ${NN}"
     echo "#%$: number_of_proc: ${NP}"
     echo "#%$: io_mode: blocking_coll"
@@ -218,10 +218,10 @@ do
 
     # Staging Indep
     
-    echo "========================== Stage Indep =========================="
-    >&2 echo "========================== Stage Indep =========================="
+    echo "========================== On BB Indep =========================="
+    >&2 echo "========================== On BB Indep =========================="
 
-    echo "#%$: io_driver: stage"
+    echo "#%$: io_driver: on_bb"
     echo "#%$: number_of_nodes: ${NN}"
     echo "#%$: number_of_proc: ${NP}"
     echo "#%$: io_mode: blocking_indep"
@@ -231,8 +231,8 @@ do
     echo "rm -f ${DW_JOB_STRIPED}/*"
     rm -f ${DW_JOB_STRIPED}/*
 
-    export stageout_bb_path="${DW_JOB_STRIPED}"
-    export stageout_pfs_path="${OUTDIR}"
+    #export stageout_bb_path="${DW_JOB_STRIPED}"
+    #export stageout_pfs_path="${OUTDIR}"
 
     STARTTIME=`date +%s.%N`
 
@@ -241,8 +241,8 @@ do
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
 
-    unset stageout_bb_path
-    unset stageout_pfs_path
+    #unset stageout_bb_path
+    #unset stageout_pfs_path
 
     echo "#%$: exe_time: $TIMEDIFF"
 
