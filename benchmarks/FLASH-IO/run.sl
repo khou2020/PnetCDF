@@ -20,6 +20,8 @@ let NP=NN*1
 echo "mkdir -p ${OUTDIR}"
 mkdir -p ${OUTDIR}
 
+TSTARTTIME=`date +%s.%N`
+
 for i in ${RUNS[@]}
 do
     # Ncmpio
@@ -326,3 +328,10 @@ echo "instance ID is: "${instID}
 echo "fragments list:"
 echo "frag state instID capacity gran node"
 dwstat fragments | grep ${instID}
+
+ENDTIME=`date +%s.%N`
+TIMEDIFF=`echo "$ENDTIME - $TSTARTTIME" | bc | awk -F"." '{print $1"."$2}'`
+echo "-------------------------------------------------------------"
+echo "total_exe_time: $TIMEDIFF"
+echo "-------------------------------------------------------------"
+
