@@ -8,14 +8,14 @@
 #SBATCH -L SCRATCH
 #SBATCH -A m844
 #SBATCH --gres=craynetwork:2
-#DW jobdw capacity=1289GiB access_mode=striped type=scratch
-#DW jobdw capacity=1289GiB access_mode=private type=scratch
+#DW jobdw capacity=645GiB access_mode=striped type=scratch
+#DW jobdw capacity=645GiB access_mode=private type=scratch
 
-RUNS=(1) # Number of runs
+RUNS=(1 2) # Number of runs
 OUTDIR=/global/cscratch1/sd/khl7265/FS_64_8M/flash
 NN=${SLURM_NNODES}
-let NP=NN*1
-#let NP=NN*32
+#let NP=NN*1
+let NP=NN*32
 
 echo "mkdir -p ${OUTDIR}"
 mkdir -p ${OUTDIR}
