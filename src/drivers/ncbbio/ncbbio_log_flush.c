@@ -100,6 +100,13 @@ int log_flush(NC_bb *ncbbp) {
     if (ncbbp->flushbuffersize > 0 && databuffersize > ncbbp->flushbuffersize){
         databuffersize = ncbbp->flushbuffersize;
     }
+    /* Without enabling large_req, we can not post requests larger than 2GiB */
+#ifndef ENABLE_LARGE_REQ
+    if (databuffersize > 2147483648){
+        databuffersize = 2147483648;
+    }
+#endif
+    /* We assume user will not issue single request larger than 2GiB wwithout enabling large_req */
     if (databuffersize < ncbbp->maxentrysize){
         databuffersize = ncbbp->maxentrysize;
     }
@@ -114,7 +121,7 @@ int log_flush(NC_bb *ncbbp) {
     databufferused = 0;
     dataread = 0;
     nrounds = 0;
-    err = ncbbio_bufferedfile_seek(ncbbp->datalog_fd, 8, SEEK_SET);
+    err = ncbbio_sharedfile_seek(ncbbp->datalog_fd, 8, SEEK_SET);
     if (err != NC_NOERR){
         return err;
     }
@@ -146,7 +153,7 @@ int log_flush(NC_bb *ncbbp) {
     }
 
     /* Seek to the start position of first data record */
-    err = ncbbio_bufferedfile_seek(ncbbp->datalog_fd, 8, SEEK_SET);
+    err = ncbbio_sharedfile_seek(ncbbp->datalog_fd, 8, SEEK_SET);
     if (err != NC_NOERR){
         return err;
     }
@@ -184,7 +191,7 @@ int log_flush(NC_bb *ncbbp) {
 #ifdef PNETCDF_PROFILING
                     t2 = MPI_Wtime();
 #endif
-                    err = ncbbio_bufferedfile_read(ncbbp->datalog_fd, databuffer + dataread, databufferused - dataread);
+                    err = ncbbio_sharedfile_read(ncbbp->datalog_fd, databuffer + dataread, databufferused - dataread);
                     if (err != NC_NOERR){
                         return err;
                     }
@@ -196,7 +203,7 @@ int log_flush(NC_bb *ncbbp) {
                 }
 
                 // Skip canceled entry
-                err = ncbbio_bufferedfile_seek(ncbbp->datalog_fd, ncbbp->entrydatasize.values[ub], SEEK_CUR);
+                err = ncbbio_sharedfile_seek(ncbbp->datalog_fd, ncbbp->entrydatasize.values[ub], SEEK_CUR);
                 if (err != NC_NOERR){
                     return err;
                 }
@@ -211,7 +218,7 @@ int log_flush(NC_bb *ncbbp) {
 #ifdef PNETCDF_PROFILING
             t2 = MPI_Wtime();
 #endif
-            err = ncbbio_bufferedfile_read(ncbbp->datalog_fd, databuffer + dataread, databufferused - dataread);
+            err = ncbbio_sharedfile_read(ncbbp->datalog_fd, databuffer + dataread, databufferused - dataread);
             if (err != NC_NOERR){
                 return err;
             }
