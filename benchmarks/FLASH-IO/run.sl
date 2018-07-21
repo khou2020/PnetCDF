@@ -17,8 +17,22 @@ NN=${SLURM_NNODES}
 let NP=NN*1
 #let NP=NN*32
 
+# Make sure BB stripe count is correct
+srun -n 1 /global/homes/k/khl7265/sc ${DW_JOB_STRIPED}/test.bin 64
+ret="$(sacct -o exitcode -n -j ${SLURM_JOB_ID}.0)"
+# remove leading whitespace characters
+ret="${ret#"${ret%%[![:space:]]*}"}"
+# remove trailing whitespace characters
+ret="${ret%"${ret##*[![:space:]]}"}"   
+if [[ "x${ret}" != "x0:0" ]]; then
+    echo "BB stripe count mismatch, quit"
+    exit 0
+fi
+
 echo "mkdir -p ${OUTDIR}"
 mkdir -p ${OUTDIR}
+echo "rm -rf ${DW_JOB_STRIPED}"
+rm -rf ${DW_JOB_STRIPED}
 
 TSTARTTIME=`date +%s.%N`
 
