@@ -102,8 +102,8 @@ int log_flush(NC_bb *ncbbp) {
     }
     /* Without enabling large_req, we can not post requests larger than 2GiB */
 #ifndef ENABLE_LARGE_REQ
-    if (databuffersize > 2147483648){
-        databuffersize = 2147483648;
+    if (databuffersize > 2147483647){
+        databuffersize = 2147483647;
     }
 #endif
     /* We assume user will not issue single request larger than 2GiB wwithout enabling large_req */
