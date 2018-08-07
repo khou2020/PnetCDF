@@ -158,9 +158,6 @@ int log_flush(NC_bb *ncbbp) {
         return err;
     }
 
-    /* Initialize buffer status */
-    databufferused = 0;
-    dataread = 0;
 
     reqids = (int*)NCI_Malloc(ncbbp->entrydatasize.nused * SIZEOF_INT);
     stats = (int*)NCI_Malloc(ncbbp->entrydatasize.nused * SIZEOF_INT);
@@ -171,6 +168,10 @@ int log_flush(NC_bb *ncbbp) {
     headerp = (NC_bb_metadataheader*)ncbbp->metadata.buffer;
     entryp = (NC_bb_metadataentry*)(((char*)ncbbp->metadata.buffer) + headerp->entry_begin);
     for (lb = 0; lb < ncbbp->metaidx.nused;){
+        /* Initialize buffer status */
+        databufferused = 0;
+        dataread = 0;
+        
         for (ub = lb; ub < ncbbp->metaidx.nused; ub++) {
             if (ncbbp->metaidx.entries[ub].valid){
                 if(ncbbp->entrydatasize.values[ub] + databufferused > databuffersize) {
