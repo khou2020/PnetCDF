@@ -2,7 +2,7 @@
 #COBALT -t 10
 #COBALT -n 1
 #COBALT --attrs mcdram=cache:numa=quad:ssds=required:ssd_size=16
-#COBALT -A ecp-testbed-01
+#COBALT -A ATPESC2018
 #COBALT -q debug-flat-quad
 #COBALT -o flash_1.txt
 #COBALT -e flash_1.txt
@@ -153,16 +153,12 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
     
-    export PNETCDF_HINTS="logfs_replayonclose=true;logfs_info_logbase=${DW_JOB_PRIVATE};logfs_flushblocksize=268435456"
-
     STARTTIME=`date +%s.%N`
 
-    aprun -n ${NP} -N ${PPN} -t ${TL} ./flash_benchmark_io_logfs logfs:${OUTDIR}/flash_ blocking coll
+    aprun -n ${NP} -N ${PPN} -t ${TL} -e PNETCDF_HINTS="logfs_replayonclose=true;logfs_info_logbase=${BBDIR}/;logfs_flushblocksize=268435456" ./flash_benchmark_io_logfs logfs:${OUTDIR}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
-
-    unset PNETCDF_HINTS
 
     echo "#%$: exe_time: $TIMEDIFF"
 
@@ -178,3 +174,4 @@ TIMEDIFF=`echo "$ENDTIME - $TSTARTTIME" | bc | awk -F"." '{print $1"."$2}'`
 echo "-------------------------------------------------------------"
 echo "total_exe_time: $TIMEDIFF"
 echo "-------------------------------------------------------------"
+
