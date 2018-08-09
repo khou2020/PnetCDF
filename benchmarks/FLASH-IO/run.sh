@@ -4,8 +4,8 @@
 #COBALT --attrs mcdram=cache:numa=quad:ssds=required:ssd_size=16
 #COBALT -A ATPESC2018
 #COBALT -q debug-flat-quad
-#COBALT -o flash_1.txt
-#COBALT -e flash_1.txt
+#COBALT -o flash_1_1.txt
+#COBALT -e flash_1_1.txt
 
 echo "Starting Cobalt job script"
 
@@ -17,7 +17,7 @@ export n_hyperthreads_per_core=1
 export n_hyperthreads_skipped_between_ranks=7
 
 RUNS=(1) # Number of runs
-OUTDIR=/projects/radix-io/khou/FS_64_8M/flash
+OUTDIR=/projects/radix-io/khou/FS_56_8M/flash
 BBDIR=/local/scratch
 PPN=4
 #NN=16

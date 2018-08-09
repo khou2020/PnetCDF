@@ -161,7 +161,6 @@ int ncbbio_log_flush_core(NC_bb *ncbbp) {
 
     reqids = (int*)NCI_Malloc(ncbbp->entrydatasize.nused * SIZEOF_INT);
     stats = (int*)NCI_Malloc(ncbbp->entrydatasize.nused * SIZEOF_INT);
-
     /*
      * Iterate through meta log entries
      */
