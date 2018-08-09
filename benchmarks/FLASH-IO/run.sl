@@ -16,6 +16,7 @@ OUTDIR=/global/cscratch1/sd/khl7265/FS_64_8M/flash
 NN=${SLURM_NNODES}
 let NP=NN*1
 #let NP=NN*32
+TL=3
 
 # Make sure BB stripe count is correct
 srun -n 1 /global/homes/k/khl7265/sc ${DW_JOB_STRIPED}/test.bin 64
@@ -53,7 +54,7 @@ do
     
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -80,7 +81,7 @@ do
     
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ nonblocking coll
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io ${OUTDIR}/flash_ nonblocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -109,7 +110,7 @@ do
 
     STARTTIME=`date +%s.%N`
     
-    srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
     
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -142,7 +143,7 @@ do
 
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -177,7 +178,7 @@ do
 
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io ${OUTDIR}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -215,7 +216,7 @@ do
 
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io ${DW_JOB_STRIPED}/flash_ blocking coll
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io ${DW_JOB_STRIPED}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -252,7 +253,7 @@ do
 
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io ${DW_JOB_STRIPED}/flash_ blocking indep
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io ${DW_JOB_STRIPED}/flash_ blocking indep
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -286,7 +287,7 @@ do
 
     STARTTIME=`date +%s.%N`
 
-    srun -n ${NP} ./flash_benchmark_io_logfs logfs:${OUTDIR}/flash_ blocking coll
+    srun -n ${NP} -t ${TL} ./flash_benchmark_io_logfs logfs:${OUTDIR}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
@@ -315,8 +316,8 @@ do
 
     STARTTIME=`date +%s.%N`
     
-    srun -n ${NP} --mem=60000 --gres=craynetwork:1 ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
-    srun -n ${NP} --mem=60000 --gres=craynetwork:1 /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a &
+    srun -n ${NP} -t ${TL} --mem=60000 --gres=craynetwork:1 ./flash_benchmark_io_de ${OUTDIR}/flash_ blocking coll &
+    srun -n ${NP} -t ${TL} --mem=60000 --gres=craynetwork:1 /global/homes/k/khl7265/local/dataelevator/bin/dejob -i -a &
     wait
 
     ENDTIME=`date +%s.%N`
