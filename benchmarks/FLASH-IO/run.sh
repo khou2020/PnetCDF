@@ -2,10 +2,10 @@
 #COBALT -t 10
 #COBALT -n 1
 #COBALT --attrs mcdram=cache:numa=quad:ssds=required:ssd_size=16
-#COBALT -A ecp-testbed-01
+#COBALT -A ATPESC2018
 #COBALT -q debug-flat-quad
-#COBALT -o flash_1.txt
-#COBALT -e flash_1.txt
+#COBALT -o flash_1_1.txt
+#COBALT -e flash_1_1.txt
 
 echo "Starting Cobalt job script"
 
@@ -17,7 +17,7 @@ export n_hyperthreads_per_core=1
 export n_hyperthreads_skipped_between_ranks=7
 
 RUNS=(1) # Number of runs
-OUTDIR=/projects/radix-io/khou/FS_64_8M/flash
+OUTDIR=/projects/radix-io/khou/FS_56_8M/flash
 BBDIR=/local/scratch
 PPN=4
 #NN=16
@@ -153,16 +153,12 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
     
-    export PNETCDF_HINTS="logfs_replayonclose=true;logfs_info_logbase=${BBDIR};logfs_flushblocksize=268435456"
-
     STARTTIME=`date +%s.%N`
 
-    aprun -n ${NP} -N ${PPN} -t ${TL} ./flash_benchmark_io_logfs logfs:${OUTDIR}/flash_ blocking coll
+    aprun -n ${NP} -N ${PPN} -t ${TL} -e PNETCDF_HINTS="logfs_replayonclose=true;logfs_info_logbase=${BBDIR}/;logfs_flushblocksize=268435456" ./flash_benchmark_io_logfs logfs:${OUTDIR}/flash_ blocking coll
 
     ENDTIME=`date +%s.%N`
     TIMEDIFF=`echo "$ENDTIME - $STARTTIME" | bc | awk -F"." '{print $1"."$2}'`
-
-    unset PNETCDF_HINTS
 
     echo "#%$: exe_time: $TIMEDIFF"
 
@@ -178,3 +174,4 @@ TIMEDIFF=`echo "$ENDTIME - $TSTARTTIME" | bc | awk -F"." '{print $1"."$2}'`
 echo "-------------------------------------------------------------"
 echo "total_exe_time: $TIMEDIFF"
 echo "-------------------------------------------------------------"
+
