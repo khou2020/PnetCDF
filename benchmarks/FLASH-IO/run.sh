@@ -153,7 +153,7 @@ do
     echo "rm -f ${OUTDIR}/*"
     rm -f ${OUTDIR}/*
     
-    export PNETCDF_HINTS="logfs_replayonclose=true;logfs_info_logbase=${DW_JOB_PRIVATE};logfs_flushblocksize=268435456"
+    export PNETCDF_HINTS="logfs_replayonclose=true;logfs_info_logbase=${BBDIR};logfs_flushblocksize=268435456"
 
     STARTTIME=`date +%s.%N`
 

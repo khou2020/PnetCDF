@@ -70,7 +70,7 @@ flash_benchmark_io_logfs_LDFLAGS   = -L${top_builddir}/src/libs -L${HOME}/local/
 flash_benchmark_io_logfs_LDADD   = -lpnetcdf -lromio
 
 flash_benchmark_io_de_SOURCES = ${flash_benchmark_io_SOURCES}
-flash_benchmark_io_de_LDFLAGS   = -L${top_builddir}/src/libs -L${HOME}/local/dataelevator/lib
+flash_benchmark_io_de_LDFLAGS   = -L${top_builddir}/src/libs -L${HOME}/local/dataelevator_nosc/lib
 flash_benchmark_io_de_LDADD   = -lpnetcdf -lde
 
 TESTMPIRUN4  = `echo $(TESTMPIRUN) | $(SED) -e 's/NP/4/g'`
