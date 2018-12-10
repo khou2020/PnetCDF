@@ -6,7 +6,7 @@
 #
 # @configure_input@
 
-SUBDIRS = include common ncmpio
+SUBDIRS = include common ncmpio nczipio
 
 if BUILD_DRIVER_FOO
    SUBDIRS += ncfoo
@@ -17,6 +17,10 @@ if ENABLE_NETCDF4
 endif
 
 if ENABLE_BURST_BUFFER
+   SUBDIRS += ncbbio
+endif
+
+if ENABLE_COMPRESSION
    SUBDIRS += ncbbio
 endif
 

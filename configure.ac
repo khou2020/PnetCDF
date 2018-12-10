@@ -119,6 +119,7 @@ AH_TEMPLATE([RELAX_COORD_BOUND],        [Define if relaxed coordinate check is e
 AH_TEMPLATE([ENABLE_LARGE_SINGLE_REQ],  [Define if to enable large single MPI-IO request])
 AH_TEMPLATE([ENABLE_NULL_BYTE_HEADER_PADDING], [Define if to enable strict null-byte padding in file header])
 AH_TEMPLATE([ENABLE_BURST_BUFFER],      [Define if to enable burst buffer feature])
+AH_TEMPLATE([ENABLE_COMPRESSION],       [Define if to enable compression feature])
 AH_TEMPLATE([PNETCDF_PROFILING],        [Define if to enable PnetCDF internal performance profiling])
 AH_TEMPLATE([ENABLE_THREAD_SAFE],       [Define if to enable thread-safe capability])
 dnl AH_TEMPLATE([HAVE_MPI_COUNT],       [Define if type MPI_Count is defined])
@@ -1645,6 +1646,20 @@ fi
 AC_SUBST(ENABLE_BURST_BUFFER)
 AM_CONDITIONAL(ENABLE_BURST_BUFFER, [test x$enable_bbdriver = xyes])
 
+AC_ARG_ENABLE([compression],
+   [AS_HELP_STRING([--enable-compression],
+                   [Enable burst buffer driver support. @<:@default: disabled@:>@])],
+   [enable_compression=${enableval}], [enable_compression=no]
+)
+
+ENABLE_COMPRESSION=0
+if test "x$enable_compression" = "xyes" ; then
+   AC_DEFINE(ENABLE_COMPRESSION)
+   ENABLE_COMPRESSION=1
+fi
+AC_SUBST(ENABLE_COMPRESSION)
+AM_CONDITIONAL(ENABLE_COMPRESSION, [test x$enable_compression = xyes])
+
 AC_ARG_ENABLE([profiling],
    [AS_HELP_STRING([--enable-profiling],
                    [Enable time and memory profiling. @<:@default: disabled@:>@])],
@@ -1778,6 +1793,7 @@ AC_CONFIG_FILES(Makefile \
                 src/drivers/ncmpio/Makefile \
                 src/drivers/nc4io/Makefile \
                 src/drivers/ncbbio/Makefile \
+                src/drivers/nczipio/Makefile \
                 src/drivers/ncfoo/Makefile \
                 src/binding/Makefile \
                 src/binding/cxx/Makefile \
