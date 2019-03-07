@@ -121,8 +121,19 @@ nczipioi_init_put_req_by_chunk( NC_zip     *nczipp,
     citr = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
     cend = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
 
+    // Record request
+    req.start = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * varp->ndim);
+    memcpy(req.start, start, sizeof(MPI_Offset) * varp->ndim);
+    req.count = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * varp->ndim);
+    memcpy(req.count, count, sizeof(MPI_Offset) * varp->ndim);
+    if (stride != NULL){
+        req.stride = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * varp->ndim);
+        memcpy(req.stride, stride, sizeof(MPI_Offset) * varp->ndim);
+    }
+
     req.nsend = nczipioi_chunk_itr_init(varp, start, count, stride, c start, cend, citr);
 
+    req.widx = (int*)NCI_Malloc(sizeof(int) * req.nsend);
     req.sbuf = (char**)NCI_Malloc(sizeof(char*) * req.nsend);
     req.sreqs = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * req.nsend);
     req.sstats = (MPI_Status*)NCI_Malloc(sizeof(MPI_Status) * req.nsend);
@@ -130,80 +141,41 @@ nczipioi_init_put_req_by_chunk( NC_zip     *nczipp,
     //Calculate local write count, we calculate offset and size of each req by the way
     memset(wcnt_local, 0, sizeof(int) * nczipp->np);
 
+    // Iterate through chunk
+    req.nsend = 0;  // Previous estimate contains our own chunks. Now, we count real chunk
     do{
-        j = get_chunk_idx(varp, citr);
-    } while (nczipioi_chunk_itr_next(varp, start, count, stride, c start, cend, citr));
+        // Chunk index
+        i = get_chunk_idx(varp, citr);
 
-    if (stride == NULL){
-        // Chunk boundary
-        for(i = 0; i < varp->ndim; i++){
-            cstart[i] = starts[i] / varp->chunkdim[i];
-            cend[i] = (starts[i] + (counts[i] - 1) * stride[i]) / varp->chunkdim[i] + 1;
-        }
-
-        // calculate local write count, at most one per chunk
-        memcpy(citr, cstart, sizeof(int) * varp->ndim);
-    }
-    else{
-        // Some stride is too large that chunks are being skiped
-        // Chunk boundary
-        for(i = 0; i < varp->ndim; i++){
-            if (stride[i] > varp->chunkdim[i]){
-                cstart[i] = 0;
-                cend[i] = count[i];
+        if (varp->chunk_owner[i] != nczipp->rank){
+            // Overlapping size
+            get_chunk_overlap(varp, citr, start, count, tstart, tssize);
+            overlapsize = varp->esize;
+            for(j = 0; j < varp->ndim; j++){
+                overlapsize *= tssize[j];                     
             }
-            else{
-                cstart[i] = starts[i] / varp->chunkdim[i];
-                cend[i] = (starts[i] + (counts[i] - 1) * stride[i]) / varp->chunkdim[i] + 1;
-            }
-        }
-
-        // calculate local write count, at most one per chunk
-        memcpy(citr, cstart, sizeof(int) * varp->ndim);
-        while(citr[0] < cend[0]){
-            for(i = 0; i < varp->ndim; i++){
-                if (stride[i] > varp->chunkdim[i]){
-                    cstart[i] = 0;
-                    cend[i] = count[i];
-                }
-                else{
-                    cstart[i] = starts[i] / varp->chunkdim[i];
-                    cend[i] = (starts[i] + (counts[i] - 1) * stride[i]) / varp->chunkdim[i] + 1;
-                }
-            }
-            j = get_chunk_idx(varp, citr);    
-
-            wcnt_local[j] = 1;
-
-            // move on to next chunk
-            if (stride[varp->ndim - 1] > varp->chunkdim[varp->ndim - 1]){
-
-            }
-            else{
-                citr[varp->ndim - 1]++;
-            }
-            for(j = varp->ndim - 1; j > 0; j--){
-                if (citr[j] >= cend[j]){
-                    citr[j - 1]++;
-                    citr[j] = cstart[j];
-                }
-                else{
-                    break;
-                }
-            }
+            printf("overlapsize = %d\n", overlapsize); fflush(stdout);
             
-            citr[varp->ndim - 1]++;
-            for(j = varp->ndim - 1; j > 0; j--){
-                if (citr[j] >= cend[j]){
-                    citr[j - 1]++;
-                    citr[j] = cstart[j];
-                }
-                else{
-                    break;
-                }
+            // Pack type
+            for(j = 0; j < varp->ndim; j++){
+                tstart[j] -= start[j];
+                tsize[j] = (int)count[j];
             }
+            MPI_Type_create_subarray(varp->ndim, tsize, tssize, tstart, MPI_ORDER_C, etype, &ptype);
+            MPI_Type_commit(&ptype);
+            
+            // Pack data
+            MPI_Pack(starts[i], varp->ndim, MPI_INT, sbuf_cur, packoff + sizeof(int) * varp->ndim, &packoff, nczipp->comm);
+            MPI_Pack(counts[i], varp->ndim, MPI_INT, sbuf_cur, packoff + sizeof(int) * varp->ndim, &packoff, nczipp->comm);
+            MPI_Pack(bufs[i], 1, ptype, sbuf_cur, packoff + overlapsize, &packoff, nczipp->comm);
+
+            // Free packtype
+            MPI_Type_free(&ptype);
+            req.widx[req.nsend] = i;
+
         }
-    }
+        
+    } while (nczipioi_chunk_itr_next(varp, start, count, stride, c start, cend, citr));
 
     // Allocate send buffer
     // TODO: more efficient estimation
