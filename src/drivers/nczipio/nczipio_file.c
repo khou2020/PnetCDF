@@ -423,6 +423,12 @@ nczipioi_init(NC_zip *nczipp){
     err = nczipioi_var_list_init(&(nczipp->vars));
     if (err != NC_NOERR) return err;
 
+    /* Initialize nonblocking list */
+    err = nczipioi_req_list_init(&(nczipp->getlist));
+    if (err != NC_NOERR) return err;
+    err = nczipioi_req_list_init(&(nczipp->putlist));
+    if (err != NC_NOERR) return err;
+
     /* Select compression driver based on hint */
     switch (nczipp->zipdriver){
         case NC_ZIP_DRIVER_DUMMY:

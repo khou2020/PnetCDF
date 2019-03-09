@@ -25,13 +25,27 @@ typedef enum {
 
 /* Get_req structure */
 typedef struct NC_zip_req {
+    int varid;
+    int nreq;
+    union param_start{
+        MPI_Offset *start;
+        MPI_Offset **starts;
+    }
+    union param_start{
+        MPI_Offset *count;
+        MPI_Offset *counts;
+    }
+    MPI_Offset *stride;
+    char *buf;
+    char *xbuf;
+    int *widx;
     char **rbuf;
     char **sbuf;
-    union{
+    union send_count{
         int nsend;
         int *nsends;
     }
-    union{
+    union recv_count{
         int nrecv;
         int *nrecvs;
     }
@@ -106,6 +120,7 @@ struct NC_zip {
     int                zipdriver;
     int                blockmapping;
     NC_zip_var_list    vars;
+    NC_zip_req_list    putlist, getlist;
 };
 
 extern int

@@ -62,7 +62,7 @@
  * ids[0:nused] => active (used) request ids
  * ids[nused:nalloc] => available (unused) request ids
  */
-int nczipioi_get_list_init(NC_zip_req_list *lp) {
+int nczipioi_req_list_init(NC_zip_req_list *lp) {
     int i;
 
     /* Initialize parameter and allocate the array  */
@@ -92,7 +92,7 @@ int nczipioi_get_list_init(NC_zip_req_list *lp) {
  * We simply enlarge ids and reqs array
  * We initialize the extended part as usual
  */
-static int nczipioi_get_list_resize(NC_zip_req_list *lp)
+static int nczipioi_req_list_resize(NC_zip_req_list *lp)
 {
     int i;
     size_t nsize;
@@ -130,7 +130,7 @@ static int nczipioi_get_list_resize(NC_zip_req_list *lp)
 /*
  * Clean up the put list
  */
-int nczipioi_get_list_free(NC_zip_req_list *lp)
+int nczipioi_req_list_free(NC_zip_req_list *lp)
 {
     NCI_Free(lp->reqs);
     NCI_Free(lp->ids);
@@ -145,13 +145,13 @@ int nczipioi_get_list_free(NC_zip_req_list *lp)
  * We increase the size of pool, bringing in new ids if there aren't
  * Then we issue the ids at position nused and increase it by 1
  */
-int nczipioi_get_list_add(NC_zip_req_list *lp, int *id)
+int nczipioi_req_list_add(NC_zip_req_list *lp, int *id)
 {
     int err;
 
     /* Increase size if necessary */
     if (lp->nused == lp->nalloc) {
-        err = nczipioi_get_list_resize(lp);
+        err = nczipioi_req_list_resize(lp);
         if (err != NC_NOERR) return err;
     }
 
@@ -167,325 +167,13 @@ int nczipioi_get_list_add(NC_zip_req_list *lp, int *id)
  * ids[0:nused] => active (used) request ids
  * ids[nused:nalloc] => available (unused) request ids
  */
-int nczipioi_get_list_remove(NC_zip_req_list *lp, int reqid) {
+int nczipioi_req_list_remove(NC_zip_req_list *lp, int reqid) {
     /* Return id to the list */
     lp->nused--;
     lp->ids[lp->pos[reqid]] = lp->ids[lp->nused];
     lp->pos[lp->ids[lp->nused]] = lp->pos[reqid];
     lp->ids[lp->nused] = reqid;
     lp->pos[reqid] = lp->nused;
-
-    return NC_NOERR;
-}
-
-/*
- * All adios perform read and mark requests corresponds to posted operation as completed
- */
-int nczipioi_perform_read(NC_zip *nczipp) {
-    int i, err;
-    NC_zip_req_list *lp = &(nczipp->getlist);
-
-    // Read all posted operation
-    err = adios_perform_reads (nczipp->fp, 1);
-    if (err != 0){
-        err = ncmpii_error_adios2nc(adios_errno, "Open");
-        DEBUG_RETURN_ERROR(err);
-    }
-
-    // All current active request has been read by ADIOS
-    for(i = 0; i < lp->nused; i++){
-        lp->reqs[lp->ids[i]].ready = 1;
-    }
-    
-    return NC_NOERR;
-}
-
-/*
- * Process a read request and return it's status
- * We need to call ADIOS perform read if data hasn't been read
- * If data is available, we perform necessary type and shape converion
- */
-int nczipioi_handle_get_req(NC_zip *nczipp, NC_zip_req *req){
-    int err, status = NC_NOERR;
-    int cesize;
-
-    // Perform ADIOS read if this request haven't been read
-    if (!(req->ready)){    
-        nczipioi_perform_read(nczipp);
-    }
-
-    // If type do not match
-    if (req->vtype != req->buftype){
-        err = nczipioiconvert(req->xbuf, req->cbuf, req->vtype, req->buftype, (int)(req->ecnt));
-        if (status == NC_NOERR){
-            status = err;
-        }
-        NCI_Free(req->xbuf);
-    }
-
-    // If imap is used (memory buffer not contiguous)
-    if (req->cbuf != req->buf){
-        int position = 0;
-
-        MPI_Unpack(req->cbuf, req->cbsize, &position, req->buf, 1, req->imaptype, MPI_COMM_SELF);
-        MPI_Type_free(&(req->imaptype));
-
-        NCI_Free(req->cbuf);
-    }
-
-    // Free up structured used to post ADIOS operation
-    if (req->points != NULL){
-        NCI_Free(req->points);
-    }
-
-    adios_selection_delete(req->sel);
-
-    // Record get size
-    MPI_Type_size(req->vtype, &cesize);
-    nczipp->getsize += cesize * (MPI_Offset)req->ecnt;
-
-    return status;
-}
-
-/*
- * Process put request
- * If the request exists in active pool, we process it and return the id
- */
-int nczipioi_wait_get_req(NC_zip *nczipp, int reqid, int *stat)
-{
-    int err, status = NC_NOERR;
-    int cesize;
-    NC_zip_req_list *lp = &(nczipp->getlist);
-
-    /* Filter invalid reqid
-     * Valid id range from 0 ~ nalloc - 1
-     */
-    if (reqid >= lp->nalloc || reqid < 0 || lp->pos[reqid] >= lp->nused) {
-        status = NC_EINVAL_REQUEST;
-    }
-    else{
-        // Locate the req object, which is reqs[reqid]
-        status = nczipioi_handle_get_req(nczipp, lp->reqs + reqid);
-
-        // Recycle req object to the pool
-        err = nczipioi_get_list_remove(lp, reqid);
-        if (err != NC_NOERR){
-            return err;
-        }
-    }
-
-    // Return status to the user
-    if (stat != NULL) *stat = status;
-
-    return NC_NOERR;
-}
-
-/*
- * Process all put request
- */
-int nczipioi_wait_all_get_req(NC_zip *nczipp) {
-    int i, err, status = NC_NOERR;
-    NC_zip_req_list *lp = &(nczipp->getlist);
-
-    // Search through req object array for object in use */
-    while(lp->nused) {
-        err = nczipioi_wait_get_req(nczipp, lp->ids[lp->nused - 1], NULL);
-        if (status == NC_NOERR) status = err;
-    }
-
-    return status;
-}
-
-/*
- * Initialize a read request structure and post corresponding ADIOS oepration
- */
-int
-nczipioi_init_get_req( NC_zip *nczipp,
-              NC_zip_req *r,
-              ADIOS_VARINFO *v,
-              const MPI_Offset *start,
-              const MPI_Offset *count,
-              const MPI_Offset *stride,
-              const MPI_Offset *imap,
-              void             *buf,
-              MPI_Offset        bufcount,
-              MPI_Datatype      buftype)
-{
-    int err;
-    int req_id;
-    int i;
-    size_t esize;
-    int cesize;
-    int sstart, scount, sstride;
-
-    r->ready = 0;
-    r->buf = buf;
-    r->buftype = buftype;
-
-    // Calculate number of elements in single record
-    r->ecnt = 1;
-    for(i = 0; i < v->ndim; i++){
-        r->ecnt *= (size_t)count[i];
-    }
-
-    // If user buffer is contiguous
-    if (imap == NULL){
-        r->cbuf = r->buf;
-    }
-    else{
-        err = ncmpii_create_imaptype(v->ndim, count, imap, buftype, &(r->imaptype));
-        if (err != NC_NOERR) {
-            return err;
-        }
-        MPI_Type_size(buftype, &cesize);
-        r->cbsize = r->ecnt * (size_t)cesize;
-        r->cbuf = NCI_Malloc(r->cbsize);
-    }
-    
-    // PnetCDF allows accessing in different type
-    // Check if we need to convert
-    r->vtype = nczipio_to_mpi_type(v->type);
-    if (r->vtype == buftype){
-        r->xbuf = r->cbuf;
-    }
-    else{
-        esize = (size_t)adios_type_size(v->type, NULL);
-        r->xbuf = NCI_Malloc(esize * r->ecnt);
-    }
-
-    // Time step dimension must be treated specially
-    if (v->nsteps > 1){
-        sstart = (int)start[0];
-        start++;
-        scount = (int)count[0];
-        count++;
-        if (stride != NULL){
-            sstride = (int)stride[0];
-            stride++;
-        }
-        else{
-            sstride = 1;
-        }
-    }
-    else{
-        sstart = 0;
-        scount = 1;
-        sstride = 1;
-    }
-
-    // ADIOS selection
-    // If stride is not used, we can use bounding box selection
-    // Otherwise, we need to specify every points
-    if (stride == NULL){
-        r->sel = adios_selection_boundingbox (v->ndim, (uint64_t*)start, (uint64_t*)count);
-        r->points = NULL;
-    }
-    else{
-        uint64_t *p, *cur;
-
-        // Somehow ADIOS doe not deep copy points, we need to keep it in the request structure
-        r->points = (uint64_t*)NCI_Malloc(sizeof(uint64_t) * r->ecnt * v->ndim);
-        p = (uint64_t*)NCI_Malloc(sizeof(uint64_t) * v->ndim);
-        cur = r->points;
-
-        memset(p, 0, sizeof(uint64_t) * v->ndim);
-
-        // Iterate through every cells accessed
-        while(p[0] < count[0]) {
-            for(i = 0; i < v->ndim; i++){
-                *cur = p[i] * (uint64_t)stride[i];
-                cur++;
-            }
-
-            p[v->ndim - 1]++;
-            for(i = v->ndim - 1; i > 0; i--){
-                if (p[i] >= count[i]){
-                    p[i - 1]++;
-                    p[i] = 0;
-                }
-                else{
-                    break;
-                }
-            }
-        }
-
-        r->sel = adios_selection_points(v->ndim, (uint64_t)r->ecnt, r->points);
-
-        NCI_Free(p);
-    }
-    if (r->sel == NULL){
-        err = ncmpii_error_adios2nc(adios_errno, "select");
-        DEBUG_RETURN_ERROR(err);
-    }
-
-    // Post read operation
-    if (sstride > 1){
-        // ADIOS does not support stripe on time steps, post one step at a time
-        for(i = 0; i < scount; i++){
-            err = adios_schedule_read_byid (nczipp->fp, r->sel, v->varid, sstart + i * sstride, 1, (void*)(((char*)r->xbuf) + i * esize * r->ecnt));
-            if (err != 0){
-                err = ncmpii_error_adios2nc(adios_errno, "schedule_read");
-                DEBUG_RETURN_ERROR(err);
-            }
-        }
-    }
-    else{
-        err = adios_schedule_read_byid (nczipp->fp, r->sel, v->varid, sstart, scount, r->xbuf);
-        if (err != 0){
-            err = ncmpii_error_adios2nc(adios_errno, "schedule_read");
-            DEBUG_RETURN_ERROR(err);
-        }
-    }
-
-    return NC_NOERR;
-}
-
-/*
- * Non-blocking get
- * Initialize a read request structure
- * Obtain a request id from the pool
- * Put the request into list
- */
-int
-nczipioi_iget_var(NC_zip *nczipp,
-              int               varid,
-              const MPI_Offset *start,
-              const MPI_Offset *count,
-              const MPI_Offset *stride,
-              const MPI_Offset *imap,
-              void             *buf,
-              MPI_Offset        bufcount,
-              MPI_Datatype      buftype,
-              int *reqid)
-{
-    int err;
-    int req_id;
-    NC_zip_req r;
-    ADIOS_VARINFO *v;
-
-    // Get ADIOS variable
-    v = adios_inq_var(nczipp->fp, nczipp->vars.data[varid].name);
-    if (v == NULL){
-        err = ncmpii_error_adios2nc(adios_errno, "get_var");
-        DEBUG_RETURN_ERROR(err);
-    }
-
-    // Create a read request
-    err = nczipioi_init_get_req(nczipp, &r, v, start, count, stride, imap, buf, bufcount, buftype);
-    if (err != NC_NOERR){
-        return err;
-    }
-
-    // Release var info
-    adios_free_varinfo (v);
-
-    // Add to req list
-    nczipioi_get_list_add(&(nczipp->getlist), &req_id);
-    nczipp->getlist.reqs[req_id] = r;
-    
-    if (reqid != NULL){
-        *reqid = req_id;
-    }
 
     return NC_NOERR;
 }

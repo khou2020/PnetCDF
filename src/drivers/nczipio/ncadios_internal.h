@@ -107,3 +107,11 @@ ncadiosi_init_get_req(NC_ad *ncadp, NC_ad_get_req *r, ADIOS_VARINFO *v, const MP
 extern int
 ncadiosi_iget_var(NC_ad *ncadp, int varid, const MPI_Offset *start, const MPI_Offset *count, const MPI_Offset *stride, const MPI_Offset *imap, void *buf, MPI_Offset bufcount, MPI_Datatype buftype, int *reqid);
 
+extern int 
+get_chunk_idx(NC_zip_var *varp, int* cord);
+
+extern int 
+get_chunk_cord(NC_zip_var *varp, int idx, int* cord);
+
+extern int 
+get_chunk_overlap(NC_zip_var *varp, int* cord, const MPI_Offset *start, const MPI_Offset *count, const MPI_Offset *stride, int *ostart, int *ocount);
