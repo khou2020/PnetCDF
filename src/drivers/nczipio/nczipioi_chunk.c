@@ -81,15 +81,15 @@ int nczipioi_chunk_itr_init(NC_zip_var *varp, MPI_Offset *start, MPI_Offset *cou
 
     if (stride == NULL){
         for(i = 0; i < varp->ndim; i++){
-            cstart[i] = citr[i] = starts[i] / varp->chunkdim[i];
-            cend[i] = (starts[k][i] + counts[k][i] - 1) / varp->chunkdim[i] + 1;
+            cstart[i] = citr[i] = start[i] / varp->chunkdim[i];
+            cend[i] = (start[i] + count[i] - 1) / varp->chunkdim[i] + 1;
             nchk *= (cend[i] - cstart[i] + 1);
         }
     }
     else{
         for(i = 0; i < varp->ndim; i++){
-            cstart[i] = citr[i] = starts[i] / varp->chunkdim[i];
-            cend[i] = (starts[i] + (counts[i] - 1) * stride[i]) / varp->chunkdim[i] + 1;
+            cstart[i] = citr[i] = start[i] / varp->chunkdim[i];
+            cend[i] = (start[i] + (count[i] - 1) * stride[i]) / varp->chunkdim[i] + 1;
             if (stride[i] > varp->chunkdim[i]){
                 nchk *= count[i];
             }
