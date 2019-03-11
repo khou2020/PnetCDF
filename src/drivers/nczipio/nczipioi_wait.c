@@ -28,3 +28,26 @@
 #include <common.h>
 #include <nczipio_driver.h>
 #include "nczipio_internal.h"
+
+
+int
+nczipioi_wait(NC_zip *nczipp, int nreqs, int *reqids, int *stats, int reqMode){
+    int err;
+    NC_zip *nczipp = (NC_zip*)ncdp;
+
+    err = nczipp->driver->wait(nczipp->ncp, num_reqs, req_ids, statuses, reqMode);
+    if (err != NC_NOERR) return err;
+
+    return NC_NOERR;
+}
+
+int
+nczipioi_wait(NC_zip *nczipp, int nreqs, int *reqids, int *stats, int reqMode){
+    int err;
+    NC_zip *nczipp = (NC_zip*)ncdp;
+
+    err = nczipp->driver->wait(nczipp->ncp, num_reqs, req_ids, statuses, reqMode);
+    if (err != NC_NOERR) return err;
+
+    return NC_NOERR;
+}
