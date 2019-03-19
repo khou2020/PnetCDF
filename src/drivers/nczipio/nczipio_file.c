@@ -425,11 +425,4 @@ nczipioi_init(NC_zip *nczipp){
     if (err != NC_NOERR) return err;
     err = nczipioi_req_list_init(&(nczipp->putlist));
     if (err != NC_NOERR) return err;
-
-    /* Select compression driver based on hint */
-    switch (nczipp->zipdriver){
-        case NC_ZIP_DRIVER_DUMMY:
-            nczipp->zip = nczip_dummy_inq_driver();
-        break;
-    }
 }
