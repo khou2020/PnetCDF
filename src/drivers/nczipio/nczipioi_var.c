@@ -318,6 +318,9 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids) {
     NC_zip_var *varp;
     NC_var *ncvarp;
 
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IO)
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IO_INIT)
+
     // -1 means all chunks
     nchunk = 0;
     for(i = 0; i < nvar; i++){
@@ -374,6 +377,9 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids) {
             zbufs[j] = zbufs[j - 1] + lens[j - 1];
         }    
 
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IO_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_IO_RD)
+
         // Perform MPI-IO
         // Set file view
         MPI_File_set_view(ncp->collective_fh, 0, MPI_BYTE, ftype, "native", MPI_INFO_NULL);
@@ -382,17 +388,25 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids) {
         // Restore file view
         MPI_File_set_view(ncp->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
 
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IO_RD)
+
         // Free type
         MPI_Type_free(&ftype);
     }
     else{
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_IO_RD)
+
         // Follow coll I/O with dummy call
         zbufs[0] = (char*)NCI_Malloc(0);
         MPI_File_set_view(ncp->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
         MPI_File_read_at_all(ncp->collective_fh, 0, zbufs[0], 0, MPI_BYTE, &status);
         MPI_File_set_view(ncp->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IO_RD)
     }
     
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IO_DECOM)
+
     // Decompress each chunk
     k = 0;
     for(i = 0; i < nvar; i++){
@@ -417,12 +431,16 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids) {
         }
     }
 
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IO_DECOM)
+
     // Free buffers
     NCI_Free(zbufs[0]);
     NCI_Free(zbufs);
 
     NCI_Free(lens);
     NCI_Free(disps);
+
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IO)
 
     return NC_NOERR;
 }
