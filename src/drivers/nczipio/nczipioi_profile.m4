@@ -17,12 +17,21 @@ dnl
 define(`CONCATE',dnl
 `dnl
     $1$2')dnl
-define(`PRINTTIME',dnl
+define(`PRINTTIMEMEAN',dnl
 `dnl
-            printf("#%%$: $1_mean %lf\n", tmean[$2]);
-            printf("#%%$: $1_max %lf\n", tmax[$2]);
-            printf("#%%$: $1_min %lf\n", tmin[$2]);
-            printf("#%%$: $1_var %lf\n", tvar[$2]);
+            printf("#%%$: $1_time_mean %lf\n", tmean[$2]);
+')dnl
+define(`PRINTTIMEVAR',dnl
+`dnl
+            printf("#%%$: $1_time_var %lf\n", tvar[$2]);
+')dnl
+define(`PRINTTIMEMAX',dnl
+`dnl
+            printf("#%%$: $1_time_max %lf\n", tmax[$2]);
+')dnl
+define(`PRINTTIMEMIN',dnl
+`dnl
+            printf("#%%$: $1_time_min %lf\n", tmin[$2]);
 ')dnl
 
 #ifdef HAVE_CONFIG_H
@@ -60,7 +69,13 @@ void nczipioi_print_profile(NC_zip *nczipp){
             tvar[i] /= nczipp->np;
         }
 
-foreach(`t', TIMERS, `PRINTTIME(translit(t, `()'))')dnl
+foreach(`t', TIMERS, `PRINTTIMEMEAN(translit(t, `()'))')dnl
+
+foreach(`t', TIMERS, `PRINTTIMEVAR(translit(t, `()'))')dnl
+
+foreach(`t', TIMERS, `PRINTTIMEMAX(translit(t, `()'))')dnl
+
+foreach(`t', TIMERS, `PRINTTIMEMIN(translit(t, `()'))')dnl
     }
 }
 #endif
