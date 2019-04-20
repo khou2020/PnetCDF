@@ -5,7 +5,7 @@
 /* $Id$ */
 
 /*
-   This is an example program which writes a 2-D compressed array
+   This is an example program which writes a 1-D compressed array
 
    $Id$
 */
@@ -21,7 +21,7 @@
 /* This is the name of the data file we will create. */
 #define FILE_NAME "debug.nc"
 
-#define N 10
+#define N 5
 
 int main(int argc, char **argv)
 {
@@ -30,8 +30,7 @@ int main(int argc, char **argv)
     int np, rank, nerrs = 0;
     int ncid, dimids[2], varid;
     int buf[N];
-    MPI_Offset start[N][2], count[N][2];
-    MPI_Offset *starts[N], *counts[N];
+    MPI_Offset start[2], count[2];
     MPI_Info info;
 
     /* Error handling. */
@@ -42,7 +41,7 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &np);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
+   
     if (argc > 3) {
         if (!rank)
             printf("Usage: %s [filename]\n", argv[0]);
@@ -58,6 +57,7 @@ int main(int argc, char **argv)
         printf("%-66s ------ ", cmd_str);
         free(cmd_str);
     }
+
     for(j = 0; j < 2; j++){
         /* Initialize file info */
         MPI_Info_create(&info);
@@ -70,45 +70,34 @@ int main(int argc, char **argv)
                 MPI_Info_set(info, "nc_zip_comm_unit", "proc");
                 break;
         }
-
+        
         /* Create the file. */
         err = ncmpi_create(MPI_COMM_WORLD, filename, NC_CLOBBER, info, &ncid);
         CHECK_ERR
 
         /* Define the dimension. */
-        err = ncmpi_def_dim(ncid, "X", np, dimids);
+        err = ncmpi_def_dim(ncid, "X", NC_UNLIMITED, dimids);
         CHECK_ERR
-        err = ncmpi_def_dim(ncid, "Y", N, dimids + 1);
+        err = ncmpi_def_dim(ncid, "Y", np, dimids + 1);
         CHECK_ERR
         
         /* Define the variable. */
         err = ncmpi_def_var(ncid, "M", NC_INT, 2, dimids, &varid);
         CHECK_ERR
 
-        /* Define chunk size. */
-        buf[0] = np;
-        buf[1] = 5;
-        err = ncmpi_put_att_int(ncid, varid, "_chunkdim", NC_INT, 2, buf);
-        CHECK_ERR
-        
         /* End define mode. */
         err = ncmpi_enddef(ncid);
         CHECK_ERR
 
         // Write variable
+        start[1] = rank;
+        count[0] = 1;
+        count[1] = 1;
         for(i = 0; i < N; i++){
-            start[i][0] = rank;
-            start[i][1] = i;
-            count[i][0] = 1;
-            count[i][1] = 1;
-            starts[i] = start[i];
-            counts[i] = count[i];
             buf[i] = rank * N + i + 1;
+            start[0] = i + rank;
+            err = ncmpi_put_vara_int_all(ncid, varid, start, count, buf + i);
         }
-        err = ncmpi_iput_varn_int(ncid, varid, N, starts, counts, buf, NULL);
-
-        /* Wait for all request */
-        err = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL); CHECK_ERR
 
         /* Close the file. */
         err = ncmpi_close(ncid);
@@ -123,19 +112,14 @@ int main(int argc, char **argv)
 
         // Read variable
         memset(buf, 0, sizeof(buf));
+        start[1] = rank;
+        count[0] = 1;
+        count[1] = 1;
         for(i = 0; i < N; i++){
-            start[i][0] = rank;
-            start[i][1] = i;
-            count[i][0] = 1;
-            count[i][1] = 1;
-            starts[i] = start[i];
-            counts[i] = count[i];
+            start[0] = i + rank;
+            err = ncmpi_get_vara_int_all(ncid, varid, start, count, buf + i); CHECK_ERR
         }
-        err = ncmpi_iget_varn_int(ncid, varid, N, starts, counts, buf, NULL);
 
-        /* Wait for all request */
-        err = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL); CHECK_ERR
-        
         // Check results
         for(i = 0; i < N; i++){
             if (buf[i] != rank * N + i + 1){

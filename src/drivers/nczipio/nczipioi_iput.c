@@ -34,15 +34,14 @@ static inline int
 nczipioi_init_put_req( NC_zip *nczipp,
                         NC_zip_req *req,
                         int        varid,
-                        MPI_Offset *start,
-                        MPI_Offset *count,
-                        MPI_Offset *stride, 
+                        const MPI_Offset *start,
+                        const MPI_Offset *count,
+                        const MPI_Offset *stride, 
                         const void *xbuf,
                         const void *buf) {
     int err;
     int i, j, k, l;
     int *tsize, *tssize, *tstart;   // Size for sub-array type
-    int *cstart, *cend, *citr; // Bounding box for chunks overlapping my own write region
     int overlapsize, packoff;
     MPI_Datatype ptype; // Pack datatype
     NC_zip_var *varp = nczipp->vars.data + varid;
@@ -77,9 +76,9 @@ nczipioi_init_put_req( NC_zip *nczipp,
 int
 nczipioi_iput_var(NC_zip        *nczipp,
               int               varid,
-              MPI_Offset        *start,
-              MPI_Offset        *count,
-              MPI_Offset        *stride,
+              const MPI_Offset        *start,
+              const MPI_Offset        *count,
+              const MPI_Offset        *stride,
               const void        *xbuf,
               const void        *buf,
               int               *reqid)
@@ -95,7 +94,7 @@ nczipioi_iput_var(NC_zip        *nczipp,
     nczipp->putlist.reqs[req_id] = req;
     
     if (reqid != NULL){
-        *reqid = req_id;
+        *reqid = req_id * 2 + 1;
     }
 
     return NC_NOERR;
@@ -157,8 +156,8 @@ int
 nczipioi_iput_varn(NC_zip        *nczipp,
               int               varid,
               int               nreq,
-              MPI_Offset        **starts,
-              MPI_Offset        **counts,
+              MPI_Offset * const*starts,
+              MPI_Offset * const*counts,
               const void        *xbuf,
               const void        *buf,
               int               *reqid)
@@ -179,7 +178,7 @@ nczipioi_iput_varn(NC_zip        *nczipp,
     nczipp->putlist.reqs[req_id] = req;
     
     if (reqid != NULL){
-        *reqid = req_id;
+        *reqid = req_id * 2 + 1;
     }
 
     return NC_NOERR;

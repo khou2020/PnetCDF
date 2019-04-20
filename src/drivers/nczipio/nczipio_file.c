@@ -132,7 +132,12 @@ nczipio_open(MPI_Comm     comm,
     strcpy(nczipp->path, path);
     nczipp->mode   = omode;
     nczipp->driver = driver;
-    nczipp->flag   = 0;
+    if (nczipp->mode & NC_WRITE){
+        nczipp->flag = 0;
+    }
+    else{
+        nczipp->flag |= NC_MODE_RDONLY;
+    }
     nczipp->ncp    = ncp;
     nczipp->comm   = comm;
     MPI_Comm_rank(comm, &(nczipp->rank));
@@ -162,9 +167,17 @@ int
 nczipio_close(void *ncdp)
 {
     int err;
+#ifdef PNETCDF_PROFILING
+    char *_env_str = getenv("PNETCDF_SHOW_PERFORMANCE_INFO");
+#endif
     NC_zip *nczipp = (NC_zip*)ncdp;
 
     if (nczipp == NULL) DEBUG_RETURN_ERROR(NC_EBADID)
+
+    if (!(nczipp->flag & NC_MODE_RDONLY)){
+        err = nczipp->driver->put_att(nczipp->ncp, NC_GLOBAL, "_recsize", NC_INT64, 1, &(nczipp->recsize), MPI_LONG_LONG); // Mark this file as compressed
+        if (err != NC_NOERR) return err;
+    }
 
     err = nczipp->driver->close(nczipp->ncp);
 
@@ -172,6 +185,12 @@ nczipio_close(void *ncdp)
 
     nczipioi_req_list_free(&(nczipp->putlist));
     nczipioi_req_list_free(&(nczipp->getlist));
+
+#ifdef PNETCDF_PROFILING
+    if (_env_str != NULL && *_env_str != '0') {                        
+        nczipioi_print_profile(nczipp);
+    }            
+#endif
 
     NCI_Free(nczipp->path);
     NCI_Free(nczipp);
@@ -348,11 +367,92 @@ nczipio_wait(void *ncdp,
            int  *statuses,
            int   reqMode)
 {
-    int err;
+    int err, status = NC_NOERR;
+    int i;
+    int ncom = 0, nraw = 0;
+    int *rawreqs = NULL, *comreqs = NULL;
+    int *rawstats = NULL, *comstats = NULL;
     NC_zip *nczipp = (NC_zip*)ncdp;
 
-    nczipioi_wait(nczipp, num_reqs, req_ids, statuses, reqMode);
+    if (num_reqs < 0){  // NC_REQ_ALL || nreqs == NC_PUT_REQ_ALL || nreqs == NC_GET_REQ_ALL
+        err = nczipioi_wait(nczipp, num_reqs, NULL, NULL, reqMode);
+        if (status == NC_NOERR){
+            status = err;
+        }
+        err = nczipp->driver->wait(nczipp->ncp, num_reqs, NULL, NULL, reqMode);
+        if (status == NC_NOERR){
+            status = err;
+        }
+        return status;
+    }
 
+    if (num_reqs > 0){
+        // Count number of get and put requests
+        for(i = 0; i < num_reqs; i++){
+            if (req_ids[i] & 1){
+                nraw++;
+            }
+        }
+
+        // Allocate buffer
+        ncom = num_reqs - nraw;
+        rawreqs = (int*)NCI_Malloc(sizeof(int) * nraw);
+        comreqs = (int*)NCI_Malloc(sizeof(int) * ncom);
+        
+        // Build put and get req list
+        nraw = ncom = 0;
+        for(i = 0; i < num_reqs; i++){
+            if (req_ids[i] & 1){
+                rawreqs[nraw++] = req_ids[i] >> 1;
+            }
+            else{
+                comreqs[ncom++] = req_ids[i] >> 1;
+            }
+        }
+    }
+
+    if (statuses != NULL){
+        rawstats = (int*)NCI_Malloc(sizeof(int) * nraw);
+        comstats = (int*)NCI_Malloc(sizeof(int) * ncom);
+    }
+    else{
+        rawstats = NULL;
+        comstats = NULL;
+    }
+
+    if (nraw > 0){
+        err = nczipioi_wait_put_reqs(nczipp, nraw, rawreqs, rawstats);
+        if (status == NC_NOERR){
+            status = err;
+        }
+    }
+    
+    if (ncom > 0){
+        err = nczipioi_wait(nczipp, ncom, comreqs, comstats, reqMode);
+        if (status == NC_NOERR){
+            status = err;
+        }
+    }
+
+    // Assign stats
+    if (statuses != NULL){
+        nraw = ncom = 0;
+        for(i = 0; i < num_reqs; i++){
+            if (req_ids[i] & 1){
+                statuses[i] = rawstats[nraw++];
+            }
+            else{
+                statuses[i] = comstats[ncom++];
+            }
+        }
+
+        NCI_Free(rawstats);
+        NCI_Free(comstats);
+    }
+    
+    NCI_Free(rawreqs);
+    NCI_Free(comreqs);
+    
     return NC_NOERR;
 }
 
