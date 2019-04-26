@@ -17,12 +17,21 @@ dnl
 define(`CONCATE',dnl
 `dnl
     $1$2')dnl
-define(`PRINTTIME',dnl
+define(`PRINTTIMEMEAN',dnl
 `dnl
-            printf("#%%$: $1_mean %lf\n", tmean[$2]);
-            printf("#%%$: $1_max %lf\n", tmax[$2]);
-            printf("#%%$: $1_min %lf\n", tmin[$2]);
-            printf("#%%$: $1_var %lf\n", tvar[$2]);
+            printf("#%%$: $1_time_mean %lf\n", tmean[$2]);
+')dnl
+define(`PRINTTIMEVAR',dnl
+`dnl
+            printf("#%%$: $1_time_var %lf\n", tvar[$2]);
+')dnl
+define(`PRINTTIMEMAX',dnl
+`dnl
+            printf("#%%$: $1_time_max %lf\n", tmax[$2]);
+')dnl
+define(`PRINTTIMEMIN',dnl
+`dnl
+            printf("#%%$: $1_time_min %lf\n", tmin[$2]);
 ')dnl
 
 #ifdef HAVE_CONFIG_H
@@ -43,12 +52,13 @@ define(`PRINTTIME',dnl
  */
 #ifdef PNETCDF_PROFILING
 void nczipioi_print_profile(NC_zip *nczipp){
+    in err;
     int i;
     double tmax[NTIMER], tmin[NTIMER], tmean[NTIMER], tvar[NTIMER], tvar_local[NTIMER];
 
     MPI_Reduce(nczipp->profile.tt, tmax, NTIMER, MPI_DOUBLE, MPI_MAX, 0, nczipp->comm);
     MPI_Reduce(nczipp->profile.tt, tmin, NTIMER, MPI_DOUBLE, MPI_MIN, 0, nczipp->comm);
-    MPI_Allreduce(nczipp->profile.tt, tmean, NTIMER, MPI_DOUBLE, MPI_SUM, nczipp->comm);
+    CHK_ERR_ALLREDUCE(nczipp->profile.tt, tmean, NTIMER, MPI_DOUBLE, MPI_SUM, nczipp->comm);
     for(i = 0; i < NTIMER; i++){
         tmean[i] /= nczipp->np;
         tvar_local[i] = (nczipp->profile.tt[i] - tmean[i]) * (nczipp->profile.tt[i] - tmean[i]);
@@ -60,7 +70,13 @@ void nczipioi_print_profile(NC_zip *nczipp){
             tvar[i] /= nczipp->np;
         }
 
-foreach(`t', TIMERS, `PRINTTIME(translit(t, `()'))')dnl
+foreach(`t', TIMERS, `PRINTTIMEMEAN(translit(t, `()'))')dnl
+
+foreach(`t', TIMERS, `PRINTTIMEVAR(translit(t, `()'))')dnl
+
+foreach(`t', TIMERS, `PRINTTIMEMAX(translit(t, `()'))')dnl
+
+foreach(`t', TIMERS, `PRINTTIMEMIN(translit(t, `()'))')dnl
     }
 }
 #endif

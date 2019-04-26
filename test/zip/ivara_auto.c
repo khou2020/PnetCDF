@@ -5,7 +5,7 @@
 /* $Id$ */
 
 /*
-   This is an example program which writes a 2-D compressed array
+   This is an example program which writes a 1-D compressed array
 
    $Id$
 */
@@ -21,7 +21,7 @@
 /* This is the name of the data file we will create. */
 #define FILE_NAME "debug.nc"
 
-#define N 10
+#define N 5
 
 int main(int argc, char **argv)
 {
@@ -29,9 +29,9 @@ int main(int argc, char **argv)
     int i, j;
     int np, rank, nerrs = 0;
     int ncid, dimids[2], varid;
-    int buf[N];
-    MPI_Offset start[N][2], count[N][2];
-    MPI_Offset *starts[N], *counts[N];
+    int buf[N * N];
+    int reqids[N];
+    MPI_Offset start[2], count[2];
     MPI_Info info;
 
     /* Error handling. */
@@ -58,10 +58,12 @@ int main(int argc, char **argv)
         printf("%-66s ------ ", cmd_str);
         free(cmd_str);
     }
+
     for(j = 0; j < 2; j++){
         /* Initialize file info */
         MPI_Info_create(&info);
         MPI_Info_set(info, "nc_compression", "enable");
+        MPI_Info_set(info, "nc_zip_delay_init", "1");
         switch(j){
             case 0:
                 MPI_Info_set(info, "nc_zip_comm_unit", "chunk");
@@ -76,36 +78,32 @@ int main(int argc, char **argv)
         CHECK_ERR
 
         /* Define the dimension. */
-        err = ncmpi_def_dim(ncid, "X", np, dimids);
+        err = ncmpi_def_dim(ncid, "X", np * N, dimids);
         CHECK_ERR
-        err = ncmpi_def_dim(ncid, "Y", N, dimids + 1);
+        err = ncmpi_def_dim(ncid, "Y", np * N, dimids + 1);
         CHECK_ERR
         
         /* Define the variable. */
         err = ncmpi_def_var(ncid, "M", NC_INT, 2, dimids, &varid);
         CHECK_ERR
 
-        /* Define chunk size. */
-        buf[0] = np;
-        buf[1] = 5;
-        err = ncmpi_put_att_int(ncid, varid, "_chunkdim", NC_INT, 2, buf);
-        CHECK_ERR
-        
         /* End define mode. */
         err = ncmpi_enddef(ncid);
         CHECK_ERR
 
-        // Write variable
-        for(i = 0; i < N; i++){
-            start[i][0] = rank;
-            start[i][1] = i;
-            count[i][0] = 1;
-            count[i][1] = 1;
-            starts[i] = start[i];
-            counts[i] = count[i];
-            buf[i] = rank * N + i + 1;
+        // Init buffer
+        for(i = 0; i < N * N; i++){
+            buf[i] = rank + i + 1;
         }
-        err = ncmpi_iput_varn_int(ncid, varid, N, starts, counts, buf, NULL);
+
+        // Write variable
+        count[0] = N;
+        count[1] = N;
+        for(i = 0; i < np; i++){
+            start[0] = i * N ;
+            start[1] = ((i + rank) % np) * N ;
+            err = ncmpi_iput_vara_int(ncid, varid, start, count, buf, reqids + i); CHECK_ERR
+        }
 
         /* Wait for all request */
         err = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL); CHECK_ERR
@@ -122,25 +120,20 @@ int main(int argc, char **argv)
         MPI_Info_free(&info);
 
         // Read variable
-        memset(buf, 0, sizeof(buf));
-        for(i = 0; i < N; i++){
-            start[i][0] = rank;
-            start[i][1] = i;
-            count[i][0] = 1;
-            count[i][1] = 1;
-            starts[i] = start[i];
-            counts[i] = count[i];
-        }
-        err = ncmpi_iget_varn_int(ncid, varid, N, starts, counts, buf, NULL);
+        count[0] = N;
+        count[1] = N;
+        for(i = 0; i < np; i++){
+            memset(buf, 0, sizeof(buf));
+            start[0] = i * N ;
+            start[1] = ((i + rank) % np) * N ;
+            err = ncmpi_get_vara_int_all(ncid, varid, start, count, buf); CHECK_ERR
 
-        /* Wait for all request */
-        err = ncmpi_wait_all(ncid, NC_REQ_ALL, NULL, NULL); CHECK_ERR
-        
-        // Check results
-        for(i = 0; i < N; i++){
-            if (buf[i] != rank * N + i + 1){
-                printf("Error at %s:%d: expect buf[%d]=%d but got %d\n",
-                    __FILE__,__LINE__, i , rank * N + i + 1, buf[i]);
+            // Check results
+            for(j = 0; j < N * N; j++){
+                if (buf[j] != rank + j + 1){
+                    printf("Error at %s:%d: expect round %d buf[%d]=%d but got %d\n",
+                        __FILE__,__LINE__, i , rank + j + 1, buf[j]);
+                }
             }
         }
 

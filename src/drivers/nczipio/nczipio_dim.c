@@ -39,6 +39,10 @@ nczipio_def_dim(void       *ncdp,
     err = nczipp->driver->def_dim(nczipp->ncp, name, size, dimidp);
     if (err != NC_NOERR) return err;
 
+    if (size == NC_UNLIMITED){
+        nczipp->recdim = *dimidp;
+    }
+
     return NC_NOERR;
 }
 
@@ -67,6 +71,12 @@ nczipio_inq_dim(void       *ncdp,
 
     err = nczipp->driver->inq_dim(nczipp->ncp, dimid, name, sizep);
     if (err != NC_NOERR) return err;
+
+    if (dimid == nczipp->recdim){   // update # records
+        if (*sizep < nczipp->recsize){
+            *sizep = nczipp->recsize;
+        }
+    }
 
     return NC_NOERR;
 }

@@ -132,7 +132,12 @@ nczipio_open(MPI_Comm     comm,
     strcpy(nczipp->path, path);
     nczipp->mode   = omode;
     nczipp->driver = driver;
-    nczipp->flag   = 0;
+    if (nczipp->mode & NC_WRITE){
+        nczipp->flag = 0;
+    }
+    else{
+        nczipp->flag |= NC_MODE_RDONLY;
+    }
     nczipp->ncp    = ncp;
     nczipp->comm   = comm;
     MPI_Comm_rank(comm, &(nczipp->rank));
@@ -169,6 +174,26 @@ nczipio_close(void *ncdp)
 
     if (nczipp == NULL) DEBUG_RETURN_ERROR(NC_EBADID)
 
+    if (nczipp->delay_init && (!(nczipp->flag & NC_MODE_RDONLY))){
+        int i;
+
+        err = nczipp->driver->redef(nczipp->ncp);
+        if (err != NC_NOERR){
+            return err;
+        }
+        for(i = 0; i < nczipp->vars.cnt; i++){
+            err = nczipp->driver->put_att(nczipp->ncp, nczipp->vars.data[i].varid, "_chunkdim", NC_INT, nczipp->vars.data[i].ndim, nczipp->vars.data[i].chunkdim, MPI_INT);
+            if (err != NC_NOERR){
+                return err;
+            }
+        }
+    }
+
+    if (!(nczipp->flag & NC_MODE_RDONLY)){
+        err = nczipp->driver->put_att(nczipp->ncp, NC_GLOBAL, "_recsize", NC_INT64, 1, &(nczipp->recsize), MPI_LONG_LONG); // Mark this file as compressed
+        if (err != NC_NOERR) return err;
+    }
+
     err = nczipp->driver->close(nczipp->ncp);
 
     err = nczipioi_var_list_free(&(nczipp->vars));
@@ -194,8 +219,10 @@ nczipio_enddef(void *ncdp)
     int i, err;
     NC_zip *nczipp = (NC_zip*)ncdp;
     
-    for(i = 0; i < nczipp->vars.cnt; i++){
-        nczipioi_var_init(nczipp, nczipp->vars.data, 1);
+    if (!(nczipp->delay_init)){
+        for(i = 0; i < nczipp->vars.cnt; i++){
+            nczipioi_var_init(nczipp, nczipp->vars.data + i, 1, 0, NULL, NULL);
+        }
     }
 
     err = nczipp->driver->enddef(nczipp->ncp);
@@ -214,8 +241,10 @@ nczipio__enddef(void       *ncdp,
     int i, err;
     NC_zip *nczipp = (NC_zip*)ncdp;
 
-    for(i = 0; i < nczipp->vars.cnt; i++){
-        nczipioi_var_init(nczipp, nczipp->vars.data + i, 1);
+    if (!(nczipp->delay_init)){
+        for(i = 0; i < nczipp->vars.cnt; i++){
+            nczipioi_var_init(nczipp, nczipp->vars.data + i, 1, 0, NULL, NULL);
+        }
     }
 
     err = nczipp->driver->_enddef(nczipp->ncp, h_minfree, v_align, v_minfree,
@@ -357,11 +386,92 @@ nczipio_wait(void *ncdp,
            int  *statuses,
            int   reqMode)
 {
-    int err;
+    int err, status = NC_NOERR;
+    int i;
+    int ncom = 0, nraw = 0;
+    int *rawreqs = NULL, *comreqs = NULL;
+    int *rawstats = NULL, *comstats = NULL;
     NC_zip *nczipp = (NC_zip*)ncdp;
 
-    nczipioi_wait(nczipp, num_reqs, req_ids, statuses, reqMode);
+    if (num_reqs < 0){  // NC_REQ_ALL || nreqs == NC_PUT_REQ_ALL || nreqs == NC_GET_REQ_ALL
+        err = nczipioi_wait(nczipp, num_reqs, NULL, NULL, reqMode);
+        if (status == NC_NOERR){
+            status = err;
+        }
+        err = nczipp->driver->wait(nczipp->ncp, num_reqs, NULL, NULL, reqMode);
+        if (status == NC_NOERR){
+            status = err;
+        }
+        return status;
+    }
 
+    if (num_reqs > 0){
+        // Count number of get and put requests
+        for(i = 0; i < num_reqs; i++){
+            if (req_ids[i] & 1){
+                nraw++;
+            }
+        }
+
+        // Allocate buffer
+        ncom = num_reqs - nraw;
+        rawreqs = (int*)NCI_Malloc(sizeof(int) * nraw);
+        comreqs = (int*)NCI_Malloc(sizeof(int) * ncom);
+        
+        // Build put and get req list
+        nraw = ncom = 0;
+        for(i = 0; i < num_reqs; i++){
+            if (req_ids[i] & 1){
+                rawreqs[nraw++] = req_ids[i] >> 1;
+            }
+            else{
+                comreqs[ncom++] = req_ids[i] >> 1;
+            }
+        }
+    }
+
+    if (statuses != NULL){
+        rawstats = (int*)NCI_Malloc(sizeof(int) * nraw);
+        comstats = (int*)NCI_Malloc(sizeof(int) * ncom);
+    }
+    else{
+        rawstats = NULL;
+        comstats = NULL;
+    }
+
+    if (nraw > 0){
+        err = nczipioi_wait_put_reqs(nczipp, nraw, rawreqs, rawstats);
+        if (status == NC_NOERR){
+            status = err;
+        }
+    }
+    
+    if (ncom > 0){
+        err = nczipioi_wait(nczipp, ncom, comreqs, comstats, reqMode);
+        if (status == NC_NOERR){
+            status = err;
+        }
+    }
+
+    // Assign stats
+    if (statuses != NULL){
+        nraw = ncom = 0;
+        for(i = 0; i < num_reqs; i++){
+            if (req_ids[i] & 1){
+                statuses[i] = rawstats[nraw++];
+            }
+            else{
+                statuses[i] = comstats[ncom++];
+            }
+        }
+
+        NCI_Free(rawstats);
+        NCI_Free(comstats);
+    }
+    
+    NCI_Free(rawreqs);
+    NCI_Free(comreqs);
+    
     return NC_NOERR;
 }
 

@@ -3,6 +3,92 @@
 
 #include "nczipio_driver.h"
 
+#define CHK_ERR_ALLREDUCE(V0,V1,V2,V3,V4,V5) \
+        err = MPI_Allreduce(V0,V1,V2,V3,V4,V5); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Allreduce"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+
+#define CHK_ERR_PACK(V0,V1,V2,V3,V4,V5,V6) \
+        err = MPI_Pack(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Pack"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_UNPACK(V0,V1,V2,V3,V4,V5,V6) \
+        err = MPI_Unpack(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Unpack"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_TYPE_COMMIT(V0) \
+        err = MPI_Type_commit(V0); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Type_commit"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_TYPE_CREATE_SUBARRAY(V0,V1,V2,V3,V4,V5,V6) \
+        err = MPI_Type_create_subarray(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Type_create_subarray"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_WAITALL(V0,V1,V2) \
+        err = MPI_Waitall(V0,V1,V2); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Waitall"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_MPROBE(V0,V1,V2,V3,V4) \
+        err = MPI_Mprobe(V0,V1,V2,V3,V4); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Mprobe"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_GET_COUNT(V0,V1,V2) \
+        err = MPI_Get_count(V0,V1,V2); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Get_count"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_IMRECV(V0,V1,V2,V3,V4) \
+        err = MPI_Imrecv(V0,V1,V2,V3,V4); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Imrecv"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_ISEND(V0,V1,V2,V3,V4,V5,V6) \
+        err = MPI_Isend(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Isend"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_IRECV(V0,V1,V2,V3,V4,V5,V6) \
+        err = MPI_Irecv(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Irecv"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_SET_VIEW(V0,V1,V2,V3,V4,V5) \
+        err = MPI_File_set_view(V0,V1,V2,V3,V4,V5); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_File_set_view"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_READ_AT_ALL(V0,V1,V2,V3,V4,V5) \
+        err = MPI_File_read_at_all(V0,V1,V2,V3,V4,V5); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_File_read_at_all"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_WRITE_AT_ALL(V0,V1,V2,V3,V4,V5) \
+        err = MPI_File_write_at_all(V0,V1,V2,V3,V4,V5); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_File_write_at_all"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+
 typedef struct NC_zip_vector{
     int esize;
     int size;
@@ -24,8 +110,7 @@ extern MPI_Offset NC_Type_size(nc_type);
 extern void nczipioi_print_profile(NC_zip*);
 
 // Var
-extern int nczipioi_var_init(NC_zip*, NC_zip_var*, int);
-extern int nczipioi_var_init(NC_zip*, NC_zip_var*, int);
+extern int nczipioi_var_init(NC_zip*, NC_zip_var*, int, int, MPI_Offset**, MPI_Offset**);
 extern int nczipioi_load_var(NC_zip*, NC_zip_var*, int, int*);
 extern int nczipioi_load_nvar(NC_zip*, int, int*);
 extern int nczipioi_save_var(NC_zip*, NC_zip_var*);
