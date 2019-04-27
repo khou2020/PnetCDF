@@ -46,13 +46,14 @@ define(`PRINTTIMEMIN',dnl
 #include <pnc_debug.h>
 #include <common.h>
 #include <nczipio_driver.h>
+#include "nczipio_internal.h"
 
 /*
  * Report performance profiling
  */
 #ifdef PNETCDF_PROFILING
 void nczipioi_print_profile(NC_zip *nczipp){
-    in err;
+    int err;
     int i;
     double tmax[NTIMER], tmin[NTIMER], tmean[NTIMER], tvar[NTIMER], tvar_local[NTIMER];
 

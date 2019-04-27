@@ -88,6 +88,10 @@
             err = ncmpii_error_mpi2nc(err, "MPI_File_write_at_all"); \
             DEBUG_RETURN_ERROR(err) \
         }
+#define CHK_ALLOC(V0) \
+        if (V0 == NULL){ \
+            DEBUG_RETURN_ERROR(NC_ENOMEM) \
+        }
 
 typedef struct NC_zip_vector{
     int esize;
@@ -109,6 +113,10 @@ extern int nczipioi_export_hint(NC_zip *nczipp, MPI_Info info);
 extern MPI_Offset NC_Type_size(nc_type);
 extern void nczipioi_print_profile(NC_zip*);
 
+// Misc
+extern int nczipioi_calc_chunk_owner(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
+extern int nczipioi_calc_chunk_size(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
+
 // Var
 extern int nczipioi_var_init(NC_zip*, NC_zip_var*, int, int, MPI_Offset**, MPI_Offset**);
 extern int nczipioi_load_var(NC_zip*, NC_zip_var*, int, int*);
@@ -116,6 +124,7 @@ extern int nczipioi_load_nvar(NC_zip*, int, int*);
 extern int nczipioi_save_var(NC_zip*, NC_zip_var*);
 extern int nczipioi_save_nvar(NC_zip*, int, int*);
 extern void nczipioi_var_free(NC_zip_var*);
+extern int nczipioi_var_resize(NC_zip*, NC_zip_var*);
 
 // Chunks
 extern int nczipioi_chunk_itr_init(NC_zip_var*, const MPI_Offset*, const MPI_Offset*, MPI_Offset*, int*);
