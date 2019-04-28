@@ -292,8 +292,8 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
                     }
                     CHK_ERR_PACK(&(req->varid), 1, MPI_INT, sbuf[j], ssize[j], soff + j, nczipp->comm);
                     CHK_ERR_PACK(&cid, 1, MPI_INT, sbuf[j], ssize[j], soff + j, nczipp->comm);
-                    CHK_ERR_PACK(tstart, varp->ndim << 1, MPI_INT, sbuf[j], ssize[j], soff + j, nczipp->comm);
-                    //CHK_ERR_PACK(tssize, varp->ndim, MPI_INT, sbuf[j], ssize[j], soff + j, nczipp->comm);
+                    CHK_ERR_PACK(tstart, varp->ndim, MPI_INT, sbuf[j], ssize[j], soff + j, nczipp->comm);
+                    CHK_ERR_PACK(tssize, varp->ndim, MPI_INT, sbuf[j], ssize[j], soff + j, nczipp->comm);
                     // Pack data
                     CHK_ERR_PACK(req->xbufs[r], 1, ptype, sbuf[j], ssize[j], soff + j, nczipp->comm);
                     MPI_Type_free(&ptype);
@@ -406,8 +406,8 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             CHK_ERR_UNPACK(rbuf[j], rsize[j], &packoff, &vid, 1, MPI_INT, nczipp->comm);
             CHK_ERR_UNPACK(rbuf[j], rsize[j], &packoff, &cid, 1, MPI_INT, nczipp->comm);
             varp = nczipp->vars.data + vid;
-            CHK_ERR_UNPACK(rbuf[j], rsize[j], &packoff, tstart, varp->ndim << 1, MPI_INT, nczipp->comm);
-            //CHK_ERR_UNPACK(rbuf[j], rsize[j], &packoff, tssize, varp->ndim, MPI_INT, nczipp->comm);
+            CHK_ERR_UNPACK(rbuf[j], rsize[j], &packoff, tstart, varp->ndim, MPI_INT, nczipp->comm);
+            CHK_ERR_UNPACK(rbuf[j], rsize[j], &packoff, tssize, varp->ndim, MPI_INT, nczipp->comm);
 
             //printf("Rank: %d, cid = %d, CHK_ERR_TYPE_CREATE_SUBARRAY_recv([%d, %d], [%d, %d], [%d, %d]\n", nczipp->rank, cid, tsize[0], tsize[1], tssize[0], tssize[1], tstart[0], tstart[1]); fflush(stdout);
             // Pack type
