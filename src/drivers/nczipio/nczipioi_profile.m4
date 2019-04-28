@@ -52,7 +52,7 @@ define(`PRINTTIMEMIN',dnl
  * Report performance profiling
  */
 #ifdef PNETCDF_PROFILING
-void nczipioi_print_profile(NC_zip *nczipp){
+int nczipioi_print_profile(NC_zip *nczipp){
     int err;
     int i;
     double tmax[NTIMER], tmin[NTIMER], tmean[NTIMER], tvar[NTIMER], tvar_local[NTIMER];

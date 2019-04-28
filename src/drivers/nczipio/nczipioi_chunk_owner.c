@@ -63,6 +63,7 @@ int nczipioi_calc_chunk_owner(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Of
     for(i = 0; i < varp->nchunk; i++){
         ocnt[i].rank = nczipp->rank;
     }
+
     CHK_ERR_ALLREDUCE(ocnt, ocnt_all, varp->nchunk, MPI_2INT, MPI_MAXLOC, nczipp->comm);
 
     for(i = 0; i < varp->nchunk; i++){
