@@ -109,6 +109,13 @@ int nczipioi_calc_chunk_size(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Off
         }
     }
 
+    // At least 1 for rec dim
+    if (varp->isrec){
+        if (chunkdim[0] == 0){
+            chunkdim[0] = 1;
+        }
+    }
+
     // Check if chunk size is resonable (not too large or too small)
     chunksize = 1;
     for(i = 0; i < varp->ndim; i++){
@@ -205,6 +212,13 @@ int nczipioi_calc_chunk_size(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Off
         // Still not enough after doing everything, just set to entire var
         if (chunksize < lb){
             memcpy(chunkdim, varp->dimsize, sizeof(MPI_Offset) * varp->ndim);
+            
+            // At least 1 for rec dim
+            if (varp->isrec){
+                if (chunkdim[0] == 0){
+                    chunkdim[0] = 1;
+                }
+            }
         }
     }
 
