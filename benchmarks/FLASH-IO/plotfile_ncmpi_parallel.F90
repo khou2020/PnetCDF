@@ -379,6 +379,8 @@
 
       ! disable file offset alignment for fixed-size variables
       call MPI_Info_set(file_info, "nc_var_align_size", "1", err)
+      call MPI_Info_set(file_info, "nc_compression", "enable", err)
+      call MPI_Info_set(file_info, "nc_zip_delay_init", "1", err)
 
       cmode = IOR(NF_CLOBBER, NF_64BIT_DATA)
       err = nfmpi_create(MPI_COMM_WORLD, trim(filename), cmode, &
@@ -530,7 +532,7 @@
           buf_size = (nxb+1) * (nyb+k2d) * (nzb+k3d) * maxblocks
           buf_size = buf_size + nxb * nyb * nzb * maxblocks
           buf_size = buf_size * num_out * 4
-          err = nfmpi_buffer_attach(ncid, buf_size)
+          !err = nfmpi_buffer_attach(ncid, buf_size)
       endif
 
 !-----------------------------------------------------------------------------
@@ -610,7 +612,7 @@
             counts(3) = nzb+ik3d
             counts(4) = lnblocks
             if (use_nonblocking_io) then
-                err = nfmpi_bput_vara_real(ncid, varid(6+ivar), starts, counts, unkt_crn, reqs(ivar+6))
+                err = nfmpi_iput_vara_real(ncid, varid(6+ivar), starts, counts, unkt_crn, reqs(ivar+6))
                 if (err .NE. NF_NOERR) call check(err, "nfmpi_bput_vara_real: unknowns sp")
             else
                 err = nfmpi_put_vara_real_all(ncid, varid(6+ivar), starts, counts, unkt_crn)
@@ -657,9 +659,9 @@
           enddo
 
           ! detach the temporary buffer
-          err = nfmpi_buffer_detach(ncid)
-          if (err .NE. NF_NOERR) &
-              call check(err, "(sp) nfmpi_buffer_detach: ")
+          !err = nfmpi_buffer_detach(ncid)
+          !if (err .NE. NF_NOERR) &
+          !    call check(err, "(sp) nfmpi_buffer_detach: ")
       endif
 
 !-----------------------------------------------------------------------------
