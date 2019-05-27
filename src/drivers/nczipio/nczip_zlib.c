@@ -99,7 +99,7 @@ int nczip_zlib_compress_alloc(void *in, int in_len, void **out, int *out_len, in
     if (bsize < 6){
         bsize = 6;
     }
-    buf = (char*)NCI_Malloc(bsize); 
+    buf = (char*)malloc(bsize); 
 
     // zlib struct
     z_stream defstream;
@@ -222,7 +222,7 @@ int nczip_zlib_decompress_alloc(void *in, int in_len, void **out, int *out_len, 
     int bsize = in_len << 1; // Start by 2 times of the in_len
     char *buf;
 
-    buf = (char*)NCI_Malloc(bsize); 
+    buf = (char*)malloc(bsize); 
 
     // zlib struct
     z_stream infstream;
