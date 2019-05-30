@@ -12,9 +12,12 @@ SUFFIXES = .o .F90
 
 FC = $(MPIF90)
 
+flash_benchmark_io_LDADD = -lpnetcdf
+
 if BUILD_BENCHMARKS_IN_PNETCDF
    AM_FCFLAGS = $(FC_MODINC)${top_builddir}/src/binding/f90
    AM_LDFLAGS = -L${top_builddir}/src/libs
+   flash_benchmark_io_LDADD += @NETCDF4_LDFLAGS@ @ADIOS_LDFLAGS@ @NETCDF4_LIBS@ @ADIOS_LIBS@  
 else
    AM_FCFLAGS = $(FC_MODINC)$(PNETCDF_INC)
    AM_LDFLAGS = $(PNETCDF_LIB)
@@ -36,9 +39,6 @@ flash_benchmark_io_SOURCES = get_mfluid_property.F90 \
                              flash_benchmark_io.F90 \
                              checkpoint_ncmpi_parallel.F90 \
                              plotfile_ncmpi_parallel.F90
-
-# flash_benchmark_io_LDFLAGS = $(PNETCDF_LIB)
-flash_benchmark_io_LDADD   = -lpnetcdf
 
 EXTRA_DIST = block_boundary_data.fh \
              common.fh \
@@ -69,6 +69,10 @@ TESTS_ENVIRONMENT += export PNETCDF_DEBUG="$(PNETCDF_DEBUG)";
 TESTS_ENVIRONMENT += export TESTPROGRAMS="$(TESTPROGRAMS)";
 TESTS_ENVIRONMENT += export check_PROGRAMS="$(check_PROGRAMS)";
 TESTS_ENVIRONMENT += export ENABLE_BURST_BUFFER="$(ENABLE_BURST_BUFFER)";
+if BUILD_BENCHMARKS_IN_PNETCDF
+   TESTS_ENVIRONMENT += export BUILD_BENCHMARKS_IN_PNETCDF=1;
+endif
+
 
 ptest ptests ptest4: $(check_PROGRAMS)
 	@echo "==========================================================="

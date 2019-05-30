@@ -41,9 +41,12 @@
       nf_short = 3, &
       nf_int2 = nf_short, &
       nf_int = 4, &
+      nf_int4 = nf_int, &
       nf_float = 5, &
       nf_real = nf_float, &
+      nf_real4 = nf_float, &
       nf_double = 6, &
+      nf_real8 = nf_double, &
       nf_ubyte = 7, &
       nf_ushort = 8, &
       nf_uint = 9, &
@@ -65,10 +68,12 @@
 
       real, parameter, public :: &
       nf_fill_float = 9.9692099683868690e+36, &
-      nf_fill_real = nf_fill_float
+      nf_fill_real = nf_fill_float, &
+      nf_fill_real4 = nf_fill_float
 
       double precision, parameter, public :: &
       nf_fill_double = 9.9692099683868690e+36, &
+      nf_fill_real8 = nf_fill_double, &
       nf_fill_uint64 = 1.8446744073709551614e+19
 
       integer (KIND=EightByteInt), parameter, public :: &
@@ -93,6 +98,7 @@
       nf_cdf5                   = 32,       &
       nf_64bit_data             = nf_cdf5,  &
       nf_netcdf4                = 4096,     &
+      nf_bp                     = 65536,    &
 
       nf_mpiio                  = 8192,     &
       nf_pnetcdf                = nf_mpiio, &
@@ -111,6 +117,7 @@
       nf_format_64bit_data      = nf_format_cdf5, &
       nf_format_netcdf4         = 3,              &
       nf_format_netcdf4_classic = 4,              &
+      nf_format_bp              = 6,              &
       nf_format_unknown         = -1
 
 !
@@ -282,8 +289,8 @@
       NF_EPENDING                 = -236, & ! Pending nonblocking request is found at file close
       NF_EMAX_REQ                 = -237, & ! Size of I/O request exceeds INT_MAX
       NF_EBADLOG                  = -238, & ! Unrecognized log file format
-      NF_EFLUSHED                 = -239    ! Nonblocking request has already been flushed to the PFS. It is too late to cancel
-
+      NF_EFLUSHED                 = -239, & ! Nonblocking request has already been flushed to the PFS. It is too late to cancel
+      NF_EADIOS                   = -240    ! ADIOS internal error
 ! header inconsistency error starts in -250
       integer, parameter, public :: &
       NF_EMULTIDEFINE             = -250, & ! NC definitions inconsistent among processes

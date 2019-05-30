@@ -1,8 +1,6 @@
 /*
  *  Copyright (C) 2017, Northwestern University and Argonne National Laboratory
  *  See COPYRIGHT notice in top-level directory.
- *
- *  $Id$
  */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -71,11 +69,12 @@ int main(int argc, char** argv) {
     }
     if (argc == 2) snprintf(filename, 256, "%s", argv[1]);
     else           strcpy(filename, FILE_NAME);
+    MPI_Bcast(filename, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         char *cmd_str = (char*)malloc(strlen(argv[0]) + 256);
         sprintf(cmd_str,
-        "*** TESTING C   %s for checking netcdf4 open",
+        "*** TESTING C   %s for opening and reading a netcdf4 file",
         basename(argv[0]));
         printf("%-66s ------ ", cmd_str); fflush(stdout);
         free(cmd_str);
@@ -89,6 +88,9 @@ int main(int argc, char** argv) {
 
     /* Create the file. The NC_NETCDF4 parameter tells netCDF to create
      * a file in netCDF-4/HDF5 standard. */
+
+    /* Note NC_MPIIO is used in NetCDF 4.6.1 and earlier, but ignored in 4.6.2
+     * and after. */
     if ((err = nc_create_par(filename, NC_NETCDF4 | NC_MPIIO, MPI_COMM_WORLD, MPI_INFO_NULL, &ncid)))
         CHECK_ERR
 

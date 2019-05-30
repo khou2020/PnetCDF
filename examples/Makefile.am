@@ -7,7 +7,7 @@
 # @configure_input@
 
 SUBDIRS = C tutorial
-DIST_SUBDIRS = C tutorial CXX F77 F90 burst_buffer
+DIST_SUBDIRS = C tutorial CXX F77 F90 burst_buffer adios
 
 if HAS_MPICXX
 SUBDIRS += CXX
@@ -22,6 +22,10 @@ endif
 
 if ENABLE_BURST_BUFFER
 SUBDIRS += burst_buffer
+endif
+
+if ENABLE_ADIOS
+   SUBDIRS += adios
 endif
 
 EXTRA_DIST = README

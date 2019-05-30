@@ -8,16 +8,16 @@
 
 SUFFIXES = .o .c .f .f90
 
-AM_DEFAULT_SOURCE_EXT = .c
+AM_CPPFLAGS = -I$(top_srcdir)/src/include \
+              -I$(srcdir)/../common \
+              -I$(top_builddir)/src/include
 
-AM_CPPFLAGS  = -I$(top_srcdir)/src/include
-AM_CPPFLAGS += -I$(srcdir)/../common
-AM_CPPFLAGS += -I$(top_builddir)/src/include
-AM_FFLAGS    = -I$(top_builddir)/src/binding/f77
-AM_FCFLAGS   = $(FC_MODINC)$(top_builddir)/src/binding/f90
-AM_FCFLAGS  += $(FC_MODINC)$(srcdir)/../common
-AM_FCFLAGS  += -I$(top_builddir)/src/binding/f77
-LDADD = ${top_builddir}/src/libs/libpnetcdf.la ../common/libtestutils.la -lm
+AM_FFLAGS   = -I$(top_builddir)/src/binding/f77
+AM_FCFLAGS  = $(FC_MODINC)$(top_builddir)/src/binding/f90 \
+              $(FC_MODINC)$(srcdir)/../common
+
+LDADD  = $(top_builddir)/src/libs/libpnetcdf.la ../common/libtestutils.la
+LDADD += @NETCDF4_LDFLAGS@ @ADIOS_LDFLAGS@ @NETCDF4_LIBS@ @ADIOS_LIBS@ -lm
 
 if DECL_MPI_OFFSET
    # Do not add to AM_CPPFLAGS, as it will also be used by Fortran programs

@@ -10,15 +10,17 @@ SUFFIXES = .o .c .f .F .f90
 
 AM_DEFAULT_SOURCE_EXT = .c
 
-AM_CPPFLAGS  = -I$(top_srcdir)/src/include
-AM_CPPFLAGS += -I$(srcdir)/../common
-AM_CPPFLAGS += -I$(top_builddir)/src/include
-AM_FFLAGS    = -I$(top_builddir)/src/binding/f77
-AM_FCFLAGS   = $(FC_MODINC)$(top_builddir)/src/binding/f90
-AM_FCFLAGS  += $(FC_MODINC)$(srcdir)/../common
-AM_FCFLAGS  += -I$(top_builddir)/src/binding/f77
-LDADD        = ${top_builddir}/src/libs/libpnetcdf.la \
-               ../common/libtestutils.la -lm
+AM_CPPFLAGS = -I$(top_srcdir)/src/include \
+              -I$(srcdir)/../common \
+              -I$(top_builddir)/src/include \
+              -I$(top_builddir)/src/binding/f77
+
+AM_FCFLAGS  = $(FC_MODINC)$(top_builddir)/src/binding/f90 \
+              $(FC_MODINC)$(srcdir)/../common
+AM_FFLAGS   = -I$(top_builddir)/src/binding/f77
+
+LDADD       = ${top_builddir}/src/libs/libpnetcdf.la ../common/libtestutils.la
+LDADD      += @NETCDF4_LDFLAGS@ @ADIOS_LDFLAGS@ @NETCDF4_LIBS@ @ADIOS_LIBS@ -lm
 
 if SIZEOF_MPI_AINT_IS_4
    AM_FFLAGS += $(FC_DEFINE)SIZEOF_MPI_AINT_IS_4
@@ -69,7 +71,6 @@ TESTPROGRAMS = ncmpi_vars_null_stride \
                tst_vars_fill \
                tst_def_var_fill \
                test_fillvalue \
-               tst_vars_fill \
                error_precedence \
                tst_free_comm
 
@@ -133,7 +134,8 @@ endif
 check_PROGRAMS = $(TESTPROGRAMS) \
                  put_all_kinds \
                  redef1 \
-                 iput_all_kinds
+                 iput_all_kinds \
+                 tst_version
 
 # autimake 1.11.3 has not yet implemented AM_TESTS_ENVIRONMENT
 # For newer versions, we can use AM_TESTS_ENVIRONMENT instead

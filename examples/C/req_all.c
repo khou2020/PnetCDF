@@ -112,7 +112,7 @@ int main(int argc, char** argv)
     extern int optind;
     char filename[256];
     int i, j, rank, nprocs, err, nerrs=0, myNX, G_NX, myOff;
-    int ncid, cmode, varid, dimid[2], **buf;
+    int ncid, varid, dimid[2], **buf;
     MPI_Offset start[2], count[2];
     MPI_Info info;
 
@@ -140,8 +140,7 @@ int main(int argc, char** argv)
     MPI_Info_create(&info);
     MPI_Info_set(info, "nc_var_align_size", "1");
 
-    cmode = NC_CLOBBER;
-    err = ncmpi_create(MPI_COMM_WORLD, filename, cmode, info, &ncid); ERR
+    err = ncmpi_create(MPI_COMM_WORLD, filename, NC_CLOBBER, info, &ncid); ERR
 
     MPI_Info_free(&info);
 
@@ -211,7 +210,7 @@ int main(int argc, char** argv)
     for (i=0; i<myNX; i++) free(buf[i]);
     free(buf);
 
-    nerrs += pnetcdf_check_mem_usage(MPI_COMM_WORLD); 
+    nerrs += pnetcdf_check_mem_usage(MPI_COMM_WORLD);
 
     MPI_Finalize();
     return (nerrs > 0);

@@ -134,7 +134,7 @@ static
 void* thread_func(void *arg)
 {
     char filename[256];
-    int i, id, nprocs, cmode, err, nerrs=0, ncid, *ret, dimid[2], varid[2];
+    int i, id, nprocs, err, nerrs=0, ncid, *ret, dimid[2], varid[2];
     int *ibuf;
     double *dbuf;
     MPI_Offset start[2], count[2];
@@ -158,8 +158,7 @@ void* thread_func(void *arg)
     MPI_Info_set(info, "nc_var_align_size", "1");
 
     /* create a file, clobber it if already exits */
-    cmode = NC_CLOBBER;
-    err = ncmpi_create(MPI_COMM_SELF, filename, cmode, info, &ncid); ERR
+    err = ncmpi_create(MPI_COMM_SELF, filename, NC_CLOBBER, info, &ncid); ERR
     MPI_Info_free(&info);
 
     /* define dimensions */
@@ -339,7 +338,7 @@ int main(int argc, char **argv) {
 
     pthread_barrier_destroy(&barr);
 
-    nerrs += pnetcdf_check_mem_usage(MPI_COMM_WORLD); 
+    nerrs += pnetcdf_check_mem_usage(MPI_COMM_WORLD);
 
     MPI_Finalize();
     return (nerrs > 0);

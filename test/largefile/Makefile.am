@@ -13,13 +13,13 @@ AM_DEFAULT_SOURCE_EXT = .c
 AM_CPPFLAGS  = -I$(srcdir)/../common
 AM_CPPFLAGS += -I$(top_srcdir)/src/include
 AM_CPPFLAGS += -I$(top_builddir)/src/include
-LDADD  = $(top_builddir)/src/libs/libpnetcdf.la
-LDADD += ../common/libtestutils.la
 
-AM_CFLAGS =
+LDADD  = $(top_builddir)/src/libs/libpnetcdf.la ../common/libtestutils.la
+LDADD += @NETCDF4_LDFLAGS@ @ADIOS_LDFLAGS@ @NETCDF4_LIBS@ @ADIOS_LIBS@
+
 if IS_BIGENDIAN
    # Do not add to AM_CPPFLAGS, as it will also be used by Fortran programs
-   AM_CFLAGS += -DWORDS_BIGENDIAN
+   AM_CFLAGS = -DWORDS_BIGENDIAN
    # AM_FFLAGS  += $(FC_DEFINE)WORDS_BIGENDIAN
    # AM_FCFLAGS += $(FC_DEFINE)WORDS_BIGENDIAN
 endif

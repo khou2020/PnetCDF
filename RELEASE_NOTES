@@ -6,6 +6,102 @@ PnetCDF Release Notes
 Version _PNETCDF_VERSION_ (_PNETCDF_RELEASE_DATE_)
 -------------------------------------
 
+* Bug fixes
+  + When configure command-line option `--enable-netcdf4` is used, errors may
+    occur during the configure or make time. Thanks Bruno Pagani for reporting.
+    See bug fix in
+    [pull request #46](https://github.com/Parallel-NetCDF/PnetCDF/pull/46).
+  + Fix configure date setting when environment variable `SOURCE_DATE_EPOCH`
+    is set.
+
+* Clarifications
+  + Limitation of supporting NetCDF-4 driver -- a list of APIs that are not
+    supported for NetCDF-4 files is given in `doc/README.NetCDF4.md`. Error
+    code `NC_ENOTSUPPORT` is returned when those APIs are called.
+
+* Other updates:
+  + Utility program `ncoffsets` is updated to skip printing the dimension names
+    if the number of dimensions of a variable is larger than 64.This predefined
+    constant can be changed a different number `N` by adding
+    `-DMAX_PRINT_NDIMS=N` to the compile command line.
+  + Utility program `ncvalidator` is updated to be able to repair the file
+    header to fill in null-byte paddings in the space between the header size
+    and header extent.
+  + Add a note to `doc/README.CRAY` about a compilation issue encountered on
+    Cori @ NERSC when module gcc/7.3.0 is loaded.
+  + Change release date format from `Day Month, Year` to `Month Day, Year`.
+
+* New test program
+  + test/nc4/notsupport.c - Test if error code NC_ENOTSUPPORT is properly
+    returned when calling APIs for unsupported NetCDF-4 feature.
+  + test/nc4/rtst_rec_vars.c - Test record variables for NetCDF-4 files.
+  + test/nc4/tst_2_rec_dims.c - Test opening a NetCDF-4 file containing more
+    than one unlimited dimension on whether correct error can be returned.
+  + test/nc4/tst_get_put_size.c - Test the amount of I/O so far for NetCDF-4
+    files.
+  + test/testcases/tst_version.c - Check whether PnetCDF version string
+    returned from ncmpi_inq_libvers() matches the constant PNETCDF_VERSION
+    defined in header file pnetcdf.h.
+
+-------------------------------------
+Version 1.11.1 (April 12, 2019)
+-------------------------------------
+
+* New optimization
+  + When inserting nonblocking requests into the PnetCDF internal pending
+    queues, the queues are now kept sorted (using an insert sort) into an
+    increasing order of variable starting file offsets. This can avoid the
+    quick sort when flushing the pending requests. See
+    [pull request #37](https://github.com/Parallel-NetCDF/PnetCDF/pull/37).
+    To avoid internal sorts completely, users are recommended to post
+    nonblocking requests in the increasing order of variable IDs and fixed-size
+    variables first followed by record variables.
+
+* New Limitations
+  + When building with NetCDF-4 feature enabled, using a NetCDF-4 library that
+    has already been built with PnetCDF enabled, i.e. `--enable-pnetcdf`, is not
+    supported. See [Issue #33](https://github.com/Parallel-NetCDF/PnetCDF/issues/33).
+
+* Other updates:
+  + Add a check whether the MPI library is built with shared-library support.
+    If not and `--enable-shared` is used, the configure process of PnetCDF will
+    fail.
+  + In the NetCDF-4 driver, `nc4io_inq_var()` adds a NULL-argument check for
+    `no_fill` and `fill_value`. If both arguments are NULL, it skips the call
+    to `nc_inq_var_fill`.
+  + File header extent area between end of header and first variable will be
+    padded with null bytes if PnetCDF is configured with option
+    `--enable-null-byte-header-padding`.
+  + Add AC_PROG_CPP in configure.ac to check whether `-E` option is required by
+    the C preprocessor.
+  + Add a check for whether `m4` utility is available, and abort the configure
+    if it is not.
+
+* Bug fixes
+  + Fix ncmpidiff when comparing dimension names of 2 variables between files
+    whose dimension define orders are different. See
+    [Issue #42](https://github.com/Parallel-NetCDF/PnetCDF/pull/42).
+  + Fix error checking for programs in examples/C to ignore NC_ENOTENABLED
+    if PnetCDF was not built with `--enable-profiling`. Thanks to Bruno Pagani
+    and see [Issue #34](https://github.com/Parallel-NetCDF/PnetCDF/issues/34).
+
+* New test program
+  + test/burst_buffer/varn.c -- to test varn API when burst buffer driver is
+    used. The test includes cases when argument counts is NULL or some elements
+    in counts are NULL.
+
+* Clarifications
+  + Padding -- NetCDF classic file format specification states "Header padding
+    uses null (\x00) bytes. In data, padding uses variable's fill value."
+    PnetCDF implements the header padding specification but only enforces it
+    when the configure option `--enable-null-byte-header-padding` is set. Note
+    PnetCDF has not yet implemented the padding for data section.
+
+
+-------------------------------------
+Version 1.11.0 (December 19, 2018)
+-------------------------------------
+
 * New features
   + NetCDF-4 driver -- Accessing HDF5-based NetCDF-4 files is now supported.
     PnetCDF can be built on top of NetCDF-4 library to let users to use PnetCDF
@@ -410,7 +506,7 @@ Version 1.10.0 (July  2, 2018)
       include the number of records of a record variable, as such request is
       split into multiple additional requests, one for each record. See r3651.
     * Remove freeing name object because NC_ENULLPAD is not a fatal error. See
-      r3644. This bug only appears when --enable-null-byte-header-padding is
+      r3644. This bug only appears when "--enable-null-byte-header-padding" is
       set at configure time and opening files whose headers are not padded with
       null bytes.
     * Member "value" of NC_dimarray, NC_attrarray, and NC_vararray can still be

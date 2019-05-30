@@ -1,7 +1,6 @@
 /*
    This program test reading a compressed netcdf 4 file
    The data is written using NetCDF and read by PnetCDF
-   $Id$
 */
 
 #include <stdio.h>
@@ -9,7 +8,6 @@
 #include <string.h>
 #include <libgen.h> /* basename() */
 #include <mpi.h>
-#include <netcdf.h>
 #include <pnetcdf.h>
 
 #include <testutils.h>

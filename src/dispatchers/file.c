@@ -30,6 +30,15 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 #include <pnc_debug.h>
 #include <common.h>
 
+#ifdef ENABLE_ADIOS 
+#include "adios_read.h" 
+#include <arpa/inet.h>
+#define BP_MINIFOOTER_SIZE 28
+#define BUFREAD64(buf,var) var = *(off_t *) (buf); \
+                         if (diff_endian) \
+                             swap_64(&var);
+#endif 
+
 /* TODO: the following 3 global variables make PnetCDF not thread safe */
 
 /* static variables are initialized to NULLs */
@@ -48,6 +57,22 @@ static int ncmpi_default_create_format = NC_FORMAT_CLASSIC;
         MPI_Error_string(mpireturn, errorString, &errorStringLen); \
         printf("%s error at line %d file %s (%s)\n", func, __LINE__, __FILE__, errorString); \
     }
+
+/* strdup() is a POSIX function, not a standard C function */
+#ifndef HAVE_STRDUP
+static char *strdup(const char *str)
+{
+    char *ptr;
+
+    if (str == NULL) return NULL;
+
+    ptr = (char*) malloc(strlen(str) + 1);
+    if (ptr != NULL)
+        strcpy(ptr, str);
+
+    return ptr;
+}
+#endif
 
 /*----< new_id_PNCList() >---------------------------------------------------*/
 /* Return a new ID (array index) from the PNC list, pnc_filelist[] that is
@@ -342,7 +367,9 @@ ncmpi_create(MPI_Comm    comm,
     combine_env_hints(info, &combined_info);
 
 #ifdef BUILD_DRIVER_FOO
-    if (combined_info != MPI_INFO_NULL) {
+    if (combined_info == MPI_INFO_NULL)
+        MPI_Info_create(&combined_info);
+    {
         char value[MPI_MAX_INFO_VAL];
         int flag;
 
@@ -354,7 +381,9 @@ ncmpi_create(MPI_Comm    comm,
     }
 #endif
 #ifdef ENABLE_BURST_BUFFER
-    if (combined_info != MPI_INFO_NULL) {
+    if (combined_info == MPI_INFO_NULL)
+        MPI_Info_create(&combined_info);
+    {
         char value[MPI_MAX_INFO_VAL];
         int flag;
 
@@ -438,10 +467,10 @@ ncmpi_create(MPI_Comm    comm,
     if (format == NC_FORMAT_NETCDF4 || format == NC_FORMAT_NETCDF4_CLASSIC) {
         driver = nc4io_inq_driver();
 #ifdef ENABLE_BURST_BUFFER
-        /* NetCDF-4 files are not supported in Burst Buffering feature yet.
-         * if nc_burst_buf is enabled in combined_info, disable it.
+        /* Burst buffering does not support NetCDF-4 files yet.
+         * If hint nc_burst_buf is enabled in combined_info, disable it.
          */
-        if (enable_bb_driver == 1 && combined_info != MPI_INFO_NULL)
+        if (enable_bb_driver == 1)
             MPI_Info_set(combined_info, "nc_burst_buf", "disable");
         enable_bb_driver = 0;
 #endif
@@ -505,7 +534,7 @@ ncmpi_create(MPI_Comm    comm,
     if (status != NC_NOERR && status != NC_EMULTIDEFINE_CMODE) {
         del_from_PNCList(*ncidp);
         if (pncp->comm != MPI_COMM_WORLD && pncp->comm != MPI_COMM_SELF)
-            MPI_Comm_free(&pncp->comm);
+            MPI_Comm_free(&pncp->comm); /* a collective call */
         NCI_Free(pncp);
         *ncidp = -1;
         return status;
@@ -517,7 +546,7 @@ ncmpi_create(MPI_Comm    comm,
         driver->close(ncp); /* close file and ignore error */
         del_from_PNCList(*ncidp);
         if (pncp->comm != MPI_COMM_WORLD && pncp->comm != MPI_COMM_SELF)
-            MPI_Comm_free(&pncp->comm);
+            MPI_Comm_free(&pncp->comm); /* a collective call */
         NCI_Free(pncp);
         *ncidp = -1;
         DEBUG_RETURN_ERROR(NC_ENOMEM)
@@ -540,6 +569,8 @@ ncmpi_create(MPI_Comm    comm,
     return status;
 }
 
+#define _NDIMS_ 16
+
 /*----< ncmpi_open() >-------------------------------------------------------*/
 /* This is a collective subroutine. */
 int
@@ -549,8 +580,8 @@ ncmpi_open(MPI_Comm    comm,
            MPI_Info    info,
            int        *ncidp)  /* OUT */
 {
-    int i, nalloc, rank, nprocs, format, status=NC_NOERR, err;
-    int safe_mode=0, mpireturn, relax_coord_bound;
+    int i, j, nalloc, rank, nprocs, format, status=NC_NOERR, err;
+    int safe_mode=0, mpireturn, relax_coord_bound, DIMIDS[_NDIMS_], *dimids;
     char *env_str;
     MPI_Info combined_info;
     void *ncp;
@@ -667,7 +698,9 @@ ncmpi_open(MPI_Comm    comm,
     combine_env_hints(info, &combined_info);
 
 #ifdef BUILD_DRIVER_FOO
-    if (combined_info != MPI_INFO_NULL) {
+    if (combined_info == MPI_INFO_NULL)
+        MPI_Info_create(&combined_info);
+    {
         char value[MPI_MAX_INFO_VAL];
         int flag;
 
@@ -680,7 +713,9 @@ ncmpi_open(MPI_Comm    comm,
     }
 #endif
 #ifdef ENABLE_BURST_BUFFER
-    if (combined_info != MPI_INFO_NULL) {
+    if (combined_info == MPI_INFO_NULL)
+        MPI_Info_create(&combined_info);
+    {
         char value[MPI_MAX_INFO_VAL];
         int flag;
 
@@ -708,10 +743,10 @@ ncmpi_open(MPI_Comm    comm,
     if (format == NC_FORMAT_NETCDF4_CLASSIC || format == NC_FORMAT_NETCDF4) {
         driver = nc4io_inq_driver();
 #ifdef ENABLE_BURST_BUFFER
-        /* NetCDF-4 files are not supported in Burst Buffering feature yet.
-         * if nc_burst_buf is enabled in combined_info, disable it.
+        /* Burst buffering does not support NetCDF-4 files yet.
+         * If hint nc_burst_buf is enabled in combined_info, disable it.
          */
-        if (enable_bb_driver == 1 && combined_info != MPI_INFO_NULL)
+        if (enable_bb_driver == 1)
             MPI_Info_set(combined_info, "nc_burst_buf", "disable");
         enable_bb_driver = 0;
 #endif
@@ -744,6 +779,11 @@ ncmpi_open(MPI_Comm    comm,
             format == NC_FORMAT_CDF5) {
             driver = ncmpio_inq_driver();
         }
+#ifdef ENABLE_ADIOS 
+        else if (format == NC_FORMAT_BP) { 
+            driver = ncadios_inq_driver(); 
+        } 
+#endif 
         else /* unrecognized file format */
             DEBUG_RETURN_ERROR(NC_ENOTNC)
     }
@@ -785,7 +825,7 @@ ncmpi_open(MPI_Comm    comm,
          * continue the rest open procedure */
         del_from_PNCList(*ncidp);
         if (pncp->comm != MPI_COMM_WORLD && pncp->comm != MPI_COMM_SELF)
-            MPI_Comm_free(&pncp->comm);
+            MPI_Comm_free(&pncp->comm); /* a collective call */
         NCI_Free(pncp);
         *ncidp = -1;
         return status;
@@ -797,7 +837,7 @@ ncmpi_open(MPI_Comm    comm,
         driver->close(ncp); /* close file and ignore error */
         del_from_PNCList(*ncidp);
         if (pncp->comm != MPI_COMM_WORLD && pncp->comm != MPI_COMM_SELF)
-            MPI_Comm_free(&pncp->comm);
+            MPI_Comm_free(&pncp->comm); /* a collective call */
         NCI_Free(pncp);
         *ncidp = -1;
         DEBUG_RETURN_ERROR(NC_ENOMEM)
@@ -836,42 +876,54 @@ ncmpi_open(MPI_Comm    comm,
         goto fn_exit;
     }
 
+    dimids = DIMIDS;
+
     /* construct array of PNC_var for all variables */
     for (i=0; i<pncp->nvars; i++) {
-        nc_type xtype;
-        int ndims;
-        err = driver->inq_var(pncp->ncp, i, NULL, &xtype, &ndims,
-                              NULL, NULL, NULL, NULL, NULL);
-        if (err != NC_NOERR) goto fn_exit;
-        pncp->vars[i].xtype  = xtype;
-        pncp->vars[i].ndims  = ndims;
-        pncp->vars[i].recdim = -1;   /* if fixed-size variable */
+        int ndims, max_ndims=_NDIMS_;
         pncp->vars[i].shape  = NULL;
+        pncp->vars[i].recdim = -1;   /* if fixed-size variable */
+        err = driver->inq_var(pncp->ncp, i, NULL, &pncp->vars[i].xtype, &ndims,
+                              NULL, NULL, NULL, NULL, NULL);
+        if (err != NC_NOERR) break; /* loop i */
+        pncp->vars[i].ndims = ndims;
+
         if (ndims > 0) {
-            int j, *dimids;
             pncp->vars[i].shape = (MPI_Offset*)
-                                   NCI_Malloc(ndims * SIZEOF_MPI_OFFSET);
-            dimids = (int*) NCI_Malloc(ndims * SIZEOF_INT);
+                                  NCI_Malloc(ndims * SIZEOF_MPI_OFFSET);
+            if (ndims > max_ndims) { /* avoid repeated malloc */
+                if (dimids == DIMIDS) dimids = NULL;
+                dimids = (int*) NCI_Realloc(dimids, ndims * SIZEOF_INT);
+                max_ndims = ndims;
+            }
             err = driver->inq_var(pncp->ncp, i, NULL, NULL, NULL,
                                   dimids, NULL, NULL, NULL, NULL);
-            if (err != NC_NOERR) goto fn_exit;
+            if (err != NC_NOERR) break; /* loop i */
             if (dimids[0] == pncp->unlimdimid)
                 pncp->vars[i].recdim = pncp->unlimdimid;
             for (j=0; j<ndims; j++) {
                 /* obtain size of dimension j */
                 err = driver->inq_dim(pncp->ncp, dimids[j], NULL,
                                       pncp->vars[i].shape+j);
-                if (err != NC_NOERR) goto fn_exit;
+                if (err != NC_NOERR) break; /* loop i */
             }
-            NCI_Free(dimids);
         }
     }
+    if (err != NC_NOERR) { /* error happens in loop i */
+        assert(i < pncp->nvars);
+        for (j=0; j<=i; j++) {
+            if (pncp->vars[j].shape != NULL)
+                NCI_Free(pncp->vars[j].shape);
+        }
+        NCI_Free(pncp->vars);
+    }
+    if (dimids != DIMIDS) NCI_Free(dimids);
 
 fn_exit:
     if (err != NC_NOERR) {
         driver->close(ncp); /* close file and ignore error */
         if (pncp->comm != MPI_COMM_WORLD && pncp->comm != MPI_COMM_SELF)
-            MPI_Comm_free(&pncp->comm);
+            MPI_Comm_free(&pncp->comm); /* a collective call */
         del_from_PNCList(*ncidp);
         NCI_Free(pncp->path);
         NCI_Free(pncp);
@@ -902,7 +954,7 @@ ncmpi_close(int ncid)
 
     /* free the PNC object */
     if (pncp->comm != MPI_COMM_WORLD && pncp->comm != MPI_COMM_SELF)
-        MPI_Comm_free(&pncp->comm);
+        MPI_Comm_free(&pncp->comm); /* a collective call */
 
     NCI_Free(pncp->path);
     for (i=0; i<pncp->nvars; i++)
@@ -1102,7 +1154,7 @@ ncmpi_abort(int ncid)
 
     /* free the PNC object */
     if (pncp->comm != MPI_COMM_WORLD && pncp->comm != MPI_COMM_SELF)
-        MPI_Comm_free(&pncp->comm);
+        MPI_Comm_free(&pncp->comm); /* a collective call */
 
     NCI_Free(pncp->path);
     for (i=0; i<pncp->nvars; i++)
@@ -1167,6 +1219,38 @@ ncmpi_inq_format(int  ncid,
 
     return NC_NOERR;
 }
+
+#ifdef ENABLE_ADIOS
+static void swap_64(void *data)
+{
+    uint64_t d = *(uint64_t *)data;
+    *(uint64_t *)data = ((d&0x00000000000000FF)<<56) 
+                          + ((d&0x000000000000FF00)<<40)
+                          + ((d&0x0000000000FF0000)<<24)
+                          + ((d&0x00000000FF000000)<<8)
+                          + ((d&0x000000FF00000000LL)>>8)
+                          + ((d&0x0000FF0000000000LL)>>24)
+                          + ((d&0x00FF000000000000LL)>>40)
+                          + ((d&0xFF00000000000000LL)>>56);
+}
+
+static int adios_parse_endian(char *footer, int *diff_endianness) {
+    unsigned int version;
+    unsigned int test = 1; /* If high bit set, big endian */
+
+    version = ntohl (*(uint32_t *) (footer + BP_MINIFOOTER_SIZE - 4));
+    char *v = (char *) (&version);
+    if ((*v && !*(char *) &test) /* Both writer and reader are big endian */
+        || (!*(v+3) && *(char *) &test)){ /* Both are little endian */
+        *diff_endianness = 0; /* No need to change endiannness */
+    }
+    else{
+        *diff_endianness = 1;
+    }
+
+    return 0;
+}
+#endif
 
 /*----< ncmpi_inq_file_format() >--------------------------------------------*/
 /* This is an independent subroutine. */
@@ -1240,6 +1324,65 @@ ncmpi_inq_file_format(const char *filename,
         else if (signature[3] == 2)  *formatp = NC_FORMAT_CDF2;
         else if (signature[3] == 1)  *formatp = NC_FORMAT_CLASSIC;
     }
+#ifdef ENABLE_ADIOS 
+    else{ 
+        ADIOS_FILE *fp = NULL; 
+        off_t fsize;
+        int diff_endian;
+        char footer[BP_MINIFOOTER_SIZE];
+        off_t h1, h2, h3;
+        
+        /* We test if the mini footer of the BP file follows BP specification */
+        if ((fd = open(path, O_RDONLY, 00400)) == -1) { 
+            if (errno == ENOENT)       DEBUG_RETURN_ERROR(NC_ENOENT)
+            else if (errno == EACCES)       DEBUG_RETURN_ERROR(NC_EACCESS)
+            else if (errno == ENAMETOOLONG) DEBUG_RETURN_ERROR(NC_EBAD_FILE)
+            else {
+                fprintf(stderr,"Error on opening file %s (%s)\n",
+                        filename,strerror(errno));
+                DEBUG_RETURN_ERROR(NC_EFILE)
+            }
+        }
+
+        /* Seek to end */
+        fsize = lseek(fd, (off_t)(-(BP_MINIFOOTER_SIZE)), SEEK_END);
+
+        /* Get footer */
+        rlen = read(fd, footer, BP_MINIFOOTER_SIZE);
+        if (rlen != BP_MINIFOOTER_SIZE) {
+            close(fd); 
+            DEBUG_RETURN_ERROR(NC_EFILE)
+        }
+        if (close(fd) == -1) {
+            DEBUG_RETURN_ERROR(NC_EFILE)
+        }
+
+        adios_parse_endian(footer, &diff_endian);
+
+        BUFREAD64(footer, h1) /* Position of process group index table */
+        BUFREAD64(footer + 8, h2) /* Position of variables index table */
+        BUFREAD64(footer + 16, h3) /* Position of attributes index table */
+
+        /* All index tables must fall within the file
+         * Process group index table must comes before variable index table. 
+         * Variables index table must comes before attributes index table.
+         */
+        if (0 < h1 && h1 < fsize &&
+            0 < h2 && h2 < fsize &&
+            0 < h3 && h3 < fsize &&
+            h1 < h2 && h2 < h3){ 
+            /* The footer ehck is passed, now we try to open the file with 
+             * ADIOS to make sure it is indeed a BP formated file
+             */ 
+            fp = adios_read_open_file (path, ADIOS_READ_METHOD_BP, 
+                                        MPI_COMM_SELF); 
+            if (fp != NULL) { 
+                *formatp = NC_FORMAT_BP; 
+                adios_read_close(fp); 
+            } 
+        }
+    } 
+#endif 
 
     return NC_NOERR;
 }
@@ -1269,6 +1412,11 @@ ncmpi_inq_version(int ncid, int *nc_mode)
         *nc_mode = NC_NETCDF4;
     else if (pncp->format == NC_FORMAT_NETCDF4_CLASSIC)
         *nc_mode = NC_NETCDF4 | NC_CLASSIC_MODEL;
+#endif
+
+#ifdef ENABLE_ADIOS
+    else if (pncp->format == NC_FORMAT_BP)
+        *nc_mode = NC_BP;
 #endif
 
     return NC_NOERR;
@@ -1373,6 +1521,16 @@ ncmpi_inq_num_fix_vars(int ncid, int *num_fix_varsp)
 
     if (num_fix_varsp == NULL) return NC_NOERR;
 
+#ifdef ENABLE_NETCDF4
+    if (pncp->format == NC_FORMAT_NETCDF4 ||
+        pncp->format == NC_FORMAT_NETCDF4_CLASSIC) {
+        /* calling the subroutine that implements ncmpi_inq_num_fix_vars() */
+        return pncp->driver->inq_misc(pncp->ncp, NULL, NULL, num_fix_varsp,
+                                      NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                                      NULL, NULL, NULL, NULL, NULL);
+    }
+#endif
+
     *num_fix_varsp = pncp->nvars - pncp->nrec_vars;
 
     /* number of fixed-size variables can also be calculated below.
@@ -1385,12 +1543,6 @@ ncmpi_inq_num_fix_vars(int ncid, int *num_fix_varsp)
     */
 
     return NC_NOERR;
-#if 0
-    /* calling the subroutine that implements ncmpi_inq_num_fix_vars() */
-    return pncp->driver->inq_misc(pncp->ncp, NULL, NULL, num_fix_varsp, NULL,
-                                  NULL, NULL, NULL, NULL, NULL, NULL,
-                                  NULL, NULL, NULL, NULL, NULL);
-#endif
 }
 
 /*----< ncmpi_inq_num_rec_vars() >-------------------------------------------*/
@@ -1407,6 +1559,16 @@ ncmpi_inq_num_rec_vars(int ncid, int *num_rec_varsp)
 
     if (num_rec_varsp == NULL) return NC_NOERR;
 
+#ifdef ENABLE_NETCDF4
+    if (pncp->format == NC_FORMAT_NETCDF4 ||
+        pncp->format == NC_FORMAT_NETCDF4_CLASSIC) {
+        /* calling the subroutine that implements ncmpi_inq_num_rec_vars() */
+        return pncp->driver->inq_misc(pncp->ncp, NULL, NULL, NULL,
+                                      num_rec_varsp, NULL, NULL, NULL, NULL,
+                                      NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+        }
+#endif
+
     *num_rec_varsp = pncp->nrec_vars;
 
     /* number of record variables can also be calculated below.
@@ -1419,12 +1581,6 @@ ncmpi_inq_num_rec_vars(int ncid, int *num_rec_varsp)
     */
 
     return NC_NOERR;
-#if 0
-    /* calling the subroutine that implements ncmpi_inq_num_rec_vars() */
-    return pncp->driver->inq_misc(pncp->ncp, NULL, NULL, NULL, num_rec_varsp,
-                                  NULL, NULL, NULL, NULL, NULL, NULL,
-                                  NULL, NULL, NULL, NULL, NULL);
-#endif
 }
 
 /*----< ncmpi_inq_striping() >-----------------------------------------------*/

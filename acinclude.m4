@@ -14,10 +14,13 @@ AC_DEFUN([UD_PROG_M4],
 [
     dnl AS_MESSAGE([checking for m4 preprocessor...])
     case "${M4-unset}" in
-	unset) AC_CHECK_PROGS(M4, m4 gm4, m4) ;;
-	*) AC_CHECK_PROGS(M4, $M4 m4 gm4, m4) ;;
+	unset) AC_CHECK_PROGS(M4, m4 gm4, []) ;;
+	*) AC_CHECK_PROGS(M4, $M4 m4 gm4, []) ;;
     esac
-    AC_MSG_CHECKING(m4 flags)
+    if test -z "$M4" ; then
+       AC_MSG_ERROR("m4 utility program is required by PnetCDF")
+    fi
+    AC_MSG_CHECKING(m4 additional flags)
     case "${M4FLAGS-unset}" in
 	unset) dnl test if M4 runs fine without option -B10000
                `${M4} /dev/null > conftest.err 2>&1`
@@ -29,7 +32,7 @@ AC_DEFUN([UD_PROG_M4],
                ;;
     esac
     if test "x$M4FLAGS" = x; then
-       AC_MSG_RESULT("none")
+       AC_MSG_RESULT(none needed)
     else
        AC_MSG_RESULT($M4FLAGS)
     fi
@@ -1098,7 +1101,7 @@ AC_DEFUN([UD_PROG_FC_UPPERCASE_MOD],
 [
 AC_REQUIRE([UD_FC_MODULE_EXTENSION])
 AC_LANG_PUSH(Fortran)
-AC_MSG_CHECKING([if Fortran 90 compiler capitalizes .mod filenames])
+AC_MSG_CHECKING([whether Fortran 90 compiler capitalizes .mod filenames])
 AC_COMPILE_IFELSE(
     [AC_LANG_SOURCE([
         module conftest
@@ -1552,65 +1555,228 @@ AC_DEFUN([UD_FC_CONSTANT_MODIFIER],[
     AC_LANG_POP([Fortran 77])
 ])
 
+dnl Check if MPI compiler is GNU
+dnl According to gcc manual the command-line option to show version is --version
+dnl
+dnl % gcc --version
+dnl gcc (Ubuntu 4.8.4-2ubuntu1~14.04.4) 4.8.4
+dnl Copyright (C) 2013 Free Software Foundation, Inc.
+dnl This is free software; see the source for copying conditions.  There is NO
+dnl warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+dnl
+AC_DEFUN([UD_CHECK_MPICC_IS_GCC],[
+    AC_CACHE_CHECK([if MPI C compiler is GNU gcc], [ac_cv_mpicc_is_GCC],
+    [ac_cv_mpicc_is_GCC=no
+     ac_MPICC_VER=`$MPICC --version`
+     ac_MPICC_VENDOR=`echo $ac_MPICC_VER | cut -s -d' ' -f1`
+     if test "x${ac_MPICC_VENDOR}" = xgcc ; then
+        ac_cv_mpicc_is_GCC=yes
+     fi
+     unset ac_MPICC_VER
+     unset ac_MPICC_VENDOR
+    ])
+])
+
+dnl Check if MPI compiler is CLANG
+dnl According to clang manual the command-line option to show version is --version
+dnl
+dnl % clang --version
+dnl Ubuntu clang version 3.4-1ubuntu3 (tags/RELEASE_34/final) (based on LLVM 3.4)
+dnl Target: x86_64-pc-linux-gnu
+dnl Thread model: posix
+dnl
+dnl or
+dnl
+dnl clang version 3.4.2 (tags/RELEASE_34/dot2-final)
+dnl Target: x86_64-redhat-linux-gnu
+dnl Thread model: posix
+dnl
+AC_DEFUN([UD_CHECK_MPICC_IS_CLANG],[
+    AC_CACHE_CHECK([if MPI C compiler is Clang], [ac_cv_mpicc_is_CLANG],
+    [ac_cv_mpicc_is_CLANG=no
+     ac_MPICC_VER=`$MPICC --version`
+     ac_MPICC_VENDOR=`echo $ac_MPICC_VER | ${GREP} -w clang`
+     if test "x${ac_MPICC_VENDOR}" != x ; then
+        ac_cv_mpicc_is_CLANG=yes
+     fi
+     unset ac_MPICC_VER
+     unset ac_MPICC_VENDOR
+    ])
+])
+
+dnl Check if MPI compiler is Intel icc
+dnl According to icc manual the command-line option to show version is --version
+dnl
+dnl % icc --version
+dnl icc (ICC) 17.0.0 20160721
+dnl Copyright (C) 1985-2016 Intel Corporation.  All rights reserved.
+dnl
+AC_DEFUN([UD_CHECK_MPICC_IS_ICC],[
+    AC_CACHE_CHECK([if MPI C compiler is Intel icc], [ac_cv_mpicc_is_ICC],
+    [ac_cv_mpicc_is_ICC=no
+     ac_MPICC_VER=`$MPICC --version`
+     ac_MPICC_VENDOR=`echo $ac_MPICC_VER | cut -s -d' ' -f1`
+     if test "x${ac_MPICC_VENDOR}" = xicc ; then
+        ac_cv_mpicc_is_ICC=yes
+     fi
+     unset ac_MPICC_VER
+     unset ac_MPICC_VENDOR
+    ])
+])
+
 dnl Check if MPI compiler is Fujitsu fccpx based
-dnl According to mpifccpx manual the command-line option to should version is
+dnl According to mpifccpx manual the command-line option to show version is
 dnl -showme
 dnl
 dnl % mpifccpx --showme
 dnl /opt/FJSVtclang/GM-1.2.0-24/bin/fccpx -Kident_mpi -mt ...
 dnl
-AC_DEFUN([UD_CHECK_FCCPX],[
-    AC_CACHE_CHECK([if C compiler is Fujitsu fccpx], [ac_cv_cc_compiler_fccpx],
-    [ac_cv_cc_compiler_fccpx=no
-     ac_CC_VENDOR=`$MPICC --showme 2> /dev/null | cut -d' ' -f1 | xargs -r basename`
-     if test "x${ac_CC_VENDOR}" = xfccpx ; then
-        ac_cv_cc_compiler_fccpx=yes
+AC_DEFUN([UD_CHECK_MPICC_IS_FCCPX],[
+    AC_CACHE_CHECK([if MPI C compiler is Fujitsu fccpx], [ac_cv_mpicc_is_FCCPX],
+    [ac_cv_mpicc_is_FCCPX=no
+     ac_MPICC_VENDOR=`$MPICC --showme 2> /dev/null | cut -d' ' -f1 | xargs -r basename`
+     if test "x${ac_MPICC_VENDOR}" = xfccpx ; then
+        ac_cv_mpicc_is_FCCPX=yes
      fi
-     unset ac_CC_VENDOR
+     unset ac_MPICC_VENDOR
     ])
 ])
 
 dnl Check if MPI compiler is IBM XL based
-dnl According to xlc manual the command-line option to should version is
+dnl According to xlc manual the command-line option to show version is
 dnl
 dnl % xlc -qversion
 dnl IBM XL C/C++ for Blue Gene, V12.1
 dnl Version: 12.01.0000.0011
 dnl
-AC_DEFUN([UD_CHECK_XLC],[
-    AC_CACHE_CHECK([if C compiler is IBM XLC], [ac_cv_cc_compiler_xlc],
-    [ac_cv_cc_compiler_xlc=no
-     ac_XLC_VER=`$MPICC -qversion >& conftest.ver`
-     ac_XLC_VENDOR=`head -c 6 conftest.ver`
-     if test "x${ac_XLC_VENDOR}" = "xIBM XL" ; then
-        ac_cv_cc_compiler_xlc=yes
+AC_DEFUN([UD_CHECK_MPICC_IS_XLC],[
+    AC_CACHE_CHECK([if MPI C compiler is IBM XLC], [ac_cv_mpicc_is_XLC],
+    [ac_cv_mpicc_is_XLC=no
+     ac_MPICC_VER=`$MPICC -qversion >& conftest.ver`
+     ac_MPICC_VENDOR=`head -c 6 conftest.ver`
+     if test "x${ac_MPICC_VENDOR}" = "xIBM XL" ; then
+        ac_cv_mpicc_is_XLC=yes
      fi
      ${RM} -f conftest.ver
-     unset ac_XLC_VER
-     unset ac_XLC_VENDOR
+     unset ac_MPICC_VER
+     unset ac_MPICC_VENDOR
     ])
 ])
 
 dnl Check if MPI compiler is pgcc based
-dnl According to pgcc manual the command-line option to should version is -V
+dnl According to pgcc manual the command-line option to show version is -V
 dnl
 dnl % pgcc -V
 dnl
-dnl pgcc 16.9-0 64-bit target on x86-64 Linux -tp p7 
+dnl pgcc 16.9-0 64-bit target on x86-64 Linux -tp p7
 dnl The Portland Group - PGI Compilers and Tools
 dnl Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
 dnl
-AC_DEFUN([UD_CHECK_PGCC],[
-    AC_CACHE_CHECK([if C compiler is pgcc], [ac_cv_cc_compiler_pgcc],
-    [ac_cv_cc_compiler_pgcc=no
-     ac_PGCC_VER=`$MPICC -V -c 2> /dev/null`
-     ac_PGCC_VENDOR=`echo $ac_PGCC_VER | cut -d' ' -f1`
-     if test "x${ac_PGCC_VENDOR}" = xpgcc ; then
-        ac_cv_cc_compiler_pgcc=yes
+AC_DEFUN([UD_CHECK_MPICC_IS_PGCC],[
+    AC_CACHE_CHECK([if MPI C compiler is PGI pgcc], [ac_cv_mpicc_is_PGCC],
+    [ac_cv_mpicc_is_PGCC=no
+     ac_MPICC_VER=`$MPICC -V -c 2> /dev/null`
+     ac_MPICC_VENDOR=`echo $ac_MPICC_VER | cut -s -d' ' -f1`
+     if test "x${ac_MPICC_VENDOR}" = xpgcc ; then
+        ac_cv_mpicc_is_PGCC=yes
      fi
-     unset ac_PGCC_VER
-     unset ac_PGCC_VENDOR
+     unset ac_MPICC_VER
+     unset ac_MPICC_VENDOR
     ])
+])
+
+dnl Check if MPI compiler is Oracle Solaris Studio
+dnl According to cc manual the command-line option to show version is -V
+dnl
+dnl % cc -V
+dnl cc: Sun C 5.13 Linux_i386 2014/10/20
+dnl
+AC_DEFUN([UD_CHECK_MPICC_IS_SOLARIS],[
+    AC_CACHE_CHECK([if MPI C compiler is Solaris cc], [ac_cv_mpicc_is_SOLARIS],
+    [ac_cv_mpicc_is_SOLARIS=no
+     ac_MPICC_VER="$($MPICC -V 2>&1)"
+     ac_MPICC_VENDOR=`echo $ac_MPICC_VER | cut -s -d' ' -f2`
+     if test "x${ac_MPICC_VENDOR}" = xSun ; then
+        ac_cv_mpicc_is_SOLARIS=yes
+     fi
+     unset ac_MPICC_VER
+     unset ac_MPICC_VENDOR
+    ])
+])
+
+dnl Check MPI C compiler base
+dnl
+AC_DEFUN([UD_CHECK_MPICC_BASE],[
+   AC_MSG_CHECKING([MPI C compiler base])
+   ac_cv_mpicc_base=
+   # Check GCC
+   ac_MPICC_VER="$($MPICC --version 2>&1)"
+   ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w gcc`
+   # AC_MSG_NOTICE(GCC ac_MPICC_VER=$ac_MPICC_VER)
+   if test "x${ac_MPICC_VER}" != x ; then
+      ac_cv_mpicc_base="GCC"
+   else
+      # Check CLANG
+      ac_MPICC_VER="$($MPICC --version 2>&1)"
+      ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w clang`
+      # AC_MSG_NOTICE(clang ac_MPICC_VER=$ac_MPICC_VER)
+      if test "x${ac_MPICC_VER}" != x ; then
+         ac_cv_mpicc_base="CLANG"
+      else
+         # Check Intel C
+         ac_MPICC_VER="$($MPICC --version 2>&1)"
+         ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w icc`
+         # AC_MSG_NOTICE(icc ac_MPICC_VER=$ac_MPICC_VER)
+         if test "x${ac_MPICC_VER}" != x ; then
+            ac_cv_mpicc_base="ICC"
+         else
+            # Check XLC
+            ac_MPICC_VER="$($MPICC -qversion 2>&1)"
+            ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} "IBM XL C"`
+            # AC_MSG_NOTICE(XLC ac_MPICC_VER=$ac_MPICC_VER)
+            if test "x${ac_MPICC_VER}" != x ; then
+               ac_cv_mpicc_base="XLC"
+            else
+               # Check PGCC
+               ac_MPICC_VER="$($MPICC -V -c 2>&1)"
+               ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w pgcc`
+               # AC_MSG_NOTICE(pgcc ac_MPICC_VER=$ac_MPICC_VER)
+               if test "x${ac_MPICC_VER}" != x ; then
+                  ac_cv_mpicc_base="PGCC"
+               else
+                  # Check SOLARIS
+                  ac_MPICC_VER="$($MPICC -V 2>&1)"
+                  ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w Sun`
+                  # AC_MSG_NOTICE(Sun ac_MPICC_VER=$ac_MPICC_VER)
+                  if test "x${ac_MPICC_VER}" != x ; then
+                     ac_cv_mpicc_base="SOLARIS"
+                  else
+                     # Check FCCPX
+                     ac_MPICC_VER="$($MPICC --showme 2>&1)"
+                     ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w fccpx`
+                     # AC_MSG_NOTICE(fccpx ac_MPICC_VER=$ac_MPICC_VER)
+                     if test "x${ac_MPICC_VER}" != x ; then
+                        ac_cv_mpicc_base="FCCPX"
+                     else
+                        # If just cc, check if it is a wrapper of GCC
+                        ac_MPICC_VER="$($MPICC -v 2>&1)"
+                        UD_MSG_DEBUG(GCC ac_MPICC_VER=$ac_MPICC_VER)
+                        ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w gcc`
+                        if test "x${ac_MPICC_VER}" != x ; then
+                           ac_cv_mpicc_base="GCC"
+                        fi
+                     fi
+                  fi
+               fi
+            fi
+         fi
+      fi
+   fi
+   if test "x$ac_cv_mpicc_base" = x ; then
+      AC_MSG_RESULT([unknown])
+   else
+      AC_MSG_RESULT([$ac_cv_mpicc_base])
+   fi
 ])
 
 dnl Check if Fortran 77 compiler is pgf77
@@ -1630,16 +1796,16 @@ dnl Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
 dnl
 dnl Note the checking below may be obsolete
 dnl
-AC_DEFUN([UD_CHECK_PGF77],[
-    AC_CACHE_CHECK([if Fortran 77 compiler is pgf77], [ac_cv_fc_compiler_pgf77],
-    [ac_cv_fc_compiler_pgf77=no
+AC_DEFUN([UD_CHECK_MPIF77_IS_PGF77],[
+    AC_CACHE_CHECK([if MPI Fortran 77 compiler is PGI pgf77], [ac_cv_mpif77_is_PGF77],
+    [ac_cv_mpif77_is_PGF77=no
      eval $MPIF77 -V </dev/null >& conftest.ver
-     ac_F77_VENDOR=`head -c 5 conftest.ver`
-     if test "x${ac_F77_VENDOR}" = xpgf77 ; then
-        ac_cv_fc_compiler_pgf77=yes
+     ac_MPIF77_VENDOR=`head -c 5 conftest.ver`
+     if test "x${ac_MPIF77_VENDOR}" = xPGF77 ; then
+        ac_cv_mpif77_is_PGF77=yes
      fi
      ${RM} -f conftest.ver
-     unset ac_F77_VENDOR
+     unset ac_MPIF77_VENDOR
     ])
 ])
 
@@ -1652,14 +1818,14 @@ dnl Copyright 1990-2016 The Numerical Algorithms Group Ltd., Oxford, U.K.
 dnl
 dnl Note "nagfor -V" prints the version info on stderr, instead of stdout
 dnl
-AC_DEFUN([UD_CHECK_FC_NAG],[
-    AC_CACHE_CHECK([if Fortran compiler is NAG], [ac_cv_fc_compiler_nag],
-    [ac_cv_fc_compiler_nag=no
-     ac_FC_VENDOR=`eval $MPIF90 -V 2>&1 | head -c 3`
-     if test "x${ac_FC_VENDOR}" = xNAG ; then
-        ac_cv_fc_compiler_nag=yes
+AC_DEFUN([UD_CHECK_MPIF90_IS_NAG],[
+    AC_CACHE_CHECK([if MPI Fortran 90 compiler is NAG Fortran], [ac_cv_mpif90_is_NAG],
+    [ac_cv_mpif90_is_NAG=no
+     ac_MPIF90_VENDOR=`eval $MPIF90 -V 2>&1 | head -c 3`
+     if test "x${ac_MPIF90_VENDOR}" = xNAG ; then
+        ac_cv_mpif90_is_NAG=yes
      fi
-     unset ac_FC_VENDOR
+     unset ac_MPIF90_VENDOR
     ])
 ])
 
@@ -1754,7 +1920,7 @@ AC_DEFUN([UD_MPI_PATH_PROG], [
    dnl If yes, check, check if the file exists. Need not check MPI_INSTALL.
    ac_mpi_prog_path=`dirname $ac_first_token`
    if test "x$ac_mpi_prog_path" != "x." ; then
-      AC_MSG_CHECKING([if $ac_first_token exists and is executable])
+      AC_MSG_CHECKING([whether $ac_first_token exists and is executable])
       if test -x "$ac_first_token" ; then
          AC_MSG_RESULT([yes])
          $1="$2"
@@ -1849,7 +2015,7 @@ AC_DEFUN([UD_MPI_PATH_PROGS], [
 dnl Check for presence of an MPI constant.
 dnl These could be enums, so we have to do compile checks.
 AC_DEFUN([UD_HAS_MPI_CONST], [
-   AC_MSG_CHECKING(if MPI constant $1 is defined )
+   AC_MSG_CHECKING(whether MPI constant $1 is defined )
    AC_COMPILE_IFELSE(
       [AC_LANG_SOURCE([
           #include <mpi.h>
@@ -1865,7 +2031,7 @@ AC_DEFUN([UD_HAS_MPI_CONST], [
 dnl Check for presence of an MPI datatype.
 dnl These could be enums, so we have to do compile checks.
 AC_DEFUN([UD_CHECK_MPI_DATATYPE], [
-   AC_MSG_CHECKING(if MPI datatype $1 is defined )
+   AC_MSG_CHECKING(whether MPI datatype $1 is defined )
    AC_COMPILE_IFELSE(
       [AC_LANG_SOURCE([
           #include <mpi.h>
@@ -1883,7 +2049,7 @@ AC_DEFUN([UD_CHECK_MPI_DATATYPE], [
 dnl Check if older Intel MPI C compiler (4.x) for issue of redefined SEEK_SET
 dnl See https://software.intel.com/en-us/articles/intel-cluster-toolkit-for-linux-error-when-compiling-c-aps-using-intel-mpi-library-compilation-driver-mpiicpc
 AC_DEFUN([UD_CHECK_MPI_CPP_SEEK_SET], [
-   AC_MSG_CHECKING(if MPI C++ compiler redefines SEEK_SET )
+   AC_MSG_CHECKING(whether MPI C++ compiler redefines SEEK_SET )
    CXX=${MPICXX}
    AC_LANG_PUSH(C++)
    AC_COMPILE_IFELSE(
@@ -2016,3 +2182,160 @@ EOF
    ${RM} -f conftest.sed_i
 ])
 
+#
+# To check whether MPI C compiler supports shared libraries, below three
+# functions LT_AC_CHECK_SHLIB, LT_AH_CHECK_SHLIB, and LT_AC_LINK_SHLIB_IFELSE
+# are from http://lists.gnu.org/archive/html/libtool/2004-10/msg00222.html
+#
+# Usage example:
+#
+#  LT_AC_CHECK_SHLIB(mpi, MPI_Init, [], [AC_MSG_ERROR([
+#    -----------------------------------------------------------------------
+#      Building shared libraries is requested, but the MPI C compiler:
+#      "${MPICC}"
+#      is not built with support of shared libraries. Abort.
+#    -----------------------------------------------------------------------])])
+#
+
+# LT_AC_CHECK_SHLIB(LIBRARY, FUNCTION,
+#                   [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND],
+#                   [OTHER-LIBRARIES])
+# -----------------------------------------------------------
+#
+# Use a cache variable name containing both the library and function name,
+# because the test really is for library $1 defining function $2, not
+# just for library $1. Separate tests with the same $1 and different $2s
+# may have different results.
+#
+# Note that using directly AS_VAR_PUSHDEF([ac_Lib], [lt_ac_cv_shlib_$1_$2])
+# is asking for troubles, since LT_AC_CHECK_SHLIB($lib, fun) would give
+# lt_ac_cv_shlib_$lib_fun, which is definitely not what was meant. Hence
+# the AS_LITERAL_IF indirection.
+#
+# FIXME: This macro is extremely suspicious. It DEFINEs unconditionally,
+# whatever the FUNCTION, in addition to not being a *S macro.  Note
+# that the cache does depend upon the function we are looking for.
+#
+AC_DEFUN([LT_AC_CHECK_SHLIB],
+[m4_ifval([$3], , [LT_AH_CHECK_SHLIB([$1])])dnl
+AS_LITERAL_IF([$1],
+              [AS_VAR_PUSHDEF([ac_Lib], [lt_ac_cv_shlib_$1_$2])],
+              [AS_VAR_PUSHDEF([ac_Lib], [lt_ac_cv_shlib_$1''_$2])])dnl
+AC_CACHE_CHECK([for $2 in shared version of -l$1], ac_Lib,
+[lt_ac_check_shlib_save_LIBS=$LIBS
+LIBS="-l$1 $5 $LIBS"
+LT_AC_LINK_SHLIB_IFELSE([AC_LANG_CALL([], [$2])],
+                        [AS_VAR_SET(ac_Lib, yes)],
+                        [AS_VAR_SET(ac_Lib, no)])
+LIBS=$lt_ac_check_shlib_save_LIBS])
+AS_IF([test AS_VAR_GET(ac_Lib) = yes],
+      [m4_default([$3], [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_SHLIB$1))])],
+      [$4])dnl
+AS_VAR_POPDEF([ac_Lib])dnl
+])# AC_CHECK_LIB
+
+# LT_AH_CHECK_SHLIB(LIBNAME)
+# ---------------------
+m4_define([LT_AH_CHECK_SHLIB],
+[AH_TEMPLATE(AS_TR_CPP(HAVE_SHLIB$1),
+[Define to 1 if you have a shared version of the `]$1[' library (-l]$1[).])])
+
+
+# LT_AC_LINK_SHLIB_IFELSE(LIBRARYCODE, [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
+# -----------------------------------------------------------------
+# Try to link LIBRARYCODE into a libtool library.
+AC_DEFUN([LT_AC_LINK_SHLIB_IFELSE],
+[m4_ifvaln([$1], [AC_LANG_CONFTEST([$1])])dnl
+rm -rf $objdir
+rm -f conftest.$ac_objext conftest.la
+ac_ltcompile='./libtool --mode=compile $CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext -o conftest.lo >&AS_MESSAGE_LOG_FD'
+ac_ltlink_la='./libtool --mode=link $CC -rpath `pwd` $CFLAGS $LDFLAGS -o libconftest.la conftest.lo $LIBS >&AS_MESSAGE_LOG_FD'
+AS_IF([AC_TRY_EVAL([ac_ltcompile]) &&
+       AC_TRY_EVAL([ac_ltlink_la]) &&
+       AC_TRY_COMMAND([test -s libconftest.la])],
+      [$2],
+      [_AC_MSG_LOG_CONFTEST
+      m4_ifvaln([$3], [$3])])
+rm -rf $objdir
+rm -f conftest* libconftest*[]dnl
+])# _AC_LINK_IFELSE
+
+# LT_MPI_CHECK_SHLIB
+# -----------------------------------------------------------------
+# Try to link an MPI program using libtool. This function is useful for
+# detecting whether the MPI library is built with shared library support.
+AC_DEFUN([LT_MPI_CHECK_SHLIB],[
+   AC_MSG_CHECKING([whether MPI library is built with shared library support])
+   AC_LANG_CONFTEST([AC_LANG_PROGRAM([[#include <mpi.h>]], [[MPI_Init(0, 0);]])])
+   $RM -rf $objdir conftest.$ac_objext conftest.la
+   dnl RM must have -f option when calling libtool
+   ac_RM_saved=${RM}
+   if test "x$RM" = xrm -o "x$RM" = "x/bin/rm" ; then
+      RM="$RM -f"
+   fi
+   ac_ltcompile='./libtool --mode=compile $MPICC -c $CFLAGS $CPPFLAGS conftest.$ac_ext -o conftest.lo >&AS_MESSAGE_LOG_FD'
+   ac_ltlink_la='./libtool --mode=link $MPICC -rpath `pwd` $CFLAGS $LDFLAGS -o libconftest.la conftest.lo $LIBS >&AS_MESSAGE_LOG_FD'
+   AS_IF([AC_TRY_EVAL([ac_ltcompile]) &&
+       AC_TRY_EVAL([ac_ltlink_la]) &&
+       AC_TRY_COMMAND([test -s libconftest.la])],
+      [ac_cv_lt_mpi_check_shlib=yes],
+      [ac_cv_lt_mpi_check_shlib=no])
+   RM=$ac_RM_saved
+   unset ac_RM_saved
+   $RM -rf $objdir conftest* libconftest*
+   AC_MSG_RESULT([$ac_cv_lt_mpi_check_shlib])
+])# LT_MPI_CHECK_SHLIB
+
+# CHECK_MPI_VERSION
+# -----------------------------------------------------------------
+# check MPI version and vendor
+AC_DEFUN([CHECK_MPI_VERSION],[
+   AC_REQUIRE([AC_PROG_GREP])
+   AC_MSG_CHECKING([MPI version])
+   AC_COMPUTE_INT([mpi_version], [MPI_VERSION], [[#include <mpi.h>]])
+   AC_COMPUTE_INT([mpi_subversion], [MPI_SUBVERSION], [[#include <mpi.h>]])
+   if test "x$mpi_version" = x ; then
+      AC_MSG_RESULT([information unavailable])
+   else
+      AC_MSG_RESULT([${mpi_version}.${mpi_subversion}])
+   fi
+
+   AC_CHECK_DECLS([MPICH_VERSION, MPICH2_VERSION, OMPI_MAJOR_VERSION, MVAPICH2_VERSION],
+                  [], [], [#include <mpi.h>])
+   AC_MSG_CHECKING([MPI vendor])
+
+cat - <<_ACEOF >conftest.c
+#include <mpi.h>
+_ACEOF
+
+   # CPP flag to show macro definitions
+   # For GCC, Intel, and PGI, it is -dM and prints to stdout
+   # For Oracle Solaris Studio compiler, it is -xdumpmacros=defs and prints to stderr
+   MACRO_FLAG="-dM"
+   if test "x$ac_cv_mpicc_base" = xXLC ; then
+      MACRO_FLAG="-qshowmacros"
+   fi
+
+   # Note MVAPICH2's mpi.h also defines MPICH_VERSION, so this check must be
+   # done before MPICH.
+   if test "x$ac_cv_have_decl_MVAPICH2_VERSION" = xyes ; then
+      mvapich2_version=`$CPP $MACRO_FLAG conftest.c |& ${GREP} MVAPICH2_VERSION | cut -d' ' -d'"' -f2`
+      AC_MSG_RESULT(MVAPICH2 $mvapich2_version)
+   elif test "x$ac_cv_have_decl_MPICH_VERSION" = xyes ; then
+      mpich_version=`$CPP $MACRO_FLAG conftest.c |& ${GREP} MPICH_VERSION | cut -d' ' -d'"' -f2`
+      AC_MSG_RESULT(MPICH $mpich_version)
+   elif test "x$ac_cv_have_decl_MPICH2_VERSION" = xyes ; then
+      mpich2_version=`$CPP $MACRO_FLAG conftest.c |& ${GREP} MPICH2_VERSION | cut -d' ' -d'"' -f2`
+      AC_MSG_RESULT(MPICH2 $mpich2_version)
+   elif test "x$ac_cv_have_decl_OMPI_MAJOR_VERSION" = xyes ; then
+      AC_COMPUTE_INT([OMPI_MAJOR_VERSION], [OMPI_MAJOR_VERSION], [[#include <mpi.h>]])
+      AC_COMPUTE_INT([OMPI_MINOR_VERSION], [OMPI_MINOR_VERSION], [[#include <mpi.h>]])
+      AC_COMPUTE_INT([OMPI_RELEASE_VERSION], [OMPI_RELEASE_VERSION], [[#include <mpi.h>]])
+      ompi_version="${OMPI_MAJOR_VERSION}.${OMPI_MINOR_VERSION}.${OMPI_RELEASE_VERSION}"
+      AC_MSG_RESULT(OpenMPI $ompi_version)
+   else
+      AC_MSG_RESULT([unknown])
+   fi
+   ${RM} -f conftest.c
+   unset MACRO_FLAG
+])

@@ -9,10 +9,12 @@
 SUFFIXES = .o .f90
 
 AM_DEFAULT_SOURCE_EXT = .f90
-AM_FCFLAGS = -I$(top_builddir)/src/binding/f77 \
-             $(FC_MODINC)$(top_builddir)/src/binding/f90 \
+
+AM_FCFLAGS = $(FC_MODINC)$(top_builddir)/src/binding/f90 \
              $(FC_MODINC)../common
-LDADD = ${top_builddir}/src/libs/libpnetcdf.la ../common/libtestutils.la
+
+LDADD  = $(top_builddir)/src/libs/libpnetcdf.la ../common/libtestutils.la
+LDADD += @NETCDF4_LDFLAGS@ @ADIOS_LDFLAGS@ @NETCDF4_LIBS@ @ADIOS_LIBS@
 
 TESTPROGRAMS = tst_f90 \
                f90tst_vars \

@@ -28,7 +28,6 @@
 #include <common.h>
 #include "ncmpio_NC.h"
 
-
 /* buffer layers:
 
         User Level              buf     (user defined buffer of MPI_Datatype)
@@ -352,7 +351,7 @@ concatenate_datatypes(int           num,
 #if SIZEOF_MPI_AINT == SIZEOF_MPI_OFFSET
     addrs = (MPI_Aint*) displacements; /* cast ok: types same size */
 #else
-    /* if (sizeof(MPI_Offset) != sizeof(MPI_Aint)) */
+    /* if (SIZEOF_MPI_OFFSET != SIZEOF_MPI_AINT) */
     addrs = (MPI_Aint *) NCI_Malloc((size_t)num * SIZEOF_MPI_AINT);
     for (i=0; i<num; i++) {
         addrs[i] = displacements[i];
@@ -392,7 +391,7 @@ construct_filetypes(NC           *ncp,
                     NC_req       *reqs,      /* [num_reqs] */
                     MPI_Datatype *filetype)  /* OUT */
 {
-    int i, j, err, status=NC_NOERR, all_filetype_contig=1, last_contig_req;
+    int i, j, err, status=NC_NOERR, all_ftype_contig=1, last_contig_req;
     MPI_Datatype *ftypes;
 
     if (num_reqs <= 0) { /* for participating collective call */
@@ -407,7 +406,7 @@ construct_filetypes(NC           *ncp,
     last_contig_req = -1; /* index of the last contiguous request */
     j = 0;                /* index of last valid ftypes */
     for (i=0; i<num_reqs; i++, j++) {
-        int is_filetype_contig, ndims;
+        int is_ftype_contig, ndims;
         NC_lead_req *lead;
 
         lead = lead_list + reqs[i].lead_off;
@@ -426,8 +425,8 @@ construct_filetypes(NC           *ncp,
                 status = err; /* report first error */
             }
 #endif
-            disps[j]           = lead->varp->begin;
-            is_filetype_contig = 1;
+            disps[j]        = lead->varp->begin;
+            is_ftype_contig = 1;
         }
         else { /* non-scalar variable */
             MPI_Offset offset, *count, *stride;
@@ -442,14 +441,13 @@ construct_filetypes(NC           *ncp,
                                               stride,
                                               &offset,
                                               &ftypes[j],
-                                              &is_filetype_contig);
+                                              &is_ftype_contig);
 
 #if SIZEOF_MPI_AINT < SIZEOF_MPI_OFFSET
             if (err == NC_NOERR && offset > INT_MAX)
                 DEBUG_ASSIGN_ERROR(err, NC_EINTOVERFLOW)
-            else
 #endif
-               disps[j] = offset;
+            disps[j] = (MPI_Aint)offset;
 
             if (err != NC_NOERR) {
                 fSet(lead->flag, NC_REQ_SKIP); /* skip this request */
@@ -461,7 +459,7 @@ construct_filetypes(NC           *ncp,
             }
         }
 
-        if (is_filetype_contig) {
+        if (is_ftype_contig) {
             MPI_Offset coalesced_len;
 
             /* No need to construct a filetype */
@@ -482,7 +480,7 @@ construct_filetypes(NC           *ncp,
             /* we will construct a filetype, set blocklen to 1 */
             blocklens[j] = 1;
             last_contig_req = -1;
-            all_filetype_contig = 0;
+            all_ftype_contig = 0;
         }
     }
     /* j is the new num_reqs */
@@ -494,11 +492,14 @@ construct_filetypes(NC           *ncp,
         *filetype = MPI_BYTE;
     }
     else if (num_reqs == 1 && disps[0] == 0) {
-        MPI_Type_dup(ftypes[0], filetype);
+        if (ftypes[0] == MPI_BYTE)
+            *filetype = MPI_BYTE;
+        else
+            MPI_Type_dup(ftypes[0], filetype);
     }
     else { /* if (num_reqs > 1 || (num_reqs == 1 && disps[0] > 0)) */
         /* all ftypes[] created fine, now concatenate all ftypes[] */
-        if (all_filetype_contig) {
+        if (all_ftype_contig) {
             err = MPI_Type_create_hindexed(num_reqs, blocklens, disps,
                                            MPI_BYTE, filetype);
             MPI_Type_commit(filetype);
@@ -2137,7 +2138,7 @@ wait_getput(NC         *ncp,
         lead = lead_list + reqs[i].lead_off;
         varp = lead->varp;
 
-        if (lead->varp->ndims == 0) { /* scalar variable */
+        if (varp->ndims == 0) { /* scalar variable */
             reqs[i].offset_start = varp->begin;
             reqs[i].offset_end   = varp->begin + varp->xsz;
         }

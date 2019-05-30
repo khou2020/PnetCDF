@@ -512,7 +512,7 @@ hdr_len_NC_var(const NC_var *varp,
      */
     sz = hdr_len_NC_name(varp->name_len, sizeof_t);     /* name */
     sz += sizeof_t;                                     /* nelems */
-    sz += sizeof_t * varp->ndims;                       /* [dimid ...] */
+    sz += (long long)sizeof_t * varp->ndims;            /* [dimid ...] */
     sz += hdr_len_NC_attrarray(&varp->attrs, sizeof_t); /* vatt_list */
     sz += 4;                                            /* nc_type */
     sz += sizeof_t;                                     /* vsize */
@@ -2188,6 +2188,45 @@ val_get_NC(int fd, NC *ncp)
         goto fn_exit;
     }
 
+    /* check zero padding in the blank space betwee header size and extent */
+    if (repair && ncp->begin_var - ncp->xsz > 0) {
+        size_t i, gap = ncp->begin_var - ncp->xsz;
+        ssize_t readLen;
+        char *buf = (char*) malloc(gap);
+
+        if (-1 == lseek(fd, ncp->xsz, SEEK_SET)) {
+            if (verbose)
+                printf("Error at line %d: lseek %s\n",__LINE__,strerror(errno));
+            free(buf);
+            goto fn_exit;
+        }
+        readLen = read(fd, buf, gap);
+        if (readLen == -1) {
+            if (verbose)
+                printf("Error at line %d: read %s\n",__LINE__,strerror(errno));
+            free(buf);
+            status = -1;
+            goto fn_exit;
+        }
+        for (i=0; i<readLen; i++)
+            if (buf[i] != 0)
+                break;
+        if (readLen < gap || i < readLen) { /* zero out the blank space */
+            memset(buf, 0, gap);
+            if (lseek(fd, ncp->xsz, SEEK_SET) < 0) {
+                free(buf);
+                status = -1;
+                goto fn_exit;
+            }
+            if (write(fd, buf, gap) < 0) {
+                free(buf);
+                status = -1;
+                goto fn_exit;
+            }
+        }
+        free(buf);
+    }
+
 fn_exit:
     free(getbuf.base);
 
@@ -2214,7 +2253,7 @@ int main(int argc, char **argv)
 {
     extern int optind;
     char filename[512], *path;
-    int i, omode, fd, status=NC_NOERR;
+    int i, omode, fd, fmt=1, status=NC_NOERR;
     NC *ncp=NULL;
     struct stat ncfilestat;
 
@@ -2272,6 +2311,9 @@ int main(int argc, char **argv)
     status = val_get_NC(fd, ncp);
     if (status != NC_NOERR && status != NC_ENULLPAD && status != -1)
         goto prog_exit;
+
+    /* class file format: CDF-1, 2 or 5 */
+    fmt = ncp->format;
 
     /* check data size */
     if (-1 == fstat(fd, &ncfilestat)) {
@@ -2332,9 +2374,9 @@ prog_exit:
 
     if (verbose) {
         if (status == NC_NOERR)
-            printf("File \"%s\" is a valid NetCDF classic file.\n",filename);
+            printf("File \"%s\" is a valid NetCDF classic CDF-%d file.\n",filename, fmt);
         else {
-            printf("File \"%s\" fails to conform with classic CDF file format specifications\n",filename);
+            printf("File \"%s\" fails to conform with classic CDF-%d file format specifications\n",filename, fmt);
             if (repair) {
                 printf("and it has been repaired in place to remove the errors.\n");
                 printf("Please run \"%s %s\" to validate again.\n",argv[0],filename);

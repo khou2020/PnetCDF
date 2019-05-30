@@ -8,12 +8,14 @@
 
 AM_CPPFLAGS  = -I$(top_srcdir)/src/include
 AM_CPPFLAGS += -I$(top_builddir)/src/include
+AM_CPPFLAGS += @ADIOS_INC@
 
 NCGEN = ../ncmpigen/ncmpigen
 
 bin_PROGRAMS = ncmpidump
 ncmpidump_SOURCES = ncmpidump.c vardata.c dumplib.c
-ncmpidump_LDADD = $(top_builddir)/src/libs/libpnetcdf.la
+ncmpidump_LDADD  = $(top_builddir)/src/libs/libpnetcdf.la
+ncmpidump_LDADD += @NETCDF4_LDFLAGS@ @ADIOS_LDFLAGS@ @NETCDF4_LIBS@ @ADIOS_LIBS@
 
 $(top_builddir)/src/libs/libpnetcdf.la:
 	set -e; cd $(top_builddir)/src/libs && $(MAKE) $(MFLAGS)
@@ -38,7 +40,7 @@ test: $(bin_PROGRAMS)
 tests-local: all
 
 dist-hook:
-	$(SED_I) -e "s|PNETCDF_RELEASE_VERSION|$(PNETCDF_VERSION)|g" $(distdir)/ncmpidump.1
-	$(SED_I) -e "s|PNETCDF_RELEASE_DATE2|`date '+%Y-%m-%d'`|g"   $(distdir)/ncmpidump.1
-	$(SED_I) -e "s|PNETCDF_RELEASE_DATE|`date '+%e %b %Y'`|g"    $(distdir)/ncmpidump.1
+	$(SED_I) -e "s|PNETCDF_RELEASE_VERSION|$(PNETCDF_VERSION)|g"            $(distdir)/ncmpidump.1
+	$(SED_I) -e "s|PNETCDF_RELEASE_DATE_FULL|@PNETCDF_RELEASE_DATE_FULL@|g" $(distdir)/ncmpidump.1
+	$(SED_I) -e "s|PNETCDF_RELEASE_DATE|@PNETCDF_RELEASE_DATE@|g"           $(distdir)/ncmpidump.1
 

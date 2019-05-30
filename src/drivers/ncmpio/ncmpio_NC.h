@@ -362,9 +362,12 @@ struct NC {
     MPI_Offset    v_minfree;   /* pad at the end of the data section for fixed-size variables */
     MPI_Offset    ibuf_size;   /* packing buffer size for flushing noncontig
                                   user buffer during wait */
-    MPI_Offset    xsz;       /* external size of this header, <= var[0].begin */
-    MPI_Offset    begin_var; /* file offset of the first (non-record) var */
-    MPI_Offset    begin_rec; /* file offset of the first 'record' */
+    MPI_Offset    xsz;         /* size of this file header, <= var[0].begin */
+    MPI_Offset    begin_var;   /* file offset of the first fixed-size variable,
+                                  if no fixed-sized variable, it is the offset
+                                  of first record variable. This value is also
+                                  the size of file header extent. */
+    MPI_Offset    begin_rec;   /* file offset of the first 'record' */
 
     MPI_Offset    recsize;   /* length of 'record': sum of single record sizes
                                 of all the record variables */
@@ -438,8 +441,9 @@ typedef struct bufferinfo {
     int         size;     /* allocated size of the buffer */
     int         version;  /* 1, 2, and 5 for CDF-1, 2, and 5 respectively */
     int         safe_mode;/* 0: disabled, 1: enabled */
-    void       *base;     /* beginning of read/write buffer */
-    void       *pos;      /* current position in buffer */
+    char       *base;     /* beginning of read/write buffer */
+    char       *pos;      /* current position in buffer */
+    char       *end;      /* end position of buffer */
 } bufferinfo;
 
 extern MPI_Offset

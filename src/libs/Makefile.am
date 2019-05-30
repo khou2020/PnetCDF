@@ -29,6 +29,10 @@ endif
 if ENABLE_COMPRESSION
    libpnetcdf_la_LIBADD += ../drivers/nczipio/libnczipio.la
 endif
+if ENABLE_ADIOS
+   libpnetcdf_la_LIBADD += ../drivers/ncadios/libncadios.la
+endif
+
 
 nodist_EXTRA_libpnetcdf_la_SOURCES = dummyc.c
 

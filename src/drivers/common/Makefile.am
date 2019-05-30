@@ -8,9 +8,10 @@
 
 SUFFIXES = .a .o .c .m4 .h
 
-AM_CPPFLAGS  = -I${top_srcdir}/src/include
-AM_CPPFLAGS += -I${top_srcdir}/src/drivers/include
-AM_CPPFLAGS += -I${top_builddir}/src/drivers/include
+AM_CPPFLAGS  = -I$(top_srcdir)/src/include
+AM_CPPFLAGS += -I$(top_srcdir)/src/drivers/include
+AM_CPPFLAGS += -I$(top_builddir)/src/drivers/include
+AM_CPPFLAGS += @ADIOS_INC@
 
 if PNETCDF_DEBUG
    AM_CPPFLAGS += -DPNETCDF_DEBUG
@@ -21,7 +22,7 @@ noinst_LTLIBRARIES = libcommon.la
 H_SRCS = utf8proc_data.h \
          utf8proc.h
 
-M4FLAGS += -I${top_srcdir}/m4
+M4FLAGS += -I$(top_srcdir)/m4
 if ENABLE_ERANGE_FILL
 M4FLAGS += -DERANGE_FILL
 endif
@@ -40,8 +41,15 @@ C_SRCS    = utf8proc.c \
             error_posix2nc.c \
             hash_map.c
 
+if ENABLE_ADIOS
+   C_SRCS += error_adios2nc.c 
+endif
+
 libcommon_la_SOURCES = $(C_SRCS) $(H_SRCS)
 nodist_libcommon_la_SOURCES = $(M4_SRCS:.m4=.c)
+
+$(top_builddir)/src/drivers/include/ncx.h:
+	set -e; cd ../include && $(MAKE) $(MFLAGS) ncx.h
 
 # Thanks to Rafik Zurob to provide the fix and point out when using the IBM xlc
 # compilers, ncx.c breaks strict ANSI C aliasing rules in regards to how

@@ -51,7 +51,7 @@ with C, C++, F77, and F90 versions.
 ./CXX/collective_write.cpp
     This example defined NUM_VARS 3D integer non-record variables in a file.
     All variables are partitioned among processes in a 3D block-block-block
-    fashion. The I/O is carried out by making NUM_VARS calls to 
+    fashion. The I/O is carried out by making NUM_VARS calls to
     ncmpi_put_vara_int_all(), one for each variable. Performance measurements
     are reported in the standard output.
 
@@ -335,4 +335,16 @@ with C, C++, F77, and F90 versions.
   ./C/time_var.c
 ./F77/time_var.f
   These examples show how to define, write, and read record variables.
+
+./adios/read_var.c
+  This examples shows how to read variables from a BP file using PnetCDF
+  blocking APIs
+
+./adios/read_var_nb.c
+  This examples shows how to read variable from a BP file using PnetCDF
+  non-blocking APIs
+
+./adios/read_metadata.c
+  This examples shows how to enumerate all variables, dimensions, and
+  attributes from a BP file
 

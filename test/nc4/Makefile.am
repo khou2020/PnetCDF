@@ -13,8 +13,10 @@ AM_DEFAULT_SOURCE_EXT = .c
 AM_CPPFLAGS  = -I$(top_srcdir)/src/include
 AM_CPPFLAGS += -I$(srcdir)/../common
 AM_CPPFLAGS += -I$(top_builddir)/src/include
-LDADD = ${top_builddir}/src/libs/libpnetcdf.la ../common/libtestutils.la -lm
+AM_CPPFLAGS += @NETCDF4_INC@
 
+LDADD  = $(top_builddir)/src/libs/libpnetcdf.la ../common/libtestutils.la
+LDADD += @NETCDF4_LDFLAGS@ @ADIOS_LDFLAGS@ @NETCDF4_LIBS@ @ADIOS_LIBS@ -lm
 
 if DECL_MPI_OFFSET
    # Do not add to AM_CPPFLAGS, as it will also be used by Fortran programs
@@ -30,7 +32,13 @@ TESTPROGRAMS = simple_xy \
                interoperability_rd \
                interoperability_wr \
                noclobber \
-               tst_zero_req
+               tst_zero_req \
+               notsupport \
+               tst_rec_vars \
+               tst_2_rec_dims \
+               tst_get_put_size \
+               pres_temp_4D \
+               rd_compressed
 
 M4_SRCS  = put_get_all_kinds.m4 interoperability_rd.m4 interoperability_wr.m4
 
@@ -45,8 +53,7 @@ $(M4_SRCS:.m4=.c): Makefile
 .m4.c:
 	$(M4) $(AM_M4FLAGS) $(M4FLAGS) $< >$@
 
-check_PROGRAMS = $(TESTPROGRAMS) \
-                 compressed
+check_PROGRAMS = $(TESTPROGRAMS)
 
 # autimake 1.11.3 has not yet implemented AM_TESTS_ENVIRONMENT
 # For newer versions, we can use AM_TESTS_ENVIRONMENT instead
@@ -62,7 +69,7 @@ TESTS_ENVIRONMENT += export PNETCDF_DEBUG="$(PNETCDF_DEBUG)";
 TESTS_ENVIRONMENT += export TESTPROGRAMS="$(TESTPROGRAMS)";
 TESTS_ENVIRONMENT += export check_PROGRAMS="$(check_PROGRAMS)";
 
-TESTS = $(TESTPROGRAMS) seq_runs.sh
+TESTS = $(TESTPROGRAMS)
 TEST_EXTENSIONS = .sh
 LOG_COMPILER = $(srcdir)/wrap_runs.sh
 SH_LOG_COMPILER =
@@ -73,8 +80,7 @@ CLEANFILES = $(M4_SRCS:.m4=.c) \
              $(TESTOUTDIR)/put_get_all_kinds.nc.cdf4 \
              $(NC_FILES) testfile.nc
 
-EXTRA_DIST = $(M4_SRCS) seq_runs.sh wrap_runs.sh gzip_example.nc \
-             parallel_run.sh
+EXTRA_DIST = $(M4_SRCS) wrap_runs.sh parallel_run.sh
 
 ../common/libtestutils.la:
 	set -e; cd ../common && $(MAKE) $(MFLAGS) tests
@@ -84,7 +90,7 @@ EXTRA_DIST = $(M4_SRCS) seq_runs.sh wrap_runs.sh gzip_example.nc \
 # Some of these tests are designed to run on 4 processes,
 # Run them on 2, 4, and 6 processes to see if they can handle well
 
-ptest ptests ptest4: $(check_PROGRAMS)
+ptest ptest4: $(check_PROGRAMS)
 	@echo "==========================================================="
 	@echo "    $(subdir): Parallel testing on 4 MPI processes"
 	@echo "==========================================================="
