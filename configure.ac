@@ -2049,6 +2049,7 @@ if test "x$enable_sz" = "xyes" ; then
       ------------------------------------------------------------])
    fi
 fi
+
 AC_ARG_ENABLE([adios],
    [AS_HELP_STRING([--enable-adios],
                    [Enable ADIOS BP read support. @<:@default: disabled@:>@])],
