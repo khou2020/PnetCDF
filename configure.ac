@@ -1378,6 +1378,11 @@ if test "x${debug}" = xyes; then
    fi
 fi
 
+if test "$heterogeneous" = yes; then
+   AC_DEFINE(PNETCDF_BUILD_HETERO)
+   PNETCDF_BUILD_HETERO=1
+fi
+
 chmod u+x ${srcdir}/scripts/install-sh
 
 AC_ARG_ENABLE([subfiling],
@@ -1953,7 +1958,6 @@ if test "x$enable_zlib" = "xyes" ; then
 fi
 AC_SUBST(ENABLE_ZLIB)
 AM_CONDITIONAL(ENABLE_ZLIB, [test x$enable_zlib = xyes])
-
 
 if test "x$enable_zlib" = "xyes" ; then
    ZLIB_INSTALL=""
