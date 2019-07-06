@@ -275,6 +275,9 @@ nczipio_close(void *ncdp)
     nczipioi_req_list_free(&(nczipp->putlist));
     nczipioi_req_list_free(&(nczipp->getlist));
 
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_FINALIZE)
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
+
 #ifdef PNETCDF_PROFILING
     if (_env_str != NULL && *_env_str != '0') {                        
         nczipioi_print_profile(nczipp);
@@ -282,9 +285,6 @@ nczipio_close(void *ncdp)
 #endif
 
     NCI_Free(nczipp->path);
-
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_FINALIZE)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
 
     NCI_Free(nczipp);
 
@@ -295,6 +295,7 @@ int
 nczipio_enddef(void *ncdp)
 {
     int i, err;
+    MPI_Offset logrecnalloc, drecnalloc;
     MPI_Offset rsize;
     NC_zip_var *varp;
     NC_zip *nczipp = (NC_zip*)ncdp;
@@ -302,20 +303,35 @@ nczipio_enddef(void *ncdp)
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
 
+    drecnalloc = 1;
+    logrecnalloc = 0;
+    while(drecnalloc < nczipp->default_recnalloc){
+        logrecnalloc++;
+        drecnalloc <<= 1;
+    }
+
     // Reserve header space
     rsize = 0;
     for(i = 0; i < nczipp->vars.cnt; i++){
         varp = nczipp->vars.data + i;
+        rsize = 0;
         if (varp->varkind == NC_ZIP_VAR_COMPRESSED){
-            rsize += ((8 + 16) + 4 + 8 + 4) * 8 + ((8 + 16) + 4 + 8 + 4 * varp->ndim) * 2; // Atts
-            rsize += ((8 + 32) + 8) * 3; // dims
-            rsize += ((8 + 32) + 8 + 8 + (8 + 8 + (8 + 12 + 4 + 8 + 4)) + 4 + 8 + 8) * 3; // vars
+            if (varp->isrec){
+                rsize += ((8 + 16) + 4 + 8 + 4) * 8 + ((8 + 16) + 4 + 8 + 4 * varp->ndim) * 2; // Atts
+                rsize += ((8 + 32) + 8) * (nczipp->default_recnalloc + logrecnalloc + 1); // dims
+                rsize += ((8 + 32) + 8 + 8 + (8 + 8 + (8 + 12 + 4 + 8 + 4)) + 4 + 8 + 8) * (nczipp->default_recnalloc + 2 * logrecnalloc); // vars
+            }
+            else{
+                rsize += ((8 + 16) + 4 + 8 + 4) * 8 + ((8 + 16) + 4 + 8 + 4 * varp->ndim) * 2; // Atts
+                rsize += ((8 + 32) + 8) * 3; // dims
+                rsize += ((8 + 32) + 8 + 8 + (8 + 8 + (8 + 12 + 4 + 8 + 4)) + 4 + 8 + 8) * 3; // vars 
+            }
         }
         else{
             rsize += ((8 + 16) + 4 + 8 + 4); // Atts
         }
     }
-    rsize *= 4;   // 4 times for future expension
+    rsize *= 2;   // 2 times for future expension
 
     err = nczipp->driver->_enddef(nczipp->ncp, rsize, 0, 0, 0);
     if (err != NC_NOERR) return err;
@@ -344,6 +360,7 @@ nczipio__enddef(void       *ncdp,
               MPI_Offset  r_align)
 {
     int i, err;
+    MPI_Offset logrecnalloc, drecnalloc;
     MPI_Offset rsize;
     NC_zip_var *varp;
     NC_zip *nczipp = (NC_zip*)ncdp;
@@ -351,20 +368,35 @@ nczipio__enddef(void       *ncdp,
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
 
+    drecnalloc = 1;
+    logrecnalloc = 0;
+    while(drecnalloc < nczipp->default_recnalloc){
+        logrecnalloc++;
+        drecnalloc <<= 1;
+    }
+
     // Reserve header space
     rsize = 0;
     for(i = 0; i < nczipp->vars.cnt; i++){
         varp = nczipp->vars.data + i;
+        rsize = 0;
         if (varp->varkind == NC_ZIP_VAR_COMPRESSED){
-            rsize += ((8 + 16) + 4 + 8 + 4) * 8 + ((8 + 16) + 4 + 8 + 4 * varp->ndim) * 2; // Atts
-            rsize += ((8 + 32) + 8) * 3; // dims
-            rsize += ((8 + 32) + 8 + 8 + (8 + 8 + (8 + 12 + 4 + 8 + 4)) + 4 + 8 + 8) * 3; // vars
+            if (varp->isrec){
+                rsize += ((8 + 16) + 4 + 8 + 4) * 8 + ((8 + 16) + 4 + 8 + 4 * varp->ndim) * 2; // Atts
+                rsize += ((8 + 32) + 8) * (nczipp->default_recnalloc + logrecnalloc + 1); // dims
+                rsize += ((8 + 32) + 8 + 8 + (8 + 8 + (8 + 12 + 4 + 8 + 4)) + 4 + 8 + 8) * (nczipp->default_recnalloc + 2 * logrecnalloc); // vars
+            }
+            else{
+                rsize += ((8 + 16) + 4 + 8 + 4) * 8 + ((8 + 16) + 4 + 8 + 4 * varp->ndim) * 2; // Atts
+                rsize += ((8 + 32) + 8) * 3; // dims
+                rsize += ((8 + 32) + 8 + 8 + (8 + 8 + (8 + 12 + 4 + 8 + 4)) + 4 + 8 + 8) * 3; // vars 
+            }
         }
         else{
             rsize += ((8 + 16) + 4 + 8 + 4); // Atts
         }
     }
-    rsize *= 4;   // 4 times for future expension
+    rsize *= 2;   // 2 times for future expension
 
     err = nczipp->driver->_enddef(nczipp->ncp, h_minfree + rsize, v_align, v_minfree,
                                r_align);

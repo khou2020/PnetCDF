@@ -78,7 +78,7 @@ int nczipioi_load_var(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids) {
             cid = cids[i];
             // offset and length of compressed chunks
             lens[i] = zsizes[cid];
-            disps[i] = (MPI_Aint)zoffs[cid];
+            disps[i] = (MPI_Aint)zoffs[cid] + ncp->begin_var;
             // At the same time, we record the size of buffer we need
             bsize += (MPI_Offset)lens[i];
         }
@@ -230,7 +230,7 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids) {
         k = 0;
         for(i = 0; i < nvar; i++){
             varp = nczipp->vars.data + varids[i];
-            ncvarp = ncp->vars.value[varp->datavarid];
+            //ncvarp = ncp->vars.value[varp->datavarid];
         
             for(j = 0; j < varp->nmychunk; j++){
                 cid = varp->mychunks[j];
@@ -239,7 +239,7 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids) {
                 if (varp->chunk_cache[cid] == NULL){
                     // offset and length of compressed chunks
                     lens[k] = varp->data_lens[cid];
-                    disps[k] = (MPI_Aint)(varp->data_offs[cid]) + (MPI_Aint)ncvarp->begin;
+                    disps[k] = (MPI_Aint)(varp->data_offs[cid] + ncp->begin_var);
                     // At the same time, we record the size of buffer we need
                     bsize += (MPI_Offset)lens[k++];
                 }

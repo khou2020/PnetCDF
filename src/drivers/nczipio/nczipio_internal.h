@@ -8,18 +8,32 @@
 #define NC_ZIP_DRIVER_ZLIB 2
 #define NC_ZIP_DRIVER_SZ 3
 
-#define NC_ZIP_DEFAULT_REC_ALLOC 128
-#define NC_ZIP_REC_MULTIPLIER 16
+#define NC_ZIP_DEFAULT_REC_ALLOC 1024
+#define NC_ZIP_REC_MULTIPLIER 2
 
 #define CHK_ERR \
         if (err != MPI_SUCCESS){ \
             return err; \
         }
 
+#define CHK_ERR_WAIT(V0,V1)  \
+        err = MPI_Wait(V0,V1); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Wait"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+
 #define CHK_ERR_ALLREDUCE(V0,V1,V2,V3,V4,V5)  \
         err = MPI_Allreduce(V0,V1,V2,V3,V4,V5); \
         if (err != MPI_SUCCESS){ \
             err = ncmpii_error_mpi2nc(err, "MPI_Allreduce"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+
+#define CHK_ERR_IALLREDUCE(V0,V1,V2,V3,V4,V5,V6)  \
+        err = MPI_Iallreduce(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Iallreduce"); \
             DEBUG_RETURN_ERROR(err) \
         }
 
@@ -155,7 +169,7 @@ extern MPI_Offset NC_Type_size(nc_type);
 extern int nczipioi_print_profile(NC_zip*);
 
 // Misc
-extern int nczipioi_calc_chunk_owner(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**, int fixed);
+extern int nczipioi_calc_chunk_owner(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
 extern int nczipioi_calc_chunk_size(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
 
 // Var

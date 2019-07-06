@@ -99,7 +99,7 @@ int nczipioi_var_init(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Offset **s
             }
             if (varp->isrec){
                 varp->nrec = varp->nchunks[0];
-                varp->nrecalloc = NC_ZIP_DEFAULT_REC_ALLOC;
+                varp->nrecalloc = nczipp->default_recnalloc;
                 while(varp->nrecalloc < varp->nchunks[0]){
                     varp->nrecalloc *= NC_ZIP_REC_MULTIPLIER;
                 }
@@ -129,7 +129,7 @@ int nczipioi_var_init(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Offset **s
             NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
 
             // We infer owners by reqs
-            err = nczipioi_calc_chunk_owner(nczipp, varp, nreq, starts, counts, 0);
+            err = nczipioi_calc_chunk_owner(nczipp, varp, nreq, starts, counts);
             if (err != NC_NOERR){
                 return err;
             }
@@ -152,6 +152,7 @@ int nczipioi_var_init(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Offset **s
                         varp->mychunks[varp->nmychunk++] = j;
                         if (varp->isnew){   // Only apply to new var, old var will be read when it is needed
                             varp->chunk_cache[j] = (void*)NCI_Malloc(varp->chunksize);  // Allocate buffer for blocks we own
+                            memset(varp->chunk_cache[j], 0 , varp->chunksize);
                         }
                     }
                 }
@@ -324,7 +325,7 @@ int nczipioi_var_resize(NC_zip *nczipp, NC_zip_var *varp) {
                 }
             }
             else{
-                err = nczipioi_calc_chunk_owner(nczipp, varp, 0, NULL, NULL, 0); CHK_ERR
+                err = nczipioi_calc_chunk_owner(nczipp, varp, 0, NULL, NULL); CHK_ERR
 
                 varp->nmychunkrec = 0;
                 for(i = 0; i < varp->nchunkrec; i ++){
@@ -341,6 +342,7 @@ int nczipioi_var_resize(NC_zip *nczipp, NC_zip_var *varp) {
                 if (varp->chunk_owner[i] == nczipp->rank){
                     varp->mychunks[varp->nmychunk++] = i;
                     varp->chunk_cache[i] = (void*)NCI_Malloc(varp->chunksize);  // Allocate buffer for blocks we own
+                    memset(varp->chunk_cache[i], 0 , varp->chunksize);
                 }
             }
         }

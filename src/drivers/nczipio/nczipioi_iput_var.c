@@ -387,6 +387,8 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
                     CHK_ERR_UNPACK(tbuf, overlapsize, &packoff, varp->chunk_cache[cid], 1, ptype, nczipp->comm);
                     MPI_Type_free(&ptype);    
 
+                    // Mark chunk as dirty
+                    varp->dirty[cid] = 1;
 #ifdef PNETCDF_PROFILING
                     nczipp->nlocal++;
 #endif
@@ -425,6 +427,9 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             CHK_ERR_UNPACK(rbufp[j], rsize[j], &packoff, varp->chunk_cache[cid], 1, ptype, nczipp->comm);
             rbufp[j] += packoff;
             MPI_Type_free(&ptype);
+
+            // Mark chunk as dirty
+            varp->dirty[cid] = 1;
 
 #ifdef PNETCDF_PROFILING
             nczipp->nrecv++;

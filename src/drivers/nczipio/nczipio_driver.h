@@ -128,6 +128,7 @@ struct NC_zip {
     int                blockmapping;
     MPI_Offset         recsize;        /* record dim size */
     MPI_Offset         recnalloc;      /* record dim allocated */
+    MPI_Offset         default_recnalloc;
     int                recdim;         /* record dim id */
     NC_zip_var_list    vars;
     NC_zip_req_list    putlist, getlist;

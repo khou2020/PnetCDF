@@ -202,7 +202,7 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     for(i = 0; i < varp->nchunk; i++){
         if (zsizes_all[i] > 0){
             varp->data_lens[i] = zsizes_all[i];
-            varp->data_offs[i] = zoffs[i] + ncvarp->begin;
+            varp->data_offs[i] = zoffs[i] + ncvarp->begin - ncp->begin_var;
         }
     }
 
@@ -228,7 +228,7 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
             // Record compressed size
             if (varp->dirty[k]){
                 lens[l] = zsizes[k];
-                disps[l++] = (MPI_Aint)varp->data_offs[k];
+                disps[l++] = (MPI_Aint)varp->data_offs[k] + ncp->begin_var;
             }
         }
         MPI_Type_create_hindexed(wcnt, lens, disps, MPI_BYTE, &ftype);
@@ -315,6 +315,7 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
             if (varp->zip != NULL){
                 free(zbufs[l]);
             }
+            // Clear dirty flag
             varp->dirty[k] = 0;
         }
     }
@@ -332,19 +333,20 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     int i, j, k, l, err;
     int vid;    // Iterator for variable id
     int cid;    // Iterator for chunk id
-    int max_nchunks = 0;
-    int *zsizes, *zsizes_all;
-    int *reqids;
+    int total_nchunks = 0;
+    int *zsizes, *zsizes_all, *zsizesp, *zsizes_allp;
     int nreq;
-    MPI_Offset *zoffs;
+    MPI_Offset *zoffs, *zoffsp;
     MPI_Offset start, count, oldzoff;
     MPI_Datatype mtype, ftype;  // Memory and file datatype
     int wcnt, ccnt, wcur, ccur;
     int *mlens, *flens;
     MPI_Aint *mdisps, *fdisps;
     MPI_Status status;
+    MPI_Request *reqs;
     int put_size;
     void **zbufs;
+    int *zdels;
     int zdimid, mdimid;
     char name[128]; // Name of objects
     NC_zip_var *varp;
@@ -361,21 +363,27 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
         if (nczipp->rank == varp->chunk_owner[0]){
             wcnt += 2;
         }
-        ccnt += varp->nmychunk;
-        if (max_nchunks < varp->nchunk){
-            max_nchunks = varp->nchunk;
+        for(l = 0; l < varp->nmychunk; l++){
+            k = varp->mychunks[l];
+            if (varp->dirty[k]){
+                ccnt++;
+            }
         }
+        total_nchunks += varp->nchunk;
     }
     wcnt += ccnt;
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
 
     // Allocate reqid for metadata
-    reqids = (int*)NCI_Malloc(sizeof(int) * nvar * 2);
+    reqs = (int*)NCI_Malloc(sizeof(MPI_Request) * nvar);
 
     // Allocate buffer for compression
-    zsizes = (int*)NCI_Malloc(sizeof(int) * max_nchunks);
+    zsizes = (int*)NCI_Malloc(sizeof(int) * total_nchunks);
+    zsizes_all = (int*)NCI_Malloc(sizeof(int) * total_nchunks);
     zbufs = (void**)NCI_Malloc(sizeof(void*) * ccnt);
+    zdels = (int*)NCI_Malloc(sizeof(int) * ccnt);
+    zoffs = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * (total_nchunks + nvar));
 
     // Allocate buffer file type
     mlens = (int*)NCI_Malloc(sizeof(int) * wcnt);
@@ -386,17 +394,20 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     // Enter redefine mode
     nczipp->driver->redef(nczipp->ncp);
 
-    wcur = ccur = 0;
+    ccur = 0;
+    zsizesp = zsizes;
+    zsizes_allp = zsizes_all;
+    zoffsp = zoffs;
     for(vid = 0; vid < nvar; vid++){
         varp = nczipp->vars.data + varids[vid];
 
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_COM)
 
-        zsizes_all = varp->data_lens;
-        zoffs = varp->data_offs;
+        //zsizes_all = varp->data_lens;
+        //zoffs = varp->data_offs;
         oldzoff = zoffs[varp->nchunk];
 
-        memset(zsizes, 0, sizeof(int) * varp->nchunk);
+        memset(zsizesp, 0, sizeof(int) * varp->nchunk);
 
         // Compress each chunk we own
         if (varp->zip != NULL){
@@ -405,15 +416,21 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
                 cid = varp->mychunks[l];
 
                 // Apply compression
-                varp->zip->compress_alloc(varp->chunk_cache[cid], varp->chunksize, zbufs + ccur + l, zsizes + cid, varp->ndim, varp->chunkdim, varp->etype);
+                if (varp->dirty[cid]){
+                    zdels[ccur] = 1;
+                    varp->zip->compress_alloc(varp->chunk_cache[cid], varp->chunksize, zbufs + (ccur++), zsizesp + cid, varp->ndim, varp->chunkdim, varp->etype);
+                }
             }
             varp->zip->finalize();
         }
         else{
             for(l = 0; l < varp->nmychunk; l++){
                 cid = varp->mychunks[l];
-                zsizes[cid] = varp->chunksize;
-                zbufs[ccur + l] = varp->chunk_cache[cid];
+                if (varp->dirty[cid]){
+                    zsizesp[cid] = varp->chunksize;
+                    zdels[ccur] = 0;
+                    zbufs[ccur++] = varp->chunk_cache[cid];
+                }
             }
         }
 
@@ -421,12 +438,9 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_SYNC)
 
         // Sync compressed data size with other processes
-        CHK_ERR_ALLREDUCE(zsizes, zsizes_all, varp->nchunk, MPI_INT, MPI_MAX, nczipp->comm);
-        zoffs[0] = 0;
-        for(cid = 0; cid < varp->nchunk; cid++){
-            zoffs[cid + 1] = zoffs[cid] + zsizes_all[cid];
-        }
-        zsizes_all[cid] = zoffs[cid];   // Remove valgrind warning
+        CHK_ERR_IALLREDUCE(zsizesp, zsizes_allp, varp->nchunk, MPI_INT, MPI_MAX, nczipp->comm, reqs + vid);
+        
+        //zsizes_all[cid] = zoffs[cid];   // Remove valgrind warning
 
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_SYNC)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_INIT)
@@ -441,7 +455,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
         if (varp->offvarid < 0 || varp->expanded){    // Check if we need new metadata vars
             // Define dimension for metadata variable
             sprintf(name, "_compressed_meta_dim_%d_%d", varp->varid, varp->metaserial);
-            err = nczipp->driver->def_dim(nczipp->ncp, name, varp->nchunk + 1, &mdimid);
+            err = nczipp->driver->def_dim(nczipp->ncp, name, varp->nchunkalloc, &mdimid);
             if (err != NC_NOERR) return err;
 
             // Define off variable
@@ -474,13 +488,40 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
             varp->metaserial++;
             err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaserial", NC_INT, 1, &(varp->metaserial), MPI_INT);
             if (err != NC_NOERR) return err;
+
+            // unset expand flag
+            varp->expanded = 0;
+        }
+
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
+
+        zsizesp += varp->nchunk;
+        zsizes_allp += varp->nchunk;
+        zoffsp += varp->nchunk + 1;
+    }
+
+    zsizes_allp = zsizes_all;
+    zoffsp = zoffs;
+    for(vid = 0; vid < nvar; vid++){
+        varp = nczipp->vars.data + varids[vid];
+
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_SYNC)
+
+        CHK_ERR_WAIT(reqs + vid, &status);
+
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_SYNC)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_INIT)
+
+        zoffsp[0] = 0;
+        for(cid = 0; cid < varp->nchunk; cid++){
+            zoffsp[cid + 1] = zoffsp[cid] + zsizes_allp[cid];
         }
 
         // Prepare data variable
-        if (varp->datavarid < 0|| varp->expanded || zoffs[varp->nchunk] > oldzoff){ // Check if we need new data vars
+        if (1 || varp->datavarid < 0|| varp->expanded || zoffsp[varp->nchunk] > oldzoff){ // Check if we need new data vars
             // Define dimension for data variable
             sprintf(name, "_compressed_data_dim_%d_%d", varp->varid, varp->dataserial);
-            err = nczipp->driver->def_dim(nczipp->ncp, name, zoffs[varp->nchunk], &zdimid);
+            err = nczipp->driver->def_dim(nczipp->ncp, name, zoffsp[varp->nchunk], &zdimid);
             if (err != NC_NOERR) return err;
 
             // Define data variable
@@ -503,37 +544,10 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
             if (err != NC_NOERR) return err;
         }
 
-        // unset expand flag
-        varp->expanded = 0;
-
-        /* Paramemter for file and memory type 
-         * We do not know variable file offset until the end of define mode
-         * We will add the displacement later
-         */
-        l = 0;
-        if (nczipp->rank == varp->chunk_owner[0]){  // First chunk owner writes metadata
-            flens[wcur + l] = mlens[wcur + l] = (varp->nchunk + 1) * sizeof(long long);
-            mdisps[wcur + (l++)] = (MPI_Aint)zoffs;
-            
-            flens[wcur + l] = mlens[wcur + l] = (varp->nchunk + 1) * sizeof(int);
-            mdisps[wcur + (l++)] = (MPI_Aint)zsizes_all;
-        }
-        for(i = 0; i < varp->nmychunk; i++){
-            cid = varp->mychunks[i];
-
-            // Record parameter
-            flens[wcur + l] = zsizes[cid];
-            fdisps[wcur + l] = (MPI_Aint)zoffs[cid];
-            mlens[wcur + l] = zsizes[cid];
-            mdisps[wcur + l] = (MPI_Aint)zbufs[ccur + i];
-            ++l;
-        }
-
-        // Move to parameters for next variable
-        wcur += l;
-        ccur += varp->nmychunk;
-
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
+
+        zsizes_allp += varp->nchunk;
+        zoffsp += varp->nchunk + 1;
     }
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_INIT)
@@ -542,25 +556,53 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     err = nczipp->driver->enddef(nczipp->ncp);
     if (err != NC_NOERR) return err;
 
-    /* Now it's time to add variable file offset to displacements
-     * File type offset need to be specified in non-decreasing order
-     * We assume ncmpio place variable according to the order they are declared
-     */
-    wcur = 0;
+    wcur = ccur = 0;
+    zsizes_allp = zsizes_all;
+    zoffsp = zoffs;
     for(vid = 0; vid < nvar; vid++){
-        varp = nczipp->vars.data +  varids[vid];
-        if (nczipp->rank == varp->chunk_owner[0]){  // Skip offset and len
-            ncvarp = ncp->vars.value[varp->offvarid];
-            fdisps[wcur++] = (MPI_Aint)ncvarp->begin;
-            ncvarp = ncp->vars.value[varp->lenvarid];
-            fdisps[wcur++] = (MPI_Aint)ncvarp->begin;
-        }
+        varp = nczipp->vars.data + varids[vid];
+        
         ncvarp = ncp->vars.value[varp->datavarid];
-        for(l = 0; l < varp->nmychunk; l++){
-            cid = varp->mychunks[l];
-            // Adjust file displacement
-            fdisps[wcur++] += (MPI_Aint)ncvarp->begin;
+        for(cid = 0; cid < varp->nchunk; cid++){
+            if (zsizes_allp[cid] > 0){
+                varp->data_lens[cid] = zsizes_allp[cid];
+                varp->data_offs[cid] = zoffsp[cid] + ncvarp->begin - ncp->begin_var;
+            }
         }
+
+        /* Paramemter for file and memory type 
+         * We do not know variable file offset until the end of define mode
+         * We will add the displacement later
+         */
+        if (nczipp->rank == varp->chunk_owner[0]){  // First chunk owner writes metadata
+            ncvarp = ncp->vars.value[varp->offvarid];
+            flens[wcur] = mlens[wcur] = varp->nchunk * sizeof(long long);
+            fdisps[wcur] = (MPI_Aint)ncvarp->begin;
+            mdisps[wcur++] = (MPI_Aint)(varp->data_offs);
+            
+            ncvarp = ncp->vars.value[varp->lenvarid];
+            flens[wcur] = mlens[wcur] = varp->nchunk * sizeof(int);
+            fdisps[wcur] = (MPI_Aint)ncvarp->begin;
+            mdisps[wcur++] = (MPI_Aint)(varp->data_lens);
+        }
+        for(i = 0; i < varp->nmychunk; i++){
+            cid = varp->mychunks[i];
+
+            // Record parameter
+            if (varp->dirty[cid]){
+                flens[wcur] = mlens[wcur] = varp->data_lens[cid];
+                fdisps[wcur] = (MPI_Aint)varp->data_offs[cid] + ncp->begin_var;
+                mdisps[wcur++] = (MPI_Aint)zbufs[ccur++];
+            }
+        }
+
+        // Clear dirty flag
+        memset(varp->dirty, 0, varp->nchunk * sizeof(int));
+
+        zsizes_allp += varp->nchunk;
+        zoffsp += varp->nchunk + 1;
+
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
     }
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
@@ -631,19 +673,23 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
 
     // Free buffers
     NCI_Free(zsizes);
-    if (varp->zip != NULL){
-        for(l = 0; l < ccnt; l++){
-            free(zbufs[l]);
+    NCI_Free(zsizes_all);
+    NCI_Free(zoffs);
+    ccur = 0;
+    for(i = 0; i < ccnt; i++){
+        if (zdels[i]){
+            free(zbufs[i]);
         }
     }
     NCI_Free(zbufs);
+    NCI_Free(zdels);
 
     NCI_Free(flens);
     NCI_Free(fdisps);
     NCI_Free(mlens);
     NCI_Free(mdisps);
 
-    NCI_Free(reqids);
+    NCI_Free(reqs);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO)
 

@@ -120,6 +120,13 @@ int nczipioi_extract_hint(NC_zip *nczipp, MPI_Info info){
         }
     }
 
+    // Reserve space for records
+    nczipp->default_recnalloc = NC_ZIP_DEFAULT_REC_ALLOC;  
+    MPI_Info_get(info, "nc_zip_nrec", MPI_MAX_INFO_VAL - 1, value, &flag);
+    if (flag) {
+        nczipp->default_recnalloc = atoi(value);
+    }
+
     // Default zipdriver
     nczipp->default_zipdriver = NC_ZIP_DRIVER_NONE;  
     MPI_Info_get(info, "nc_zip_driver", MPI_MAX_INFO_VAL - 1, value, &flag);
@@ -176,6 +183,10 @@ int nczipioi_export_hint(NC_zip *nczipp, MPI_Info info){
         MPI_Info_set(info, "nc_zip_delay_init", "0");
     }
 
+    // Reserve space for records
+    sprintf(value, "%lld", nczipp->default_recnalloc);
+    MPI_Info_set(info, "nc_zip_nrec", value);
+
     switch (nczipp->default_zipdriver) {
         case NC_ZIP_DRIVER_NONE:
             MPI_Info_set(info, "nc_zip_driver", "none");
@@ -194,23 +205,58 @@ int nczipioi_export_hint(NC_zip *nczipp, MPI_Info info){
     return NC_NOERR;
 }
 
-int nczipioi_print_buffer(char *prefix, unsigned char* buf, int len){
+int nczipioi_print_buffer_int(char *prefix, int* buf, int len){
     int i;
-    int plen;
+    int rank, np;
+    int plen, rlen;
     char *out, *outp;
+    char rankstr[16];
+
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    rlen = sprintf(rankstr, "Rank %d: ", rank);
 
     plen = strlen(prefix);
-    out = outp = (char*)NCI_Malloc(len * 3 + 1 + plen);
+    out = outp = (char*)NCI_Malloc(len * 12 + 2 + plen + rlen);
 
-    sprintf(outp, "%s ", prefix);   outp += plen + 1;
+    rlen = sprintf(outp, "%s ", rankstr);   outp += rlen;
+    plen = sprintf(outp, "%s ", prefix);   outp += plen;
     for(i = 0; i < len; i++){
-        sprintf(outp, "%02x ", (unsigned int)buf[i]); outp += 3;
+        plen = sprintf(outp, "%d ", buf[i]); outp += plen;
     }
 
-    printf("%s\n", out); fflush(stdout);
+    printf("%s\n", out);    fflush(stdout);
 
     NCI_Free(out);
 
     return NC_NOERR;
 }
 
+int nczipioi_print_buffer_int64(char *prefix, long long* buf, int len){
+    int i;
+    int rank, np;
+    int plen, rlen;
+    char *out, *outp;
+    char rankstr[16];
+
+    MPI_Comm_size(MPI_COMM_WORLD, &np);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    rlen = sprintf(rankstr, "Rank %d: ", rank);
+
+    plen = strlen(prefix);
+    out = outp = (char*)NCI_Malloc(len * 18 + 2 + plen + rlen);
+
+    rlen = sprintf(outp, "%s ", rankstr);   outp += rlen;
+    plen = sprintf(outp, "%s ", prefix);   outp += plen;
+    for(i = 0; i < len; i++){
+        plen = sprintf(outp, "%lld ", buf[i]); outp += plen;
+    }
+
+    printf("%s\n", out);    fflush(stdout);
+
+    NCI_Free(out);
+
+    return NC_NOERR;
+}
