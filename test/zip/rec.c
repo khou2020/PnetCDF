@@ -21,7 +21,7 @@
 /* This is the name of the data file we will create. */
 #define FILE_NAME "debug.nc"
 
-#define NZIPDRIVER 1
+#define NZIPDRIVER 4
 
 #define N 5
 
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
     }
 
     for(zipdriver = 0; zipdriver < NZIPDRIVER; zipdriver++){
-        for(communit = 0; communit < 1; communit++){
+        for(communit = 0; communit < 2; communit++){
             /* Initialize file info */
             MPI_Info_create(&info);
             MPI_Info_set(info, "nc_compression", "enable");

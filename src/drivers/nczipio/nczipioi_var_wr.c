@@ -35,18 +35,16 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     int *zsizes, *zsizes_all;
     MPI_Datatype mtype, ftype;  // Memory and file datatype
     int wcnt;
-    int reqids[2];
     int *lens;
     MPI_Aint *disps;
     MPI_Status status;
     MPI_Offset *zoffs;
-    MPI_Offset start, count, oldzoff;
+    MPI_Offset voff;
     void **zbufs;
-    int zdimid, mdimid;
+    int zdimid, zvarid;
     int put_size;
     char name[128]; // Name of objects
     NC *ncp = (NC*)(nczipp->ncp);
-    NC_var *ncvarp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO)
 
@@ -55,10 +53,6 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     zbufs = (void**)NCI_Malloc(sizeof(void*) * varp->nmychunk);
     zsizes_all = (int*)NCI_Malloc(sizeof(int) * varp->nchunk);
     zoffs = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * (varp->nchunk + 1));
-
-    //zsizes_all = varp->data_lens;
-    //zoffs = varp->data_offs;
-    oldzoff = zoffs[varp->nchunk];
 
     // Allocate buffer for I/O
     wcnt = 0;
@@ -106,10 +100,17 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
 
     // Sync compressed data size with other processes
     CHK_ERR_ALLREDUCE(zsizes, zsizes_all, varp->nchunk, MPI_INT, MPI_MAX, nczipp->comm);
-    zoffs[0] = 0;
+
+    if (varp->metaoff < 0 || varp->expanded){ 
+        zoffs[0] = varp->nchunkalloc * (sizeof(long long) + sizeof(int));
+    }
+    else{
+        zoffs[0] = 0;
+    }
     for(i = 0; i < varp->nchunk; i++){
         zoffs[i + 1] = zoffs[i] + zsizes_all[i];
     }
+
     //zsizes_all[i] = zoffs[i];   // Remove valgrind warning
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_SYNC)
@@ -124,86 +125,55 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     // Enter redefine mode
     nczipp->driver->redef(nczipp->ncp);
 
-    // Prepare metadata variable
-    if (varp->offvarid < 0 || varp->expanded){    // Check if we need new metadata vars
-        // Define dimension for metadata variable
-        sprintf(name, "_compressed_meta_dim_%d_%d", varp->varid, varp->metaserial);
-        err = nczipp->driver->def_dim(nczipp->ncp, name, varp->nchunkalloc, &mdimid);
-        if (err != NC_NOERR) return err;
-
-        // Define off variable
-        sprintf(name, "_compressed_offset_%d_%d", varp->varid, varp->metaserial);
-        err = nczipp->driver->def_var(nczipp->ncp, name, NC_INT64, 1, &mdimid, &(varp->offvarid));
-        if (err != NC_NOERR) return err;
-
-        // Define lens variable
-        sprintf(name, "_compressed_size_%d_%d", varp->varid, varp->metaserial);
-        err = nczipp->driver->def_var(nczipp->ncp, name, NC_INT, 1, &mdimid, &(varp->lenvarid));
-        if (err != NC_NOERR) return err;
-
-        // Mark as meta variable
-        i = NC_ZIP_VAR_META;
-        err = nczipp->driver->put_att(nczipp->ncp, varp->offvarid, "_varkind", NC_INT, 1, &i, MPI_INT);
-        if (err != NC_NOERR) return err;
-
-        err = nczipp->driver->put_att(nczipp->ncp, varp->lenvarid, "_varkind", NC_INT, 1, &i, MPI_INT);
-        if (err != NC_NOERR) return err;
-
-        // Record lens variable id
-        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_lenvarid", NC_INT, 1, &(varp->lenvarid), MPI_INT);
-        if (err != NC_NOERR) return err;
-        
-        // Record offset variable id
-        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_offvarid", NC_INT, 1, &varp->offvarid, MPI_INT);
-        if (err != NC_NOERR) return err;
-
-        // Record serial
-        varp->metaserial++;
-        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaserial", NC_INT, 1, &(varp->metaserial), MPI_INT);
-        if (err != NC_NOERR) return err;
-    }
-
     // Prepare data variable
-    if (1 || varp->datavarid < 0|| varp->expanded || zoffs[varp->nchunk] > oldzoff){ // Check if we need new data vars
-        // Define dimension for data variable
-        sprintf(name, "_compressed_data_dim_%d_%d", varp->varid, varp->dataserial);
-        err = nczipp->driver->def_dim(nczipp->ncp, name, zoffs[varp->nchunk], &zdimid);
-        if (err != NC_NOERR) return err;
+    
+    // Define dimension for data variable
+    sprintf(name, "_datablock_dim_%d", nczipp->nwrite);
+    err = nczipp->driver->def_dim(nczipp->ncp, name, zoffs[varp->nchunk], &zdimid);
+    if (err != NC_NOERR) return err;
 
-        // Define data variable
-        sprintf(name, "_compressed_data_%d_%d", varp->varid, varp->dataserial);
-        err = nczipp->driver->def_var(nczipp->ncp, name, NC_BYTE, 1, &zdimid, &(varp->datavarid));
-        if (err != NC_NOERR) return err;
+    // Define data variable
+    sprintf(name, "_datablock_%d", nczipp->nwrite);
+    err = nczipp->driver->def_var(nczipp->ncp, name, NC_BYTE, 1, &zdimid, &(zvarid));
+    if (err != NC_NOERR) return err;
 
-        // Record data variable id
-        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_datavarid", NC_INT, 1, &(varp->datavarid), MPI_INT);
-        if (err != NC_NOERR) return err;
+    // Mark as data variable
+    i = NC_ZIP_VAR_DATA;
+    err = nczipp->driver->put_att(nczipp->ncp, zvarid, "_varkind", NC_INT, 1, &i, MPI_INT);
+    if (err != NC_NOERR) return err;
 
-        // Mark as data variable
-        i = NC_ZIP_VAR_DATA;
-        err = nczipp->driver->put_att(nczipp->ncp, varp->datavarid, "_varkind", NC_INT, 1, &i, MPI_INT);
-        if (err != NC_NOERR) return err;
+    // Record serial
+    nczipp->nwrite++;
+    err = nczipp->driver->put_att(nczipp->ncp, NC_GLOBAL, "_nwrite", NC_INT, 1, &(nczipp->nwrite), MPI_INT);
+    if (err != NC_NOERR) return err;
 
-        // Record serial
-        varp->dataserial++;
-        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_dataserial", NC_INT, 1, &(varp->dataserial), MPI_INT);
+    // Metadata offset
+    if (varp->metaoff < 0){
+        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaoffset", NC_INT64, 1, &(varp->metaoff), MPI_LONG_LONG);
         if (err != NC_NOERR) return err;
     }
-
-    // unset expand flag
-    varp->expanded = 0;
 
     // Switch to data mode
     err = nczipp->driver->enddef(nczipp->ncp);
     if (err != NC_NOERR) return err;
 
     // Update metadata
-    ncvarp = ncp->vars.value[varp->datavarid];
+    voff = ncp->vars.value[zvarid]->begin;
     for(i = 0; i < varp->nchunk; i++){
         if (zsizes_all[i] > 0){
             varp->data_lens[i] = zsizes_all[i];
-            varp->data_offs[i] = zoffs[i] + ncvarp->begin - ncp->begin_var;
+            varp->data_offs[i] = zoffs[i] + voff - ncp->begin_var;
         }
+    }
+
+    if (varp->metaoff < 0 || varp->expanded){
+        varp->metaoff = voff - ncp->begin_var;
+        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaoffset", NC_INT64, 1, &(varp->metaoff), MPI_LONG_LONG);
+        if (err != NC_NOERR) return err;
+
+        // unset expand flag
+        varp->expanded = 0;
+        
     }
 
     /* Carry out coll I/O
@@ -214,13 +184,11 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
         // Create file type
         l = 0;
         if (nczipp->rank == varp->chunk_owner[0]){  // First chunk owner writes metadata
-            ncvarp = ncp->vars.value[varp->offvarid];
             lens[l] = (varp->nchunk) * sizeof(long long);
-            disps[l++] = (MPI_Aint)ncvarp->begin;
-            
-            ncvarp = ncp->vars.value[varp->lenvarid];
+            disps[l++] = (MPI_Aint)varp->metaoff + ncp->begin_var;
+
             lens[l] = (varp->nchunk) * sizeof(int);
-            disps[l++] = (MPI_Aint)ncvarp->begin;
+            disps[l++] = (MPI_Aint)(varp->metaoff + ncp->begin_var + sizeof(long long) * varp->nchunkalloc);
         }
         for(i = 0; i < varp->nmychunk; i++){
             k = varp->mychunks[i];
@@ -260,8 +228,8 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
 
 #ifndef WORDS_BIGENDIAN // NetCDF data is big endian
         if (nczipp->rank == varp->chunk_owner[0]){
-            ncmpii_in_swapn(varp->data_offs, varp->nchunk + 1, sizeof(long long));
-            ncmpii_in_swapn(varp->data_lens, varp->nchunk + 1, sizeof(int));
+            ncmpii_in_swapn(varp->data_offs, varp->nchunk, sizeof(long long));
+            ncmpii_in_swapn(varp->data_lens, varp->nchunk, sizeof(int));
         }
 #endif
 
@@ -275,8 +243,8 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
 
 #ifndef WORDS_BIGENDIAN // Switch back to little endian
         if (nczipp->rank == varp->chunk_owner[0]){
-            ncmpii_in_swapn(varp->data_offs, varp->nchunk + 1, sizeof(long long));
-            ncmpii_in_swapn(varp->data_lens, varp->nchunk + 1, sizeof(int));
+            ncmpii_in_swapn(varp->data_offs, varp->nchunk, sizeof(long long));
+            ncmpii_in_swapn(varp->data_lens, varp->nchunk, sizeof(int));
         }
 #endif
 
@@ -337,7 +305,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     int *zsizes, *zsizes_all, *zsizesp, *zsizes_allp;
     int nreq;
     MPI_Offset *zoffs, *zoffsp;
-    MPI_Offset start, count, oldzoff;
+    MPI_Offset start, count, oldzoff, voff;
     MPI_Datatype mtype, ftype;  // Memory and file datatype
     int wcnt, ccnt, wcur, ccur;
     int *mlens, *flens;
@@ -347,7 +315,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     int put_size;
     void **zbufs;
     int *zdels;
-    int zdimid, mdimid;
+    int zdimid, zvarid;
     char name[128]; // Name of objects
     NC_zip_var *varp;
     NC *ncp = (NC*)(nczipp->ncp);
@@ -369,7 +337,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
                 ccnt++;
             }
         }
-        total_nchunks += varp->nchunk;
+        total_nchunks += varp->nchunk + 1;
     }
     wcnt += ccnt;
 
@@ -383,7 +351,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     zsizes_all = (int*)NCI_Malloc(sizeof(int) * total_nchunks);
     zbufs = (void**)NCI_Malloc(sizeof(void*) * ccnt);
     zdels = (int*)NCI_Malloc(sizeof(int) * ccnt);
-    zoffs = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * (total_nchunks + nvar));
+    zoffs = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * (total_nchunks + 1));
 
     // Allocate buffer file type
     mlens = (int*)NCI_Malloc(sizeof(int) * wcnt);
@@ -391,20 +359,14 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     flens = (int*)NCI_Malloc(sizeof(int) * wcnt);
     fdisps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * wcnt);
 
-    // Enter redefine mode
-    nczipp->driver->redef(nczipp->ncp);
-
     ccur = 0;
-    zsizesp = zsizes;
-    zsizes_allp = zsizes_all;
-    zoffsp = zoffs;
+    zsizesp = zsizes + nvar;
+    zsizes_allp = zsizes_all + nvar;
     for(vid = 0; vid < nvar; vid++){
         varp = nczipp->vars.data + varids[vid];
 
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_COM)
 
-        //zsizes_all = varp->data_lens;
-        //zoffs = varp->data_offs;
         oldzoff = zoffs[varp->nchunk];
 
         memset(zsizesp, 0, sizeof(int) * varp->nchunk);
@@ -439,69 +401,32 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
 
         // Sync compressed data size with other processes
         CHK_ERR_IALLREDUCE(zsizesp, zsizes_allp, varp->nchunk, MPI_INT, MPI_MAX, nczipp->comm, reqs + vid);
-        
-        //zsizes_all[cid] = zoffs[cid];   // Remove valgrind warning
 
+
+        if (varp->metaoff < 0 || varp->expanded){ 
+            zsizes_all[vid] = varp->nchunkalloc * (sizeof(long long) + sizeof(int));
+        }
+        else{
+            zsizes_all[vid] = 0;
+        }
+        
+        
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_SYNC)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_INIT)
-
-        /* Write comrpessed variable
-        * We start by defining data variable and writing metadata
-        * Then, we create buffer type and file type for data
-        * Finally MPI collective I/O is used for writing data
-        */
-
-        // Prepare metadata variable
-        if (varp->offvarid < 0 || varp->expanded){    // Check if we need new metadata vars
-            // Define dimension for metadata variable
-            sprintf(name, "_compressed_meta_dim_%d_%d", varp->varid, varp->metaserial);
-            err = nczipp->driver->def_dim(nczipp->ncp, name, varp->nchunkalloc, &mdimid);
-            if (err != NC_NOERR) return err;
-
-            // Define off variable
-            sprintf(name, "_compressed_offset_%d_%d", varp->varid, varp->metaserial);
-            err = nczipp->driver->def_var(nczipp->ncp, name, NC_INT64, 1, &mdimid, &(varp->offvarid));
-            if (err != NC_NOERR) return err;
-
-            // Define lens variable
-            sprintf(name, "_compressed_size_%d_%d", varp->varid, varp->metaserial);
-            err = nczipp->driver->def_var(nczipp->ncp, name, NC_INT, 1, &mdimid, &(varp->lenvarid));
-            if (err != NC_NOERR) return err;
-
-            // Mark as meta variable
-            i = NC_ZIP_VAR_META;
-            err = nczipp->driver->put_att(nczipp->ncp, varp->offvarid, "_varkind", NC_INT, 1, &i, MPI_INT);
-            if (err != NC_NOERR) return err;
-
-            err = nczipp->driver->put_att(nczipp->ncp, varp->lenvarid, "_varkind", NC_INT, 1, &i, MPI_INT);
-            if (err != NC_NOERR) return err;
-
-            // Record lens variable id
-            err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_lenvarid", NC_INT, 1, &(varp->lenvarid), MPI_INT);
-            if (err != NC_NOERR) return err;
-            
-            // Record offset variable id
-            err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_offvarid", NC_INT, 1, &varp->offvarid, MPI_INT);
-            if (err != NC_NOERR) return err;
-
-            // Record serial
-            varp->metaserial++;
-            err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaserial", NC_INT, 1, &(varp->metaserial), MPI_INT);
-            if (err != NC_NOERR) return err;
-
-            // unset expand flag
-            varp->expanded = 0;
-        }
 
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
 
         zsizesp += varp->nchunk;
         zsizes_allp += varp->nchunk;
-        zoffsp += varp->nchunk + 1;
     }
-
-    zsizes_allp = zsizes_all;
-    zoffsp = zoffs;
+    
+    /* Write comrpessed variable
+    * We start by defining data variable and writing metadata
+    * Then, we create buffer type and file type for data
+    * Finally MPI collective I/O is used for writing data
+    */
+   
+    zsizes_allp = zsizes_all + nvar;
     for(vid = 0; vid < nvar; vid++){
         varp = nczipp->vars.data + varids[vid];
 
@@ -512,61 +437,90 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_SYNC)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_INIT)
 
-        zoffsp[0] = 0;
-        for(cid = 0; cid < varp->nchunk; cid++){
-            zoffsp[cid + 1] = zoffsp[cid] + zsizes_allp[cid];
-        }
-
-        // Prepare data variable
-        if (1 || varp->datavarid < 0|| varp->expanded || zoffsp[varp->nchunk] > oldzoff){ // Check if we need new data vars
-            // Define dimension for data variable
-            sprintf(name, "_compressed_data_dim_%d_%d", varp->varid, varp->dataserial);
-            err = nczipp->driver->def_dim(nczipp->ncp, name, zoffsp[varp->nchunk], &zdimid);
-            if (err != NC_NOERR) return err;
-
-            // Define data variable
-            sprintf(name, "_compressed_data_%d_%d", varp->varid, varp->dataserial);
-            err = nczipp->driver->def_var(nczipp->ncp, name, NC_BYTE, 1, &zdimid, &(varp->datavarid));
-            if (err != NC_NOERR) return err;
-
-            // Record data variable id
-            err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_datavarid", NC_INT, 1, &(varp->datavarid), MPI_INT);
-            if (err != NC_NOERR) return err;
-
-            // Mark as data variable
-            i = NC_ZIP_VAR_DATA;
-            err = nczipp->driver->put_att(nczipp->ncp, varp->datavarid, "_varkind", NC_INT, 1, &i, MPI_INT);
-            if (err != NC_NOERR) return err;
-
-            // Record serial
-            varp->dataserial++;
-            err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_dataserial", NC_INT, 1, &(varp->dataserial), MPI_INT);
-            if (err != NC_NOERR) return err;
-        }
-
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
-
         zsizes_allp += varp->nchunk;
-        zoffsp += varp->nchunk + 1;
     }
 
+    zoffs[0] = 0;
+    for(i = 0; i < total_nchunks; i++){
+        zoffs[i + 1] = zoffs[i] + zsizes_all[i];
+    }
+    
+    // Prepare data variable
+
+    // Enter redefine mode
+    nczipp->driver->redef(nczipp->ncp);
+
+    // Define dimension for data variable
+    sprintf(name, "_datablock_dim_%d", nczipp->nwrite);
+    err = nczipp->driver->def_dim(nczipp->ncp, name, zoffs[total_nchunks], &zdimid);
+    if (err != NC_NOERR) return err;
+
+    // Define data variable
+    sprintf(name, "_datablock_%d", nczipp->nwrite);
+    err = nczipp->driver->def_var(nczipp->ncp, name, NC_BYTE, 1, &zdimid, &zvarid);
+    if (err != NC_NOERR) return err;
+
+    // Mark as data variable
+    i = NC_ZIP_VAR_DATA;
+    err = nczipp->driver->put_att(nczipp->ncp, zvarid, "_varkind", NC_INT, 1, &i, MPI_INT);
+    if (err != NC_NOERR) return err;
+
+    // Record serial
+    nczipp->nwrite++;
+    err = nczipp->driver->put_att(nczipp->ncp, NC_GLOBAL, "_nwrite", NC_INT, 1, &(nczipp->nwrite), MPI_INT);
+    if (err != NC_NOERR) return err;
+
+    // Metadata offset
+    for(vid = 0; vid < nvar; vid++){
+        varp = nczipp->vars.data + varids[vid];
+        if (varp->metaoff < 0){
+            err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaoffset", NC_INT64, 1, &(varp->metaoff), MPI_LONG_LONG);
+            if (err != NC_NOERR) return err;
+        }
+    }
+
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_INIT)
 
     // Switch back to data mode
     err = nczipp->driver->enddef(nczipp->ncp);
     if (err != NC_NOERR) return err;
 
+    voff = ncp->vars.value[zvarid]->begin;
+
     wcur = ccur = 0;
-    zsizes_allp = zsizes_all;
-    zoffsp = zoffs;
     for(vid = 0; vid < nvar; vid++){
         varp = nczipp->vars.data + varids[vid];
-        
-        ncvarp = ncp->vars.value[varp->datavarid];
+
+        if (varp->metaoff < 0 || varp->expanded){
+            varp->metaoff = zoffs[vid] + voff - ncp->begin_var;
+            err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaoffset", NC_INT64, 1, &(varp->metaoff), MPI_LONG_LONG);
+            if (err != NC_NOERR) return err;
+
+            // unset expand flag
+            varp->expanded = 0;
+        }
+
+        if (nczipp->rank == varp->chunk_owner[0]){  // First chunk owner writes metadata
+            flens[wcur] = mlens[wcur] = varp->nchunk * sizeof(long long);
+            fdisps[wcur] = (MPI_Aint)varp->metaoff + ncp->begin_var;
+            mdisps[wcur++] = (MPI_Aint)(varp->data_offs);
+            
+            flens[wcur] = mlens[wcur] = varp->nchunk * sizeof(int);
+            fdisps[wcur] = (MPI_Aint)(varp->metaoff + ncp->begin_var + sizeof(long long) * varp->nchunkalloc);
+            mdisps[wcur++] = (MPI_Aint)(varp->data_lens);
+        }
+    }
+
+    zsizes_allp = zsizes_all + nvar;
+    zoffsp = zoffs + nvar;
+    for(vid = 0; vid < nvar; vid++){
+        varp = nczipp->vars.data + varids[vid];
+
         for(cid = 0; cid < varp->nchunk; cid++){
             if (zsizes_allp[cid] > 0){
                 varp->data_lens[cid] = zsizes_allp[cid];
-                varp->data_offs[cid] = zoffsp[cid] + ncvarp->begin - ncp->begin_var;
+                varp->data_offs[cid] = zoffsp[cid] + voff - ncp->begin_var;
             }
         }
 
@@ -574,17 +528,6 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
          * We do not know variable file offset until the end of define mode
          * We will add the displacement later
          */
-        if (nczipp->rank == varp->chunk_owner[0]){  // First chunk owner writes metadata
-            ncvarp = ncp->vars.value[varp->offvarid];
-            flens[wcur] = mlens[wcur] = varp->nchunk * sizeof(long long);
-            fdisps[wcur] = (MPI_Aint)ncvarp->begin;
-            mdisps[wcur++] = (MPI_Aint)(varp->data_offs);
-            
-            ncvarp = ncp->vars.value[varp->lenvarid];
-            flens[wcur] = mlens[wcur] = varp->nchunk * sizeof(int);
-            fdisps[wcur] = (MPI_Aint)ncvarp->begin;
-            mdisps[wcur++] = (MPI_Aint)(varp->data_lens);
-        }
         for(i = 0; i < varp->nmychunk; i++){
             cid = varp->mychunks[i];
 
@@ -600,7 +543,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
         memset(varp->dirty, 0, varp->nchunk * sizeof(int));
 
         zsizes_allp += varp->nchunk;
-        zoffsp += varp->nchunk + 1;
+        zoffsp += varp->nchunk;
 
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
     }

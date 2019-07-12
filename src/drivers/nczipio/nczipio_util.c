@@ -260,3 +260,16 @@ int nczipioi_print_buffer_int64(char *prefix, long long* buf, int len){
 
     return NC_NOERR;
 }
+#define SWAP(V0,V1)  \
+        fdisps[V0] ^= fdisps[V1]; fdisps[V1] ^= fdisps[V0]; fdisps[V0] ^= fdisps[V1]; \
+        flens[V0] ^= flens[V1]; flens[V1] ^= flens[V0]; flens[V0] ^= flens[V1]; \
+        mdisps[V0] ^= mdisps[V1]; mdisps[V1] ^= mdisps[V0]; mdisps[V0] ^= mdisps[V1]; \
+        mlens[V0] ^= mlens[V1]; mlens[V1] ^= mlens[V0]; mlens[V0] ^= mlens[V1]; 
+
+int nczipioi_sort_file_offset(int len, MPI_Aint *fdisps, int *flens, MPI_Aint *mdisps, int *mlens){
+    int i;
+    MPI_Aint at;
+
+
+    return NC_NOERR;
+}
