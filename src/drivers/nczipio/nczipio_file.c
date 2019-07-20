@@ -578,7 +578,7 @@ nczipio_wait(void *ncdp,
         if (status == NC_NOERR){
             status = err;
         }
-        return status;
+        goto done;
     }
 
     if (num_reqs > 0){
@@ -648,6 +648,8 @@ nczipio_wait(void *ncdp,
     NCI_Free(rawreqs);
     NCI_Free(comreqs);
     
+done:
+
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB_WAIT)
