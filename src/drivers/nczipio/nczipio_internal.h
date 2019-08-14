@@ -23,6 +23,13 @@
             DEBUG_RETURN_ERROR(err) \
         }
 
+#define CHK_ERR_ALLTOALL(V0,V1,V2,V3,V4,V5,V6)  \
+        err = MPI_Alltoall(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Alltoall"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+
 #define CHK_ERR_ALLREDUCE(V0,V1,V2,V3,V4,V5)  \
         err = MPI_Allreduce(V0,V1,V2,V3,V4,V5); \
         if (err != MPI_SUCCESS){ \
@@ -111,6 +118,12 @@
         err = MPI_Imrecv(V0,V1,V2,V3,V4); \
         if (err != MPI_SUCCESS){ \
             err = ncmpii_error_mpi2nc(err, "MPI_Imrecv"); \
+            DEBUG_RETURN_ERROR(err) \
+        }
+#define CHK_ERR_IRECV(V0,V1,V2,V3,V4,V5,V6) \
+        err = MPI_Irecv(V0,V1,V2,V3,V4,V5,V6); \
+        if (err != MPI_SUCCESS){ \
+            err = ncmpii_error_mpi2nc(err, "MPI_Irecv"); \
             DEBUG_RETURN_ERROR(err) \
         }
 #define CHK_ERR_ISEND(V0,V1,V2,V3,V4,V5,V6) \
