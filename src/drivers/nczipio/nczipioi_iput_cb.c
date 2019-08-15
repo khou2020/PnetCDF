@@ -451,9 +451,8 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             rhi_all[nread++] = k;
         }
     }
-    err = nczipioi_load_nvar_bg(nczipp, nread, rids, rlo_all, rhi_all);
-    CHK_ERR(nczipp->cache_serial)
-    ++;
+    err = nczipioi_load_nvar_bg(nczipp, nread, rids, rlo_all, rhi_all); CHK_ERR
+    (nczipp->cache_serial)++;
 
     // Handle our own data
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_SELF)
