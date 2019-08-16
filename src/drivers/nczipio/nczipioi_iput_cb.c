@@ -468,7 +468,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         CHK_ERR_PACK(MPI_BOTTOM, 1, stype[j], tbuf, ssize[j], &packoff, nczipp->comm);
 
         rbufp = sbuf[j];
-        for (k = 0; k < scnt[j]; k++) {
+        for (k = 0; k < scnt[nczipp->rank]; k++) {
             // Retrieve metadata
             vid = *((int *)(rbufp));
             rbufp += sizeof(int);
@@ -502,13 +502,13 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         }
 
         // Unpack data
-        MPI_Type_struct(scnt[j], rlens, roffs, rtypes, &rtype);
+        MPI_Type_struct(scnt[nczipp->rank], rlens, roffs, rtypes, &rtype);
         CHK_ERR_TYPE_COMMIT(&rtype);
         packoff = 0;
         CHK_ERR_UNPACK(tbuf, ssize[j], &packoff, MPI_BOTTOM, 1, rtype, nczipp->comm);
 
         // Free type
-        for (k = 0; k < scnt[j]; k++) {
+        for (k = 0; k < scnt[nczipp->rank]; k++) {
             if (rtypes[k] != MPI_BYTE) {
                 MPI_Type_free(rtypes + k);
             }
