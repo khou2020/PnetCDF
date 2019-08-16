@@ -487,9 +487,6 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         j = smap[nczipp->rank];
         l = rmap[nczipp->rank];
         
-        // Allocate intermediate buffer for our own data
-        tbuf = (char *)NCI_Malloc(ssize[j]);
-
         // Pack into continuous buffer
         rbufp = sbuf[j];
         rtypesp = rtypes[l];
@@ -527,15 +524,21 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 #endif
         }
 
-        // Pack data into contiguous buffer
+        // Pack type
         MPI_Type_struct(rcnt[l], rlens[l], roffs[l], rtypes[l], rtype + l);
         CHK_ERR_TYPE_COMMIT(rtype + l);
+        MPI_Type_size(rtype[l], rsize + l);
+
+        // Allocate intermediate buffer for our own data
+        tbuf = (char *)NCI_Malloc(rsize[l]);
+
+        // Pack data into contiguous buffer
         packoff = 0;
-        CHK_ERR_PACK(MPI_BOTTOM, 1, rtype[l], tbuf, ssize[j], &packoff, nczipp->comm);
+        CHK_ERR_PACK(MPI_BOTTOM, 1, rtype[l], tbuf, rsize[l], &packoff, nczipp->comm);
 
         // Unpack into user buffer
         packoff = 0;
-        CHK_ERR_UNPACK(tbuf, ssize[j], &packoff, MPI_BOTTOM, 1, stype[j], nczipp->comm);
+        CHK_ERR_UNPACK(tbuf, rsize[l], &packoff, MPI_BOTTOM, 1, stype[j], nczipp->comm);
 
         // Free temporary buffer
         NCI_Free(tbuf);
