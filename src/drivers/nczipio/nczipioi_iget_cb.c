@@ -973,15 +973,21 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_INIT)
 
-    // Post send and recv
+    // Post send req
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
     for (i = 0; i < nsend; i++) {
-        CHK_ERR_ISEND(MPI_BOTTOM, 1, stype[i], sdst[i], 0, nczipp->comm, sreq + i);
+        CHK_ERR_ISEND(MPI_BOTTOM, ssize[sdst[i]], MPI_BYTE, sdst[i], 0, nczipp->comm, sreq + i);
+    }
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
+
+    // Post recv rep
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
+    for (i = 0; i < nsend; i++) {
         CHK_ERR_IRECV(MPI_BOTTOM, 1, stype[i], sdst[i], 1, nczipp->comm, sreq + nsend + i);
     }
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
 
-    // Post recv
+    // Post recv req
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_RECV_REQ)
     for (i = 0; i < nrecv; i++) {
         CHK_ERR_IRECV(rbuf[i], rsize[i], MPI_BYTE, rmap[i], 0, nczipp->comm, rreq + i);

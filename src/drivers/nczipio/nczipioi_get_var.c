@@ -689,7 +689,7 @@ int nczipioi_get_var_cb_proc(      NC_zip          *nczipp,
     // Post send req
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET_CB_SEND_REQ)
     for (i = 0; i < nsend; i++) {
-        CHK_ERR_ISEND(sbuf[i], ssize[i], MPI_BYTE, sdst[i], 0, nczipp->comm, sreq + i);
+        CHK_ERR_ISEND(sbuf[i], ssize[sdst[i]], MPI_BYTE, sdst[i], 0, nczipp->comm, sreq + i);
     }
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET_CB_SEND_REQ)
 
