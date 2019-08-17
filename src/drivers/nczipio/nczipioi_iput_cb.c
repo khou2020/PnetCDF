@@ -236,6 +236,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
                     smap[cown] = npack++;
                 }
                 scnt[cown]++; // Need to send message if not owner
+                ssize[cown] += sizeof(int) * (varp->ndim * 2 + 2);
 
                 if (rlo_local[req->varid] > cid) {
                     rlo_local[req->varid] = cid;
@@ -274,7 +275,6 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
                 sdst[j] = i;
                 sntypes[j] = scnt[i] + 1;
                 l += sntypes[j];
-                ssize[i] = sizeof(int) * scnt[j] * (varp->ndim * 2 + 2);
                 k += ssize[i];
             }
         }
@@ -461,11 +461,11 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         j = smap[nczipp->rank];
         
         // Allocate intermediate buffer for our own data
-        tbuf = (char *)NCI_Malloc(ssize[j]);
+        tbuf = (char *)NCI_Malloc(ssize[nczipp->rank]);
 
         // Pack into continuous buffer
         packoff = 0;
-        CHK_ERR_PACK(MPI_BOTTOM, 1, stype[j], tbuf, ssize[j], &packoff, nczipp->comm);
+        CHK_ERR_PACK(MPI_BOTTOM, 1, stype[j], tbuf, ssize[nczipp->rank], &packoff, nczipp->comm);
 
         rbufp = sbuf[j];
         for (k = 0; k < scnt[nczipp->rank]; k++) {
@@ -505,7 +505,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         MPI_Type_struct(scnt[nczipp->rank], rlens, roffs, rtypes, &rtype);
         CHK_ERR_TYPE_COMMIT(&rtype);
         packoff = 0;
-        CHK_ERR_UNPACK(tbuf, ssize[j], &packoff, MPI_BOTTOM, 1, rtype, nczipp->comm);
+        CHK_ERR_UNPACK(tbuf, ssize[nczipp->rank], &packoff, MPI_BOTTOM, 1, rtype, nczipp->comm);
 
         // Free type
         for (k = 0; k < scnt[nczipp->rank]; k++) {

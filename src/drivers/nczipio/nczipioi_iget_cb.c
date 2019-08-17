@@ -783,6 +783,7 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
                     smap[cown] = npack++;
                 }
                 scnt[cown]++; // Need to send message if not owner
+                ssize[cown] += sizeof(int) * (varp->ndim * 2 + 2);
 
                 if (rlo_local[req->varid] > cid) {
                     rlo_local[req->varid] = cid;
@@ -821,7 +822,6 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
                 sdst[j] = i;
                 sntypes[j] = scnt[i];
                 l += sntypes[j];
-                ssize[i] = sizeof(int) * scnt[j] * (varp->ndim * 2 + 2);
                 k += ssize[i];
             }
         }
@@ -1008,16 +1008,14 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     
     if (scnt[nczipp->rank] > 0){
         j = smap[nczipp->rank];
+        l = rmap[nczipp->rank];
         
-        // Allocate intermediate buffer for our own data
-        tbuf = (char *)NCI_Malloc(ssize[j]);
-
         // Pack into continuous buffer
         rbufp = sbuf[j];
-        rtypesp = rtypes[j];
-        roffsp = roffs[j];
-        rlensp = rlens[j];
-        for (k = 0; k < scnt[j]; k++) {
+        rtypesp = rtypes[l];
+        roffsp = roffs[l];
+        rlensp = rlens[l];
+        for (k = 0; k < rcnt[l]; k++) {
             // Retrieve metadata
             vid = *((int *)(rbufp));            rbufp += sizeof(int);
             cid = *((int *)(rbufp));            rbufp += sizeof(int);
@@ -1049,15 +1047,21 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 #endif
         }
 
+        // Pack type
+        MPI_Type_struct(rcnt[l], rlens[l], roffs[l], rtypes[l], rtype + l);
+        CHK_ERR_TYPE_COMMIT(rtype + l);
+        MPI_Type_size(rtype[l], rsize + l);
+
+        // Allocate intermediate buffer for our own data
+        tbuf = (char *)NCI_Malloc(rsize[l]);
+
         // Pack data into contiguous buffer
-        MPI_Type_struct(scnt[j], rlens[j], roffs[j], rtypes[j], rtype + j);
-        CHK_ERR_TYPE_COMMIT(rtype + j);
         packoff = 0;
-        CHK_ERR_PACK(MPI_BOTTOM, 1, rtype[j], tbuf, ssize[j], &packoff, nczipp->comm);
+        CHK_ERR_PACK(MPI_BOTTOM, 1, rtype[l], tbuf, rsize[l], &packoff, nczipp->comm);
 
         // Unpack into user buffer
         packoff = 0;
-        CHK_ERR_UNPACK(tbuf, ssize[j], &packoff, MPI_BOTTOM, 1, stype[j], nczipp->comm);
+        CHK_ERR_UNPACK(tbuf, rsize[l], &packoff, MPI_BOTTOM, 1, stype[j], nczipp->comm);
 
         // Free temporary buffer
         NCI_Free(tbuf);
@@ -1184,6 +1188,7 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         NCI_Free(rlens[0]);
     }
     NCI_Free(rbuf);
+    NCI_Free(rtype);
     NCI_Free(rtypes);
     NCI_Free(roffs);
     NCI_Free(rlens);
