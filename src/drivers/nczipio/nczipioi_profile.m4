@@ -168,7 +168,7 @@ foreach(`t', TIMERS, `PRINTNAME(translit(t, `()'))')dnl
 
             fprintf(pfile, "max, ");
             for(j = 0; j < 7; j++){
-                fprintf(pfile, "%lld, ", smax[j]);
+                fprintf(pfile, "%lf, ", smax[j]);
             }
             fprintf(pfile, ", ");
             for(j = 0; j < NTIMER; j++){
@@ -178,7 +178,7 @@ foreach(`t', TIMERS, `PRINTNAME(translit(t, `()'))')dnl
 
             fprintf(pfile, "min, ");
             for(j = 0; j < 7; j++){
-                fprintf(pfile, "%lld, ", smin[j]);
+                fprintf(pfile, "%lf, ", smin[j]);
             }
             fprintf(pfile, ", ");
             for(j = 0; j < NTIMER; j++){

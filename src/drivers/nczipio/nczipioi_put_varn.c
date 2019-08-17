@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdint.h> 
 
 #include <mpi.h>
 
@@ -211,15 +212,15 @@ nczipioi_put_varn_cb_chunk(  NC_zip        *nczipp,
                         tstartp = (int*)(sbufs[nsend] + packoff); packoff += varp->ndim * sizeof(int);
                         tsizep = (int*)(sbufs[nsend] + packoff); packoff += varp->ndim * sizeof(int);
                         for(j = 0; j < varp->ndim; j++){
-                            tstartp[j] = (int)(ostart[j] - citr[j]);
-                            tsizep[j] = (int)osize[j];
+                            tstartp[j] = (uintptr_t)(ostart[j] - citr[j]);
+                            tsizep[j] = (uintptr_t)osize[j];
                         }
 
                         // Pack type
                         for(j = 0; j < varp->ndim; j++){
-                            tstart[j] = (int)(ostart[j] - starts[req][j]);
-                            tsize[j] = (int)counts[req][j];
-                            tssize[j] = (int)osize[j];
+                            tstart[j] = (uintptr_t)(ostart[j] - starts[req][j]);
+                            tsize[j] = (uintptr_t)counts[req][j];
+                            tssize[j] = (uintptr_t)osize[j];
                         }
                         CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, tsize, tssize, tstart, MPI_ORDER_C, varp->etype, &ptype);
                         CHK_ERR_TYPE_COMMIT(&ptype);
@@ -310,9 +311,9 @@ nczipioi_put_varn_cb_chunk(  NC_zip        *nczipp,
                 if (overlapsize > 0){
                     // Pack type from user buffer to (contiguous) intermediate buffer
                     for(j = 0; j < varp->ndim; j++){
-                        tstart[j] = (int)(ostart[j] - starts[req][j]);
-                        tsize[j] = (int)counts[req][j];
-                        tssize[j] = (int)osize[j];
+                        tstart[j] = (uintptr_t)(ostart[j] - starts[req][j]);
+                        tsize[j] = (uintptr_t)counts[req][j];
+                        tssize[j] = (uintptr_t)osize[j];
                     }
                     
                     CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, tsize, tssize, tstart, MPI_ORDER_C, varp->etype, &ptype);
@@ -326,7 +327,7 @@ nczipioi_put_varn_cb_chunk(  NC_zip        *nczipp,
 
                     // Pack type from (contiguous) intermediate buffer to chunk buffer
                     for(j = 0; j < varp->ndim; j++){
-                        tstart[j] = (int)(ostart[j] - citr[j]);
+                        tstart[j] = (uintptr_t)(ostart[j] - citr[j]);
                         tsize[j] = varp->chunkdim[j];
                     }
                     CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, tsize, tssize, tstart, MPI_ORDER_C, varp->etype, &ptype);
@@ -567,7 +568,7 @@ int nczipioi_put_varn_cb_proc(  NC_zip        *nczipp,
             slensp[i] = slens[i] + 1;
 
             stypes[i][0] = MPI_BYTE;
-            soffs[i][0] = sbuf[i];
+            soffs[i][0] = (uintptr_t)(sbuf[i]);
             slens[i][0] = ssize[sdst[i]];
         }
         if (npack > i){
@@ -596,26 +597,26 @@ int nczipioi_put_varn_cb_proc(  NC_zip        *nczipp,
             tssizep = (int *)sbufp[j];  sbufp[j] += varp->ndim * sizeof(int);
 
             for (i = 0; i < varp->ndim; i++){
-                tstartp[i] = (int)(ostart[i] - citr[i]);
-                tssizep[i] = (int)osize[i];
+                tstartp[i] = (uintptr_t)(ostart[i] - citr[i]);
+                tssizep[i] = (uintptr_t)osize[i];
             }
 
             // Pack type from user buffer to send buffer
             for (i = 0; i < varp->ndim; i++){
-                tsize[i] = (int)counts[r][i];
-                tstart[i] = (int)(ostart[i] - starts[r][i]);
+                tsize[i] = (uintptr_t)counts[r][i];
+                tstart[i] = (uintptr_t)(ostart[i] - starts[r][i]);
             }
 
             err = nczipioi_subarray_off_len(varp->ndim, tsize, tssizep, tstart, soffsp[j], slensp[j]);
             if (err){
                 CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, tsize, tssizep, tstart, MPI_ORDER_C, varp->etype, stypesp[j]);
                 CHK_ERR_TYPE_COMMIT(stypesp[j]);
-                *(soffsp[j]) = bufs[r];
+                *(soffsp[j]) = (uintptr_t)(bufs[r]);
                 *(slensp[j]) = 1;
             }
             else{
                 *(stypesp[j]) = MPI_BYTE;
-                *(soffsp[j]) = (*(soffsp[j])) * varp->esize + bufs[r];
+                *(soffsp[j]) = (*(soffsp[j])) * varp->esize + (uintptr_t)(bufs[r]);
                 *(slensp[j]) *= varp->esize;
             }
             stypesp[j]++;
@@ -748,12 +749,12 @@ int nczipioi_put_varn_cb_proc(  NC_zip        *nczipp,
             if (err){
                 CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, varp->chunkdim, tssizep, tstartp, MPI_ORDER_C, varp->etype, rtypes + k);
                 CHK_ERR_TYPE_COMMIT(rtypes + k);
-                roffs[k] = varp->chunk_cache[cid]->buf;
+                roffs[k] = (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] = 1;
             }
             else{
                 rtypes[k] = MPI_BYTE;
-                roffs[k] = roffs[k] * varp->esize + varp->chunk_cache[cid]->buf;
+                roffs[k] = roffs[k] * varp->esize + (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] *= varp->esize;
             }
 
@@ -804,12 +805,12 @@ int nczipioi_put_varn_cb_proc(  NC_zip        *nczipp,
             if (err){
                 CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, varp->chunkdim, tssizep, tstartp, MPI_ORDER_C, varp->etype, rtypes + k);
                 CHK_ERR_TYPE_COMMIT(rtypes + k);
-                roffs[k] = varp->chunk_cache[cid]->buf;
+                roffs[k] = (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] = 1;
             }
             else{
                 rtypes[k] = MPI_BYTE;
-                roffs[k] = roffs[k] * varp->esize + varp->chunk_cache[cid]->buf;
+                roffs[k] = roffs[k] * varp->esize + (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] *= varp->esize;
             }
 

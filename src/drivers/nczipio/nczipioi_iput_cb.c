@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <mpi.h>
 
@@ -297,7 +298,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             slensp[i] = slens[i] + 1;
 
             stypes[i][0] = MPI_BYTE;
-            soffs[i][0] = sbuf[i];
+            soffs[i][0] = (uintptr_t)(sbuf[i]);
             slens[i][0] = ssize[sdst[i]];
         }
         if (npack > i){
@@ -331,26 +332,26 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
                 tssizep = (int *)sbufp[j];  sbufp[j] += varp->ndim * sizeof(int);
 
                 for (i = 0; i < varp->ndim; i++){
-                    tstartp[i] = (int)(ostart[i] - citr[i]);
-                    tssizep[i] = (int)osize[i];
+                    tstartp[i] = (uintptr_t)(ostart[i] - citr[i]);
+                    tssizep[i] = (uintptr_t)osize[i];
                 }
 
                 // Pack type from user buffer to send buffer
                 for (i = 0; i < varp->ndim; i++){
-                    tsize[i] = (int)req->counts[r][i];
-                    tstart[i] = (int)(ostart[i] - req->starts[r][i]);
+                    tsize[i] = (uintptr_t)req->counts[r][i];
+                    tstart[i] = (uintptr_t)(ostart[i] - req->starts[r][i]);
                 }
 
                 err = nczipioi_subarray_off_len(varp->ndim, tsize, tssizep, tstart, soffsp[j], slensp[j]);
                 if (err){
                     CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, tsize, tssizep, tstart, MPI_ORDER_C, varp->etype, stypesp[j]);
                     CHK_ERR_TYPE_COMMIT(stypesp[j]);
-                    *(soffsp[j]) = req->xbufs[r];
+                    *(soffsp[j]) = (uintptr_t)req->xbufs[r];
                     *(slensp[j]) = 1;
                 }
                 else{
                     *(stypesp[j]) = MPI_BYTE;
-                    *(soffsp[j]) = (*(soffsp[j])) * varp->esize + req->xbufs[r];
+                    *(soffsp[j]) = (*(soffsp[j])) * varp->esize + (uintptr_t)req->xbufs[r];
                     *(slensp[j]) *= varp->esize;
                 }
                 stypesp[j]++;
@@ -485,12 +486,12 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             if (err){
                 CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, varp->chunkdim, tssizep, tstartp, MPI_ORDER_C, varp->etype, rtypes + k);
                 CHK_ERR_TYPE_COMMIT(rtypes + k);
-                roffs[k] = varp->chunk_cache[cid]->buf;
+                roffs[k] = (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] = 1;
             }
             else{
                 rtypes[k] = MPI_BYTE;
-                roffs[k] = roffs[k] * varp->esize + varp->chunk_cache[cid]->buf;
+                roffs[k] = roffs[k] * varp->esize + (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] *= varp->esize;
             }
 
@@ -547,12 +548,12 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             if (err){
                 CHK_ERR_TYPE_CREATE_SUBARRAY(varp->ndim, varp->chunkdim, tssizep, tstartp, MPI_ORDER_C, varp->etype, rtypes + k);
                 CHK_ERR_TYPE_COMMIT(rtypes + k);
-                roffs[k] = varp->chunk_cache[cid]->buf;
+                roffs[k] = (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] = 1;
             }
             else{
                 rtypes[k] = MPI_BYTE;
-                roffs[k] = roffs[k] * varp->esize + varp->chunk_cache[cid]->buf;
+                roffs[k] = roffs[k] * varp->esize + (((uintptr_t)(varp->chunk_cache[cid]->buf)));
                 rlens[k] *= varp->esize;
             }
 
