@@ -966,8 +966,7 @@ nczipioi_get_varn(NC_zip        *nczipp,
               int              nreq,
               MPI_Offset* const *starts,
               MPI_Offset* const *counts,
-              const void       *buf)
-{
+		  const void       *buf) {
     int i, j;
     MPI_Offset rsize;
     char *bptr = (char*)buf;
