@@ -282,7 +282,7 @@ nczipio_get_var(void             *ncdp,
             status = nczipioi_get_var_cb_chunk(nczipp, varp, start, count, stride, xbuf);
             break;
         case NC_ZIP_COMM_PROC:
-            status = nczipioi_get_var_cb_proc(nczipp, varp, start, count, stride, xbuf);
+            status = nczipioi_get_varn_cb_proc(nczipp, varp, 1, (MPI_Offset* const*)(&start), (MPI_Offset* const*)(&count), &xbuf);
             break;
     }
 

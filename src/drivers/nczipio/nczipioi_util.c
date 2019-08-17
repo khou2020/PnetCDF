@@ -153,7 +153,7 @@ int nczipioi_extract_hint(NC_zip *nczipp, MPI_Info info){
     nczipp->cache_limit_hint = 0;
     MPI_Info_get(info, "nc_zip_buffer_size", MPI_MAX_INFO_VAL - 1, value, &flag);
     if (flag) {
-        sscanf(value, "%lld", &(nczipp->cache_limit_hint));
+        sscanf(value, "%llu", &(nczipp->cache_limit_hint));
 
         if (nczipp->cache_limit_hint > 0){
             nczipp->cache_limit = nczipp->cache_limit_hint;
@@ -196,7 +196,7 @@ int nczipioi_export_hint(NC_zip *nczipp, MPI_Info info){
     }
 
     // Reserve space for records
-    sprintf(value, "%lld", nczipp->default_recnalloc);
+    sprintf(value, "%llu", nczipp->default_recnalloc);
     MPI_Info_set(info, "nc_zip_nrec", value);
 
     // Zip driver
@@ -216,7 +216,7 @@ int nczipioi_export_hint(NC_zip *nczipp, MPI_Info info){
     } 
 
     // Buffer size
-    sprintf(value, "%lld", nczipp->cache_limit);
+    sprintf(value, "%llu", nczipp->cache_limit);
     MPI_Info_set(info, "nc_zip_buffer_size", value);
 
     return NC_NOERR;

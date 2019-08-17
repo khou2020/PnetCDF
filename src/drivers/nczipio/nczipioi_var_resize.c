@@ -58,7 +58,7 @@ int nczipioi_var_resize(NC_zip *nczipp, NC_zip_var *varp) {
 
                 varp->chunk_owner = (int*)NCI_Realloc(varp->chunk_owner, sizeof(int) * varp->nchunkalloc);
                 varp->dirty = (int*)NCI_Realloc(varp->dirty, sizeof(int) * varp->nchunkalloc);
-                varp->chunk_cache = (char**)NCI_Realloc(varp->chunk_cache, sizeof(char*) * varp->nchunkalloc);
+                varp->chunk_cache = (NC_zip_cache**)NCI_Realloc(varp->chunk_cache, sizeof(char*) * varp->nchunkalloc);
                 for(i = 0; i < oldnmychunk; i++){
                     cid = varp->mychunks[i];
                     if (varp->chunk_cache[cid] != NULL){
