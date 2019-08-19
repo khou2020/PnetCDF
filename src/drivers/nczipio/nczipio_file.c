@@ -267,6 +267,8 @@ nczipio_close(void *ncdp)
                             &get_size, NULL, NULL, NULL, NULL);
     nczipp->putsize += put_size;
     nczipp->getsize += get_size;
+
+    err = nczipioi_update_statistics(nczipp);
 #endif
     err = nczipp->driver->close(nczipp->ncp);
 

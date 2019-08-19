@@ -177,16 +177,17 @@ extern int nczipioi_var_list_add(NC_zip_var_list*, NC_zip_var);
 
 // Util
 extern int nczipioi_extract_hint(NC_zip*, MPI_Info);
-extern int nczipioi_export_hint(NC_zip *nczipp, MPI_Info info);
+extern int nczipioi_export_hint(NC_zip*, MPI_Info);
 extern MPI_Offset NC_Type_size(nc_type);
 extern int nczipioi_print_profile(NC_zip*);
-extern void nczipioi_sort_file_offset(int len, MPI_Aint *fdisps, MPI_Aint *mdisps, int *lens);
+extern void nczipioi_sort_file_offset(int, MPI_Aint*, MPI_Aint*, int*);
 extern int nczipioi_subarray_off_len(int, int*, int*, int*, MPI_Aint*, int*);
+extern int nczipioi_calc_cp_ratio(NC_zip*);
 
 // Misc
 extern int nczipioi_calc_chunk_owner(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
 extern int nczipioi_calc_chunk_size(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
-extern int nczipioiconvert(void *inbuf, void *outbuf, MPI_Datatype intype, MPI_Datatype outtype, int N);
+extern int nczipioiconvert(void*, void*, MPI_Datatype, MPI_Datatype, int);
 
 // Var
 extern int nczipioi_var_init(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
