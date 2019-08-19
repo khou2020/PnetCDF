@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdint.h> 
 
 #include <mpi.h>
 
@@ -683,9 +684,8 @@ int nczipioi_get_varn_cb_proc(  NC_zip          *nczipp,
             rmap[i] = nunpack;
             rsrc[nunpack]=i;            
             rsize[nunpack] = rcnt[i] * sizeof(int) * (varp->ndim * 2 + 2);
+            k += rsize[nunpack];
             rcnt[nunpack++] = rcnt[i];
-
-            k += rsize[i];
             j += rcnt[i];
         }
     }
@@ -920,6 +920,8 @@ int nczipioi_get_varn_cb_proc(  NC_zip          *nczipp,
     NCI_Free(tstart);
 
     NCI_Free(ostart);
+    
+    NCI_Free(rids);
 
     NCI_Free(sreq);
     NCI_Free(sstat);

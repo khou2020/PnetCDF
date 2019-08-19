@@ -365,15 +365,17 @@ int nczipioi_update_statistics(NC_zip *nczipp){
     int i, j;
     int cid;
     NC_zip_var *varp;
-
+	
     nczipp->var_size_sum = nczipp->var_zsize_sum = 0;
     for(i = 0; i < nczipp->vars.cnt; i++){
         varp = nczipp->vars.data + i;
-        for(j = 0; j < varp->nmychunk; j++){
-            cid = varp->mychunks[j];
-            nczipp->var_zsize_sum += varp->data_lens[cid];
-        }
-        nczipp->var_size_sum = varp->nmychunk * varp->chunksize;
+        if (varp->varkind == NC_ZIP_VAR_COMPRESSED){
+			for(j = 0; j < varp->nmychunk; j++){
+				cid = varp->mychunks[j];
+				nczipp->var_zsize_sum += varp->data_lens[cid];
+			}
+			nczipp->var_size_sum += varp->nmychunk * varp->chunksize;
+		}
     }
 
     return NC_NOERR;
