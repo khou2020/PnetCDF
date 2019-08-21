@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     }
 
     for(zipdriver = 0; zipdriver < NZIPDRIVER; zipdriver++){
-        for(communit = 0; communit < 2; communit++){
+        for(communit = 1; communit < 2; communit++){
             /* Initialize file info */
             MPI_Info_create(&info);
             MPI_Info_set(info, "nc_compression", "enable");
