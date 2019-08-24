@@ -176,7 +176,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     int nrecv;
     char **rbuf, *rbufp;
     MPI_Request *rreq;
-    MPI_Status rstat;
+    MPI_Status *rstat;
     MPI_Datatype rtype;
     MPI_Datatype *rtypes;
     MPI_Aint *roffs;
@@ -256,8 +256,8 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     // Allocate data structure for sending
     sbuf = (char **)NCI_Malloc(sizeof(char *) * npack * 2);
     sbufp = sbuf + npack;
-    sreq = (MPI_Request *)NCI_Malloc(sizeof(MPI_Request) * nsend);
-    sstat = (MPI_Status *)NCI_Malloc(sizeof(MPI_Status) * nsend);
+    sreq = (MPI_Request *)NCI_Malloc(sizeof(MPI_Request) * nsend * 2);
+    sstat = (MPI_Status *)NCI_Malloc(sizeof(MPI_Status) * nsend * 2);
     stype = (MPI_Datatype *)NCI_Malloc(sizeof(MPI_Datatype) * npack);
     stypes = (MPI_Datatype **)NCI_Malloc(sizeof(MPI_Datatype *) * npack * 2);
     stypesp = stypes + npack;
@@ -274,7 +274,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             if (scnt[i] > 0) {
                 j = smap[i];
                 sdst[j] = i;
-                sntypes[j] = scnt[i] + 1;
+                sntypes[j] = scnt[i];
                 l += sntypes[j];
                 k += ssize[i];
             }
@@ -292,20 +292,10 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
             sbuf[i] = sbufp[i] = sbuf[i - 1] + ssize[sdst[i - 1]];
         }
-        for (i = 0; i < nsend; i++) {
-            stypesp[i] = stypes[i] + 1;
-            soffsp[i] = soffs[i] + 1;
-            slensp[i] = slens[i] + 1;
-
-            stypes[i][0] = MPI_BYTE;
-            soffs[i][0] = (uintptr_t)(sbuf[i]);
-            slens[i][0] = ssize[sdst[i]];
-        }
-        if (npack > i){
+        for (i = 0; i < npack; i++) {
             stypesp[i] = stypes[i];
             soffsp[i] = soffs[i];
             slensp[i] = slens[i];
-            sntypes[i]--;
         }
     }
 
@@ -369,7 +359,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     for (i = 0; i < npack; i++) {
         MPI_Type_struct(sntypes[i], slens[i], soffs[i], stypes[i], stype + i);
         CHK_ERR_TYPE_COMMIT(stype + i);
-        MPI_Type_size(stype[i], ssize + sdst[i]);
+        //MPI_Type_size(stype[i], ssize + sdst[i]);
     }
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_PACK_REQ)
@@ -412,7 +402,8 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
     // Allocate data structure for receving
     rbuf = (char **)NCI_Malloc(sizeof(char *) * nrecv);
-    rreq = (MPI_Request *)NCI_Malloc(sizeof(MPI_Request) * nrecv);
+    rreq = (MPI_Request *)NCI_Malloc(sizeof(MPI_Request) * nrecv * 2);
+    rstat = (MPI_Status *)NCI_Malloc(sizeof(MPI_Status) * nrecv);
     rtypes = (MPI_Datatype *)NCI_Malloc(sizeof(MPI_Datatype) * j);
     roffs = (MPI_Aint *)NCI_Malloc(sizeof(MPI_Aint) * j);
     rlens = (int *)NCI_Malloc(sizeof(int) * j);
@@ -429,7 +420,8 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     // Post send
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
     for (i = 0; i < nsend; i++) {
-        CHK_ERR_ISEND(MPI_BOTTOM, 1, stype[i], sdst[i], 0, nczipp->comm, sreq + i);
+        CHK_ERR_ISEND(sbuf[i], ssize[sdst[i]], MPI_BYTE, sdst[i], 0, nczipp->comm, sreq + i);
+        CHK_ERR_ISEND(MPI_BOTTOM, 1, stype[i], sdst[i], 1, nczipp->comm, sreq + nsend + i);
     }
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
 
@@ -462,11 +454,12 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         j = smap[nczipp->rank];
         
         // Allocate intermediate buffer for our own data
-        tbuf = (char *)NCI_Malloc(ssize[nczipp->rank]);
+        MPI_Type_size(stype[j], &overlapsize);
+        tbuf = (char *)NCI_Malloc(overlapsize);
 
         // Pack into continuous buffer
         packoff = 0;
-        CHK_ERR_PACK(MPI_BOTTOM, 1, stype[j], tbuf, ssize[nczipp->rank], &packoff, nczipp->comm);
+        CHK_ERR_PACK(MPI_BOTTOM, 1, stype[j], tbuf, overlapsize, &packoff, nczipp->comm);
 
         rbufp = sbuf[j];
         for (k = 0; k < scnt[nczipp->rank]; k++) {
@@ -506,7 +499,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         MPI_Type_struct(scnt[nczipp->rank], rlens, roffs, rtypes, &rtype);
         CHK_ERR_TYPE_COMMIT(&rtype);
         packoff = 0;
-        CHK_ERR_UNPACK(tbuf, ssize[nczipp->rank], &packoff, MPI_BOTTOM, 1, rtype, nczipp->comm);
+        CHK_ERR_UNPACK(tbuf, overlapsize, &packoff, MPI_BOTTOM, 1, rtype, nczipp->comm);
 
         // Free type
         for (k = 0; k < scnt[nczipp->rank]; k++) {
@@ -525,7 +518,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_RECV_REQ)
 
         // Will wait any provide any benefit?
-        MPI_Waitany(nrecv, rreq, &j, &rstat);
+        MPI_Waitany(nrecv, rreq, &j, rstat);
 
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_RECV_REQ)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_UNPACK_REQ)
@@ -564,11 +557,10 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 #endif
         }
 
-        // Unpack data
+        // Receive data
         MPI_Type_struct(rcnt[j], rlens, roffs, rtypes, &rtype);
         CHK_ERR_TYPE_COMMIT(&rtype);
-        packoff = 0;
-        CHK_ERR_UNPACK(rbufp, rsize[j], &packoff, MPI_BOTTOM, 1, rtype, nczipp->comm);
+        CHK_ERR_IRECV(MPI_BOTTOM, 1, rtype, rmap[j], 1, nczipp->comm, rreq + nrecv + i);
 
         // Free type
         for (k = 0; k < rcnt[j]; k++) {
@@ -583,9 +575,14 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
 
-    CHK_ERR_WAITALL(nsend, sreq, sstat);
+    CHK_ERR_WAITALL(nsend * 2, sreq, sstat);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_RECV_REQ)
+
+    CHK_ERR_WAITALL(nrecv, rreq + nrecv, rstat);
+
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_RECV_REQ)
 
     // Free type
     for (i = 0; i < npack; i++) {
@@ -620,6 +617,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NCI_Free(sntypes);
 
     NCI_Free(rreq);
+    NCI_Free(rstat);
     if (nrecv > 0){
         NCI_Free(rbuf[0]);
     }
