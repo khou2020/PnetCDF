@@ -224,6 +224,12 @@ nczipio_close(void *ncdp)
 #endif
     NC_zip *nczipp = (NC_zip*)ncdp;
 
+#ifdef PNETCDF_PROFILING
+    if (_env_str != NULL && *_env_str != '0') {                   
+        nczipioi_update_statistics(nczipp);
+    }            
+#endif
+
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_FINALIZE)
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
 
@@ -281,7 +287,7 @@ nczipio_close(void *ncdp)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
 
 #ifdef PNETCDF_PROFILING
-    if (_env_str != NULL && *_env_str != '0') {                        
+    if (_env_str != NULL && *_env_str != '0') {                   
         nczipioi_print_profile(nczipp);
     }            
 #endif

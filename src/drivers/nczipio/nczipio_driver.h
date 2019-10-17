@@ -160,6 +160,8 @@ struct NC_zip {
     MPI_Offset         var_zsize_sum;
     int                nsend;
     int                nrecv;
+    int                nremote;
+    int                nreq;
     int                nlocal;
 #endif
 };
