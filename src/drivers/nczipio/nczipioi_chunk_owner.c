@@ -128,7 +128,11 @@ int nczipioi_calc_chunk_owner(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Of
                 for(j = 0; j < varp->nchunk; j++){
                     fprintf(pfile, "%d, ", j);
                 }
-                fprintf(pfile, "\n0, ");
+				fprintf(pfile, "\nOwner, ");
+                for(j = 0; j < varp->nchunk; j++){
+                    fprintf(pfile, "%d, ", varp->chunk_owner[j]);
+                }                
+				fprintf(pfile, "\n0, ");
                 for(j = 0; j < varp->nchunk; j++){
                     fprintf(pfile, "%d, ", ocnt[j].osize);
                 }
