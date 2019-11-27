@@ -283,6 +283,8 @@ nczipio_close(void *ncdp)
     nczipioi_req_list_free(&(nczipp->putlist));
     nczipioi_req_list_free(&(nczipp->getlist));
 
+    NCI_Free(nczipp->chunkdim);
+
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_FINALIZE)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
 
@@ -342,6 +344,9 @@ nczipio_enddef(void *ncdp)
     rsize *= 2;   // 2 times for future expension
 
     err = nczipp->driver->_enddef(nczipp->ncp, rsize, 0, 0, 0);
+    if (err != NC_NOERR) return err;
+
+    err = nczipioi_get_default_chunk_dim(nczipp);
     if (err != NC_NOERR) return err;
 
     if (!(nczipp->delay_init)){
@@ -408,6 +413,9 @@ nczipio__enddef(void       *ncdp,
 
     err = nczipp->driver->_enddef(nczipp->ncp, h_minfree + rsize, v_align, v_minfree,
                                r_align);
+    if (err != NC_NOERR) return err;
+
+    err = nczipioi_get_default_chunk_dim(nczipp);
     if (err != NC_NOERR) return err;
     
     if (!(nczipp->delay_init)){
