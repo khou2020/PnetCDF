@@ -218,7 +218,7 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
     for(i = 0; i < varp->nmychunk; i++){
         cid = varp->mychunks[i];
         if (wcnt_all[cid] && varp->chunk_cache[cid] == NULL){
-            if (varp->data_lens[cid] > 0){
+            if (varp->chunk_index[cid].len > 0){
                 nread++;
             }
         }
@@ -231,7 +231,7 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
             if (varp->chunk_cache[cid] == NULL){
                 err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
                 //varp->chunk_cache[cid] = (NC_zip_cache*)NCI_Malloc(varp->chunksize);
-                if (varp->data_lens[cid] > 0){
+                if (varp->chunk_index[cid].len > 0){
                     rids[nread++] = cid;
                 }
             }
@@ -579,7 +579,7 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
         if (varp->chunk_cache[cid] == NULL){
             err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
             //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
-            if (varp->data_lens[cid] > 0){
+            if (varp->chunk_index[cid].len > 0){
                 rids[nread++] = cid;
             }
         }
