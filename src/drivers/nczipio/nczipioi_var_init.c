@@ -182,7 +182,6 @@ int nczipioi_var_init(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Offset **s
 
             // Determine block offset
             varp->chunk_index = (NC_zip_chunk_index_entry*)NCI_Malloc(sizeof(NC_zip_chunk_index_entry) * (varp->nchunkalloc + 1));
-            //varp->data_lens = (int*)NCI_Malloc(sizeof(int) * (varp->nchunkalloc + 1));
 
             // Try if there are offset recorded in attributes, it can happen after opening a file
             if (varp->isnew){
@@ -254,6 +253,7 @@ void nczipioi_var_free(NC_zip_var *varp) {
         NCI_Free(varp->nchunks);
         NCI_Free(varp->cidsteps);
         NCI_Free(varp->chunk_index);
+        NCI_Free(varp->chunk_owner);
         NCI_Free(varp->dirty);
         //for(i = 0; i < varp->nmychunk; i++){
         //    if (varp->chunk_cache[varp->mychunks[i]] != NULL){
@@ -273,8 +273,14 @@ int nczipioi_init_nvar(NC_zip *nczipp, int nput, int *putreqs, int nget, int *ge
     int nvar;
     int *rcnt, *roff;
     int *vids, *vmap;
+    int nread;
+    int *lens;
+    MPI_Aint *fdisps, *mdisps;
+    MPI_Datatype ftype, mtype;
+    MPI_Status status;
     MPI_Offset **starts, **counts;
     NC_zip_req *req;
+    NC_zip_var *varp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
 
@@ -382,12 +388,62 @@ int nczipioi_init_nvar(NC_zip *nczipp, int nput, int *putreqs, int nget, int *ge
         }
     }
 
+    lens = NCI_Malloc(sizeof(int) * nvar);
+    fdisps = NCI_Malloc(sizeof(MPI_Aint) * nvar * 2);
+    mdisps = fdisps + nvar;
+
+    nread = 0;
     for(i = 0; i < nvar; i++){
-        err = nczipioi_var_init(nczipp, nczipp->vars.data + vids[i], rcnt[i], starts + roff[i], counts + roff[i]);
+        varp = nczipp->vars.data + vids[i];
+
+        err = nczipioi_var_init(nczipp, varp, rcnt[i], starts + roff[i], counts + roff[i]);
         if (err != NC_NOERR){
             return err;
         }
+
+        if(!(varp->isnew)){
+            err = nczipp->driver->get_att(nczipp->ncp, varp->varid, "_metaoffset", &(varp->metaoff), MPI_LONG_LONG);
+            if (err == NC_NOERR){
+                lens[nread] = sizeof(NC_zip_chunk_index_entry) * (varp->nchunk);
+                fdisps[nread] = varp->metaoff;
+                mdisps[nread++] = (MPI_Aint)(varp->chunk_index);
+            }
+            else{
+                varp->metaoff = -1;
+                memset(varp->chunk_index, 0, sizeof(NC_zip_chunk_index_entry) * (varp->nchunk + 1));
+            }
+        }
     }
+
+    if (nread){
+        nczipioi_sort_file_offset(nread, fdisps, mdisps, lens);
+
+        MPI_Type_create_hindexed(nread, lens, fdisps, MPI_BYTE, &ftype);
+        CHK_ERR_TYPE_COMMIT(&ftype);
+
+        MPI_Type_create_hindexed(nread, lens, mdisps, MPI_BYTE, &mtype);
+        CHK_ERR_TYPE_COMMIT(&mtype);
+
+        // Set file view
+        CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, ((NC*)(nczipp->ncp))->begin_var, MPI_BYTE, ftype, "native", MPI_INFO_NULL);
+        
+        // Read data
+        CHK_ERR_READ_AT_ALL(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BOTTOM, 1, mtype, &status);
+        
+        // Restore file view
+        CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+
+#ifndef WORDS_BIGENDIAN // Switch back to little endian
+        //ncmpii_in_swapn(varp->chunk_index, varp->nchunk + 1, sizeof(long long));
+        //ncmpii_in_swapn(varp->data_lens, varp->nchunk + 1, sizeof(int));
+#endif
+
+        MPI_Type_free(&ftype);
+        MPI_Type_free(&mtype);
+    }
+
+    NCI_Free(lens);
+    NCI_Free(fdisps);
 
     NCI_Free(flag);
     NCI_Free(vids);

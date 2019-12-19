@@ -341,7 +341,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
 
     // Allocate reqid for metadata
-    reqs = (int*)NCI_Malloc(sizeof(MPI_Request) * nvar);
+    reqs = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nvar);
 
     // Allocate buffer for compression
     zsizes = (int*)NCI_Malloc(sizeof(int) * total_nchunks);
@@ -399,7 +399,7 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
         CHK_ERR_IALLREDUCE(zsizesp, zsizes_allp, varp->nchunk, MPI_INT, MPI_MAX, nczipp->comm, reqs + vid);
 
         if (varp->metaoff < 0 || varp->expanded){ 
-            zsizes_all[vid] = varp->nchunkalloc * (sizeof(long long) + sizeof(int));
+            zsizes_all[vid] = varp->nchunkalloc * sizeof(NC_zip_chunk_index_entry);
         }
         else{
             zsizes_all[vid] = 0;

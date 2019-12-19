@@ -55,6 +55,7 @@
 #include <common.h>
 #include <nczipio_driver.h>
 #include "nczipio_internal.h"
+#include "../ncmpio/ncmpio_NC.h"
 
 int
 nczipio_def_var(void       *ncdp,
@@ -66,63 +67,64 @@ nczipio_def_var(void       *ncdp,
 {
     int i, err;
     NC_zip *nczipp = (NC_zip*)ncdp;
-    NC_zip_var var;
+    NC_zip_var *varp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
 
-    var.ndim = ndims;
-    var.chunkdim = NULL;
-    var.chunk_index = NULL;
-    var.chunk_owner = NULL;
-    var.xtype = xtype;
-    var.esize = NC_Type_size(xtype);
-    var.etype = ncmpii_nc2mpitype(xtype);
-    var.isnew = 1;
-    var.expanded = 0;
+    err = nczipioi_var_list_add(&(nczipp->vars));
+    if (err < 0) return err;
+    *varidp = err;
+
+    varp = nczipp->vars.data + (*varidp);
+
+    varp->ndim = ndims;
+    varp->chunkdim = NULL;
+    varp->chunk_index = NULL;
+    varp->chunk_owner = NULL;
+    varp->xtype = xtype;
+    varp->esize = NC_Type_size(xtype);
+    varp->etype = ncmpii_nc2mpitype(xtype);
+    varp->isnew = 1;
+    varp->expanded = 0;
 
     if (ndims < 1) { // Do not compress scalar
-        var.varkind = NC_ZIP_VAR_RAW;
-        var.dimsize = NULL;
+        varp->varkind = NC_ZIP_VAR_RAW;
+        varp->dimsize = NULL;
 
-        err = nczipp->driver->def_var(nczipp->ncp, name, xtype, ndims, dimids, &var.varid);  
+        err = nczipp->driver->def_var(nczipp->ncp, name, xtype, ndims, dimids, &varp->varid);  
         if (err != NC_NOERR) return err;
         
-        err = nczipp->driver->put_att(nczipp->ncp, var.varid, "_varkind", NC_INT, 1, &(var.varkind), MPI_INT);   // Comressed var?
+        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_varkind", NC_INT, 1, &(varp->varkind), MPI_INT);   // Comressed var?
         if (err != NC_NOERR) return err;
     }
     else{
-        err = nczipp->driver->def_var(nczipp->ncp, name, xtype, 0, NULL, &var.varid);  // Dummy var for attrs
+        err = nczipp->driver->def_var(nczipp->ncp, name, xtype, 0, NULL, &varp->varid);  // Dummy var for attrs
         if (err != NC_NOERR) return err;
         
-        var.varkind = NC_ZIP_VAR_COMPRESSED;
-        var.dimids = (int*)NCI_Malloc(sizeof(int) * ndims);
-        memcpy(var.dimids, dimids, sizeof(int) * ndims);
-        var.dimsize = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * ndims);
+        varp->varkind = NC_ZIP_VAR_COMPRESSED;
+        varp->dimids = (int*)NCI_Malloc(sizeof(int) * ndims);
+        memcpy(varp->dimids, dimids, sizeof(int) * ndims);
+        varp->dimsize = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * ndims);
         for(i = 0; i < ndims; i++){
-            nczipp->driver->inq_dim(nczipp->ncp, dimids[i], NULL, var.dimsize + i);
+            nczipp->driver->inq_dim(nczipp->ncp, dimids[i], NULL, varp->dimsize + i);
         }
-        if (var.dimids[0] == nczipp->recdim){
-            var.isrec = 1;
+        if (varp->dimids[0] == nczipp->recdim){
+            varp->isrec = 1;
         }
         else{
-            var.isrec = 0;
+            varp->isrec = 0;
         }
 
-        err = nczipp->driver->put_att(nczipp->ncp, var.varid, "_ndim", NC_INT, 1, &ndims, MPI_INT); // Original dimensions
+        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_ndim", NC_INT, 1, &ndims, MPI_INT); // Original dimensions
         if (err != NC_NOERR) return err;
-        err = nczipp->driver->put_att(nczipp->ncp, var.varid, "_dimids", NC_INT, ndims, dimids, MPI_INT);   // Dimensiona IDs
+        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_dimids", NC_INT, ndims, dimids, MPI_INT);   // Dimensiona IDs
         if (err != NC_NOERR) return err;
-        err = nczipp->driver->put_att(nczipp->ncp, var.varid, "_datatype", NC_INT, 1, &xtype, MPI_INT); // Original datatype
+        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_datatype", NC_INT, 1, &xtype, MPI_INT); // Original datatype
         if (err != NC_NOERR) return err;
-        err = nczipp->driver->put_att(nczipp->ncp, var.varid, "_varkind", NC_INT, 1, &(var.varkind), MPI_INT);   // Comressed var?
+        err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_varkind", NC_INT, 1, &(varp->varkind), MPI_INT);   // Comressed var?
         if (err != NC_NOERR) return err;
     }
-
-    err = nczipioi_var_list_add(&(nczipp->vars), var);
-    if (err < 0) return err;
-
-    *varidp = err;
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
@@ -252,6 +254,34 @@ nczipio_get_var(void             *ncdp,
         return nczipp->driver->get_var(nczipp->ncp, varp->varid, start, count, stride, imap, buf, bufcount, buftype, reqMode);
     }
 
+    if (nczipp->delay_init && (varp->chunkdim == NULL)){
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+
+        nczipioi_var_init(nczipp, varp, 1, (MPI_Offset**)&start, (MPI_Offset**)&count);
+
+        if (!(varp->isnew)){
+            err = nczipp->driver->get_att(nczipp->ncp, varp->varid, "_metaoffset", &(varp->metaoff), MPI_LONG_LONG);
+            if (err == NC_NOERR){   // Read index table
+                MPI_Status status;
+                
+                // Set file view
+                CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, ((NC*)(nczipp->ncp))->begin_var, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+                // Read data
+                CHK_ERR_READ_AT_ALL(((NC*)(nczipp->ncp))->collective_fh, varp->metaoff, varp->chunk_index, sizeof(NC_zip_chunk_index_entry) * varp->nchunk, MPI_BYTE, &status);
+            }
+            else{
+                varp->metaoff = -1;
+                memset(varp->chunk_index, 0, sizeof(NC_zip_chunk_index_entry) * (varp->nchunk + 1));
+            }
+        }
+
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET)
+    }
+
     if (varp->isrec && (varp->dimsize[0] < nczipp->recsize) && (start[0] + count[0] >= varp->dimsize[0])){
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_RESIZE)
@@ -340,6 +370,22 @@ nczipio_put_var(void             *ncdp,
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
 
         nczipioi_var_init(nczipp, varp, 1, (MPI_Offset**)&start, (MPI_Offset**)&count);
+
+        if (!(varp->isnew)){
+            err = nczipp->driver->get_att(nczipp->ncp, varp->varid, "_metaoffset", &(varp->metaoff), MPI_LONG_LONG);
+            if (err == NC_NOERR){   // Read index table
+                MPI_Status status;
+                
+                // Set file view
+                CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, ((NC*)(nczipp->ncp))->begin_var, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+                // Read data
+                CHK_ERR_READ_AT_ALL(((NC*)(nczipp->ncp))->collective_fh, varp->metaoff, varp->chunk_index, sizeof(NC_zip_chunk_index_entry) * varp->nchunk, MPI_BYTE, &status);
+            }
+            else{
+                varp->metaoff = -1;
+                memset(varp->chunk_index, 0, sizeof(NC_zip_chunk_index_entry) * (varp->nchunk + 1));
+            }
+        }
 
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
@@ -747,6 +793,34 @@ nczipio_get_varn(void              *ncdp,
         return nczipp->driver->get_varn(nczipp->ncp, varp->varid, num, starts, counts, buf, bufcount, buftype, reqMode);
     }
 
+    if (nczipp->delay_init && (varp->chunkdim == NULL)){
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+
+        nczipioi_var_init(nczipp, varp, num, (MPI_Offset**)starts, (MPI_Offset**)counts);
+
+        if (!(varp->isnew)){
+            err = nczipp->driver->get_att(nczipp->ncp, varp->varid, "_metaoffset", &(varp->metaoff), MPI_LONG_LONG);
+            if (err == NC_NOERR){   // Read index table
+                MPI_Status status;
+                
+                // Set file view
+                CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, ((NC*)(nczipp->ncp))->begin_var, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+                // Read data
+                CHK_ERR_READ_AT_ALL(((NC*)(nczipp->ncp))->collective_fh, varp->metaoff, varp->chunk_index, sizeof(NC_zip_chunk_index_entry) * varp->nchunk, MPI_BYTE, &status);
+            }
+            else{
+                varp->metaoff = -1;
+                memset(varp->chunk_index, 0, sizeof(NC_zip_chunk_index_entry) * (varp->nchunk + 1));
+            }
+        }
+
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET)
+    }
+
     if (varp->isrec && (varp->dimsize[0] < nczipp->recsize)){
         for(i = 0; i < num; i++){
             if (starts[i][0] + counts[i][0] >= varp->dimsize[0]){
@@ -838,6 +912,22 @@ nczipio_put_varn(void              *ncdp,
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
         
         nczipioi_var_init(nczipp, varp, num, (MPI_Offset**)starts, (MPI_Offset**)counts);
+
+        if (!(varp->isnew)){
+            err = nczipp->driver->get_att(nczipp->ncp, varp->varid, "_metaoffset", &(varp->metaoff), MPI_LONG_LONG);
+            if (err == NC_NOERR){   // Read index table
+                MPI_Status status;
+
+                // Set file view
+                CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, ((NC*)(nczipp->ncp))->begin_var, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+                // Read data
+                CHK_ERR_READ_AT_ALL(((NC*)(nczipp->ncp))->collective_fh, varp->metaoff, varp->chunk_index, sizeof(NC_zip_chunk_index_entry) * varp->nchunk, MPI_BYTE, &status);
+            }
+            else{
+                varp->metaoff = -1;
+                memset(varp->chunk_index, 0, sizeof(NC_zip_chunk_index_entry) * (varp->nchunk + 1));
+            }
+        }
 
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
