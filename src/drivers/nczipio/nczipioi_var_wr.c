@@ -102,7 +102,7 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     CHK_ERR_ALLREDUCE(zsizes, zsizes_all, varp->nchunk, MPI_INT, MPI_MAX, nczipp->comm);
 
     if (varp->metaoff < 0 || varp->expanded){ 
-        zoffs[0] = varp->nchunkalloc * (sizeof(long long) + sizeof(int));
+        zoffs[0] = varp->nchunkalloc * sizeof(NC_zip_chunk_index_entry);
     }
     else{
         zoffs[0] = 0;
@@ -148,6 +148,8 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
         if (err != NC_NOERR) return err;
 
         // Metadata offset
+        // Real metadata offset is only known after enddef
+        // We reserve the space so we don't need to enter define mode again
         if (varp->metaoff < 0){
             err = nczipp->driver->put_att(nczipp->ncp, varp->varid, "_metaoffset", NC_INT64, 1, &(varp->metaoff), MPI_LONG_LONG);
             if (err != NC_NOERR) return err;
@@ -184,11 +186,8 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
             // Create file type
             l = 0;
             if (nczipp->rank == varp->chunk_owner[0]){  // First chunk owner writes metadata
-                lens[l] = (varp->nchunk) * sizeof(long long);
+                lens[l] = (varp->nchunk) * sizeof(NC_zip_chunk_index_entry);
                 disps[l++] = (MPI_Aint)varp->metaoff + ncp->begin_var;
-
-                lens[l] = (varp->nchunk) * sizeof(int);
-                disps[l++] = (MPI_Aint)(varp->metaoff + ncp->begin_var + sizeof(long long) * varp->nchunkalloc);
             }
             for(i = 0; i < varp->nmychunk; i++){
                 k = varp->mychunks[i];

@@ -137,7 +137,7 @@ int nczipioi_var_init(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Offset **s
             // Determine block ownership
             varp->chunk_owner = (int*)NCI_Malloc(sizeof(int) * varp->nchunkalloc);
             varp->dirty = (int*)NCI_Malloc(sizeof(int) * varp->nchunkalloc);
-            varp->chunk_cache = (char**)NCI_Malloc(sizeof(char*) * varp->nchunkalloc);
+            varp->chunk_cache = (NC_zip_cache**)NCI_Malloc(sizeof(char*) * varp->nchunkalloc);
             memset(varp->chunk_cache, 0, sizeof(char*) * varp->nchunkalloc);
             memset(varp->dirty, 0, sizeof(int) * varp->nchunkalloc);
 
