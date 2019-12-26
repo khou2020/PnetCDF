@@ -175,7 +175,7 @@ extern int nczipioi_init(NC_zip*, int);
 extern int nczipioi_parse_var_info(NC_zip*);
 extern int nczipioi_var_list_init(NC_zip_var_list*);
 extern int nczipioi_var_list_free(NC_zip_var_list*);
-extern int nczipioi_var_list_add(NC_zip_var_list*, NC_zip_var); 
+extern int nczipioi_var_list_add(NC_zip_var_list*); 
 
 // Util
 extern int nczipioi_extract_hint(NC_zip*, MPI_Info);
@@ -194,6 +194,7 @@ extern int nczipioiconvert(void *inbuf, void *outbuf, MPI_Datatype intype, MPI_D
 // Var
 extern int nczipioi_var_init(NC_zip*, NC_zip_var*, int, MPI_Offset**, MPI_Offset**);
 extern int nczipioi_load_var(NC_zip*, NC_zip_var*, int, int*);
+extern int nczipioi_load_var_bg(NC_zip*, NC_zip_var*, int, int*);
 extern int nczipioi_load_nvar(NC_zip*, int, int*, int*, int*);
 extern int nczipioi_save_var(NC_zip*, NC_zip_var*);
 extern int nczipioi_save_nvar(NC_zip*, int, int*);

@@ -46,6 +46,7 @@
 #include <common.h>
 #include <nczipio_driver.h>
 #include "nczipio_internal.h"
+#include "../ncmpio/ncmpio_NC.h"
 
 int
 nczipio_create(MPI_Comm     comm,
@@ -353,12 +354,69 @@ nczipio_enddef(void *ncdp)
     if (err != NC_NOERR) return err;
 
     if (!(nczipp->delay_init)){
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        int nread;
+        int *lens;
+        MPI_Aint *fdisps, *mdisps;
+        MPI_Datatype ftype, mtype;
+        MPI_Status status;
+        NC_zip_var *varp;
 
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        
+        lens = NCI_Malloc(sizeof(int) * nczipp->vars.cnt);
+        fdisps = NCI_Malloc(sizeof(MPI_Aint) * nczipp->vars.cnt * 2);
+        mdisps = fdisps + nczipp->vars.cnt;
+
+        nread = 0;
         for(i = 0; i < nczipp->vars.cnt; i++){
-            nczipioi_var_init(nczipp, nczipp->vars.data + i, 0, NULL, NULL);
+            varp = nczipp->vars.data + i;
+
+            nczipioi_var_init(nczipp, varp, 0, NULL, NULL);
+
+            if (!(varp->isnew)){
+                err = nczipp->driver->get_att(nczipp->ncp, varp->varid, "_metaoffset", &(varp->metaoff), MPI_LONG_LONG);
+                if (err == NC_NOERR){
+                    lens[nread] = sizeof(NC_zip_chunk_index_entry) * (varp->nchunk);
+                    fdisps[nread] = varp->metaoff;
+                    mdisps[nread++] = (MPI_Aint)(varp->chunk_index);
+                }
+                else{
+                    varp->metaoff = -1;
+                    memset(varp->chunk_index, 0, sizeof(NC_zip_chunk_index_entry) * (varp->nchunk + 1));
+                }
+            }
         }
         
+        if (nread){
+            nczipioi_sort_file_offset(nread, fdisps, mdisps, lens);
+
+            MPI_Type_create_hindexed(nread, lens, fdisps, MPI_BYTE, &ftype);
+            CHK_ERR_TYPE_COMMIT(&ftype);
+
+            MPI_Type_create_hindexed(nread, lens, mdisps, MPI_BYTE, &mtype);
+            CHK_ERR_TYPE_COMMIT(&mtype);
+
+            // Set file view
+            CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, ((NC*)(nczipp->ncp))->begin_var, MPI_BYTE, ftype, "native", MPI_INFO_NULL);
+            
+            // Read data
+            CHK_ERR_READ_AT_ALL(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BOTTOM, 1, mtype, &status);
+            
+            // Restore file view
+            CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+
+#ifndef WORDS_BIGENDIAN // Switch back to little endian
+            //ncmpii_in_swapn(varp->chunk_index, varp->nchunk + 1, sizeof(long long));
+            //ncmpii_in_swapn(varp->data_lens, varp->nchunk + 1, sizeof(int));
+#endif
+
+            MPI_Type_free(&ftype);
+            MPI_Type_free(&mtype);
+        }
+
+        NCI_Free(lens);
+        NCI_Free(fdisps);
+
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
     }
 
@@ -422,11 +480,68 @@ nczipio__enddef(void       *ncdp,
     if (err != NC_NOERR) return err;
     
     if (!(nczipp->delay_init)){
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        int nread ;
+        int *lens;
+        MPI_Aint *fdisps, *mdisps;
+        MPI_Datatype ftype, mtype;
+        MPI_Status status;
+        NC_zip_var *varp;
 
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        
+        lens = NCI_Malloc(sizeof(int) * nczipp->vars.cnt);
+        fdisps = NCI_Malloc(sizeof(MPI_Aint) * nczipp->vars.cnt * 2);
+        mdisps = fdisps + nczipp->vars.cnt;
+
+        nread = 0;
         for(i = 0; i < nczipp->vars.cnt; i++){
-            nczipioi_var_init(nczipp, nczipp->vars.data + i, 0, NULL, NULL);
+            varp = nczipp->vars.data + i;
+
+            nczipioi_var_init(nczipp, varp, 0, NULL, NULL);
+
+            if (!(varp->isnew)){
+                err = nczipp->driver->get_att(nczipp->ncp, varp->varid, "_metaoffset", &(varp->metaoff), MPI_LONG_LONG);
+                if (err == NC_NOERR){
+                    lens[nread] = sizeof(NC_zip_chunk_index_entry) * (varp->nchunk);
+                    fdisps[nread] = varp->metaoff;
+                    mdisps[nread++] = (MPI_Aint)(varp->chunk_index);
+                }
+                else{
+                    varp->metaoff = -1;
+                    memset(varp->chunk_index, 0, sizeof(NC_zip_chunk_index_entry) * (varp->nchunk + 1));
+                }
+            }
         }
+        
+        if (nread){
+            nczipioi_sort_file_offset(nread, fdisps, mdisps, lens);
+
+            MPI_Type_create_hindexed(nread, lens, fdisps, MPI_BYTE, &ftype);
+            CHK_ERR_TYPE_COMMIT(&ftype);
+
+            MPI_Type_create_hindexed(nread, lens, mdisps, MPI_BYTE, &mtype);
+            CHK_ERR_TYPE_COMMIT(&mtype);
+
+            // Set file view
+            CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, ((NC*)(nczipp->ncp))->begin_var, MPI_BYTE, ftype, "native", MPI_INFO_NULL);
+            
+            // Read data
+            CHK_ERR_READ_AT_ALL(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BOTTOM, 1, mtype, &status);
+            
+            // Restore file view
+            CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
+
+#ifndef WORDS_BIGENDIAN // Switch back to little endian
+            //ncmpii_in_swapn(varp->chunk_index, varp->nchunk + 1, sizeof(long long));
+            //ncmpii_in_swapn(varp->data_lens, varp->nchunk + 1, sizeof(int));
+#endif
+
+            MPI_Type_free(&ftype);
+            MPI_Type_free(&mtype);
+        }
+
+        NCI_Free(lens);
+        NCI_Free(fdisps);
 
         NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
     }
