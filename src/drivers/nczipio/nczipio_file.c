@@ -405,11 +405,12 @@ nczipio_enddef(void *ncdp)
             // Restore file view
             CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
 
-#ifndef WORDS_BIGENDIAN // Switch back to little endian
-            //ncmpii_in_swapn(varp->chunk_index, varp->nchunk + 1, sizeof(long long));
-            //ncmpii_in_swapn(varp->data_lens, varp->nchunk + 1, sizeof(int));
+#ifdef WORDS_BIGENDIAN // Switch back to big endian
+            nczipioi_idx_in_swapn(varp->chunk_index, varp->nchunk + 1);
 #endif
-
+#ifdef WORDS_BIGENDIAN // Switch back to big endian
+            nczipioi_idx_in_swapn(varp->chunk_index, varp->nchunk + 1);
+#endif
             MPI_Type_free(&ftype);
             MPI_Type_free(&mtype);
         }
@@ -531,9 +532,8 @@ nczipio__enddef(void       *ncdp,
             // Restore file view
             CHK_ERR_SET_VIEW(((NC*)(nczipp->ncp))->collective_fh, 0, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL);
 
-#ifndef WORDS_BIGENDIAN // Switch back to little endian
-            //ncmpii_in_swapn(varp->chunk_index, varp->nchunk + 1, sizeof(long long));
-            //ncmpii_in_swapn(varp->data_lens, varp->nchunk + 1, sizeof(int));
+#ifdef WORDS_BIGENDIAN // Switch back to big endian
+            nczipioi_idx_in_swapn(varp->chunk_index, varp->nchunk + 1);
 #endif
 
             MPI_Type_free(&ftype);
