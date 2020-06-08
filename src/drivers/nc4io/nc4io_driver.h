@@ -11,11 +11,33 @@
 #include <pnetcdf.h>
 #include <dispatch.h>
 
-#define NC4_API_KIND_VAR 1
-#define NC4_API_KIND_VAR1 2
-#define NC4_API_KIND_VARA 3
-#define NC4_API_KIND_VARS 4
-#define NC4_API_KIND_VARM 5
+#define NC4_API_KIND_VAR 0
+#define NC4_API_KIND_VAR1 1
+#define NC4_API_KIND_VARA 2
+#define NC4_API_KIND_VARS 3
+#define NC4_API_KIND_VARM 4
+#define NC4_NUM_API_KIND 5
+
+typedef struct nc4_req{
+    int vid;
+    int apikind;
+    MPI_Offset *start;
+    MPI_Offset *count;
+    MPI_Offset *stride;
+    MPI_Offset *imap;
+    void *ubuf;
+    void *xbuf;
+    MPI_Datatype      buftype;
+    int next;
+    int idp;
+} nc4_req;
+
+typedef struct nc4_req_list{
+    nc4_req *items;
+    int *idx;
+    size_t nalloc;
+    size_t nused;
+} nc4_req_list;
 
 typedef struct NC_nc4 NC_nc4; /* forward reference */
 struct NC_nc4 {
@@ -27,6 +49,8 @@ struct NC_nc4 {
     int         ncid;    /* NetCDF file ID */
     MPI_Offset  getsize; /* amount of reads  committed so far in bytes */
     MPI_Offset  putsize; /* amount of writes committed so far in bytes */
+    nc4_req_list rreqs;
+    nc4_req_list wreqs;
 };
 
 extern int
@@ -181,5 +205,39 @@ nc4io_wait(void *ncdp, int num_reqs, int *req_ids, int *statuses, int reqMode);
 
 extern int
 nc4io_cancel(void *ncdp, int num_reqs, int *req_ids, int *statuses);
+
+extern int 
+nc4ioi_req_list_init (nc4_req_list *list);
+
+extern int 
+nc4ioi_req_list_insert (nc4_req_list *list, nc4_req req, int *idx);
+
+extern int 
+nc4ioi_req_list_remove (nc4_req_list *list, int idx);
+
+extern int
+nc4ioi_req_list_free (nc4_req_list *list);
+
+extern int 
+nc4ioi_req_init (NC_nc4 *nc4p, nc4_req *req, int varid, const MPI_Offset *start,
+                 const MPI_Offset *count, const MPI_Offset *stride, const MPI_Offset *imap,
+                 const void *buf, MPI_Datatype buftype, const int cp);
+
+extern int 
+nc4ioi_igetput_var (NC_nc4 *nc4p, nc4_req_list *list,int varid, const MPI_Offset *start,
+                    const MPI_Offset *count, const MPI_Offset *stride, const MPI_Offset *imap,
+                    const void *buf, MPI_Datatype buftype, int *reqid, int reqMode, int cp);
+
+extern int 
+nc4ioi_igetput_varn (NC_nc4 *nc4p, nc4_req_list *list, int varid, int nreq, 
+                     MPI_Offset *const *starts, MPI_Offset *const *counts, 
+                     const void *buf, MPI_Datatype buftype, int *reqid, int reqMode,
+                     int cp);
+
+extern int 
+nc4ioi_flush_write_reqs (NC_nc4 *nc4p, int nreq, nc4_req *reqs, int *statuses, int coll);
+
+extern int 
+nc4ioi_flush_read_reqs (NC_nc4 *nc4p, int nreq, nc4_req *reqs, int *statuses, int coll);
 
 #endif

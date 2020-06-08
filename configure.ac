@@ -2478,6 +2478,8 @@ AC_SUBST(enable_adios)
 AC_SUBST(adios_libdir)
 AM_CONDITIONAL(BUILD_SHARED_LIB, [test x${enable_shared} = xyes])
 
+AC_DEFINE_UNQUOTED([PNETCDF_LIBS],[${LIBS}],[test])
+
 AC_OUTPUT
 echo "------------------------------------------------------------------------------"
 echo \
