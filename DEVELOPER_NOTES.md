@@ -492,7 +492,7 @@ inconsistency of any kind start at -250.
 ---
 ### Some tricks for wiki trac format
 * Escape character is !
-  * for example ncmpi__enddef will show underscore "enddef", so add ! before the
+  * for example `ncmpi__enddef` will show underscore "enddef", so add ! before the
   double underscores to disable the formatting. eg. `ncmpi!__enddef`
 * Example of using it on the command line:
   ```
@@ -632,7 +632,7 @@ inconsistency of any kind start at -250.
   same read request amount for write. Note that the latter will write the
   variables that have not been written before. For now we adopt the former
   option. See comments about MPI_Get_count() in function move_file_block() of
-  src/drivers/ncmpio/mpincio.c
+  src/drivers/ncmpio/ncmpio_enddef.c.c
 
 * When data sieving is enabled in MPI-IO (default in ROMIO), its
   read-modify-write operation can also cause valgrind to complain uninitialized
@@ -641,6 +641,11 @@ inconsistency of any kind start at -250.
   at all, resulting data sieving buffer containing uninitialized data. To
   eliminate this possibility, set the hint environment variable to disable
   alignment, e.g. PNETCDF_HINTS="nc_var_align_size=1;nc_header_align_size=1".
+  Another scenario is when writing more than one record of a record variable in
+  a single put call. Uninitialized bytes will be the records of other variables
+  sitting in between. Disable data sieving can silence the valgrind message.
+  i,e. PNETCDF_HINTS="romio_lustre_ds_in_coll=disable" or
+  PNETCDF_HINTS="romio_ds_write=disable".
 
 * When using MPICH 3.2 with the bug of #2332 fixed, running "make check" and
   "make ptests" through valgrind should run without any complains. See MPICH
@@ -791,71 +796,71 @@ The problem is reported in https://llvm.org/bugs/show_bug.cgi?id=14713
   in Makefile.am, use ${FC_DEFINE} instead of -D when setting FCFLAGS/FFLAGS.
   See an example in test/common/Makefile.am.
   ```
-  diff -u autoconf-2.69/lib/autoconf/general.m4 Origin/autoconf-2.69/lib/autoconf/general.m4
-  --- autoconf-2.69/lib/autoconf/general.m4        2017-05-08 10:33:20.396072040 -0500
-  +++ Origin/autoconf-2.69/lib/autoconf/general.m4        2012-04-24 21:37:26.000000000 -0500
-  @@ -1408,7 +1408,6 @@
+  diff -u Origin/autoconf-2.69/lib/autoconf/general.m4 autoconf-2.69/lib/autoconf/general.m4
+  --- Origin/autoconf-2.69/lib/autoconf/general.m4        2012-04-24 21:37:26.000000000 -0500
+  +++ autoconf-2.69/lib/autoconf/general.m4        2017-05-08 10:33:20.396072040 -0500
+  @@ -1408,6 +1408,7 @@
    dnl
    dnl Substitute for predefined variables.
    AC_SUBST([DEFS])dnl
-  -AC_SUBST([FC_DEFS])dnl
+  +AC_SUBST([FC_DEFS])dnl
    AC_SUBST([ECHO_C])dnl
    AC_SUBST([ECHO_N])dnl
    AC_SUBST([ECHO_T])dnl
   ```
   ```
-  diff -u autoconf-2.69/lib/autoconf/status.m4 Origin/autoconf-2.69/lib/autoconf/status.m4
-  --- autoconf-2.69/lib/autoconf/status.m4        2017-05-08 18:49:02.966611595 -0500
-  +++ Origin/autoconf-2.69/lib/autoconf/status.m4        2012-04-24 21:37:26.000000000 -0500
-  @@ -1266,12 +1266,6 @@
+  diff -u Origin/autoconf-2.69/lib/autoconf/status.m4 autoconf-2.69/lib/autoconf/status.m4
+  --- Origin/autoconf-2.69/lib/autoconf/status.m4        2012-04-24 21:37:26.000000000 -0500
+  +++ autoconf-2.69/lib/autoconf/status.m4        2017-05-08 18:49:02.966611595 -0500
+  @@ -1266,6 +1266,12 @@
    test "x$exec_prefix" = xNONE && exec_prefix='${prefix}'
 
    m4_ifdef([_AC_SEEN_CONFIG(HEADERS)], [DEFS=-DHAVE_CONFIG_H], [AC_OUTPUT_MAKE_DEFS()])
-  -if test "x$FC_DEFINE" != "x-D" -a "x$FC_DEFINE" != x ; then
-  -   ac_fc_define_sed_str="s/-D/${FC_DEFINE}/g"
-  -   FC_DEFS=`echo $DEFS | sed $ac_fc_define_sed_str`
-  -else
-  -   FC_DEFS=$DEFS
-  -fi
+  +if test "x$FC_DEFINE" != "x-D" -a "x$FC_DEFINE" != x ; then
+  +   ac_fc_define_sed_str="s/-D/${FC_DEFINE}/g"
+  +   FC_DEFS=`echo $DEFS | sed $ac_fc_define_sed_str`
+  +else
+  +   FC_DEFS=$DEFS
+  +fi
 
    dnl Commands to run before creating config.status.
    AC_OUTPUT_COMMANDS_PRE()dnl
   ```
   ```
-  diff -u automake-1.15/bin/automake.in Origin/automake-1.15/bin/automake.in
-  --- automake-1.15/bin/automake.in        2017-05-08 01:01:05.098144772 -0500
-  +++ Origin/automake-1.15/bin/automake.in        2015-01-05 13:25:55.000000000 -0600
-  @@ -622,15 +622,6 @@
+  diff -u Origin/automake-1.15/bin/automake.in automake-1.15/bin/automake.in
+  --- Origin/automake-1.15/bin/automake.in        2015-01-05 13:25:55.000000000 -0600
+  +++ automake-1.15/bin/automake.in        2017-05-08 01:01:05.098144772 -0500
+  @@ -622,6 +622,15 @@
        $(CPPFLAGS)
      };
 
-  -my @fpplike_flags =
-  -  qw{
-  -    $(FC_DEFS)
-  -    $(DEFAULT_INCLUDES)
-  -    $(INCLUDES)
-  -    $(AM_CPPFLAGS)
-  -    $(CPPFLAGS)
-  -  };
-  -
+  +my @fpplike_flags =
+  +  qw{
+  +    $(FC_DEFS)
+  +    $(DEFAULT_INCLUDES)
+  +    $(INCLUDES)
+  +    $(AM_CPPFLAGS)
+  +    $(CPPFLAGS)
+  +  };
+  +
    # C.
    register_language ('name' => 'c',
                       'Name' => 'C',
-  @@ -885,7 +876,7 @@
+  @@ -876,7 +885,7 @@
                       'flags' => ['FCFLAGS', 'CPPFLAGS'],
                       'ccer' => 'PPFC',
                       'compiler' => 'PPFCCOMPILE',
-  -                   'compile' => "\$(FC) @fpplike_flags \$(AM_FCFLAGS) \$(FCFLAGS)",
-  +                   'compile' => "\$(FC) @cpplike_flags \$(AM_FCFLAGS) \$(FCFLAGS)",
+  -                   'compile' => "\$(FC) @cpplike_flags \$(AM_FCFLAGS) \$(FCFLAGS)",
+  +                   'compile' => "\$(FC) @fpplike_flags \$(AM_FCFLAGS) \$(FCFLAGS)",
                       'compile_flag' => '-c',
                       'output_flag' => '-o',
                       'libtool_tag' => 'FC',
-  @@ -917,7 +908,7 @@
+  @@ -908,7 +917,7 @@
                       'flags' => ['FFLAGS', 'CPPFLAGS'],
                       'ccer' => 'PPF77',
                       'compiler' => 'PPF77COMPILE',
-  -                   'compile' => "\$(F77) @fpplike_flags \$(AM_FFLAGS) \$(FFLAGS)",
-  +                   'compile' => "\$(F77) @cpplike_flags \$(AM_FFLAGS) \$(FFLAGS)",
+  -                   'compile' => "\$(F77) @cpplike_flags \$(AM_FFLAGS) \$(FFLAGS)",
+  +                   'compile' => "\$(F77) @fpplike_flags \$(AM_FFLAGS) \$(FFLAGS)",
                       'compile_flag' => '-c',
                       'output_flag' => '-o',
                       'libtool_tag' => 'F77',

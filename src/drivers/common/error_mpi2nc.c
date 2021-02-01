@@ -38,46 +38,30 @@ int ncmpii_error_mpi2nc(int   mpi_errorcode, /* returned value from MPI call */
      * have not been defined.
      */
     MPI_Error_class(mpi_errorcode, &errorclass);
-#ifdef HAVE_DECL_MPI_ERR_FILE_EXISTS
-    if (errorclass == MPI_ERR_FILE_EXISTS) return NC_EEXIST;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_NO_SUCH_FILE
+
+    if (errorclass == MPI_ERR_FILE_EXISTS)  return NC_EEXIST;
     if (errorclass == MPI_ERR_NO_SUCH_FILE) return NC_ENOENT;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_NOT_SAME
     /* MPI-IO should return MPI_ERR_NOT_SAME when one or more arguments of a
      * collective MPI call are different. However, MPI-IO may not report this
      * error code correctly. For instance, some MPI-IO returns MPI_ERR_AMODE
      * instead when amode is found inconsistent. MPI_ERR_NOT_SAME can also
      * report inconsistent file name. */
     if (errorclass == MPI_ERR_NOT_SAME) return NC_EMULTIDEFINE_FNC_ARGS;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_AMODE
     /* MPI-IO may or may not report MPI_ERR_AMODE if inconsistent amode is
      * detected. MPI_ERR_AMODE can also indicate other conflict amode used
      * on each process. But in PnetCDF, MPI_ERR_AMODE can only be caused by
      * inconsistent file open/create mode. So, if MPI-IO returns this error
      * we are sure it is because of the inconsistent mode */
-    if (errorclass == MPI_ERR_AMODE) return NC_EMULTIDEFINE_OMODE;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_READ_ONLY
+    if (errorclass == MPI_ERR_AMODE)     return NC_EMULTIDEFINE_OMODE;
     if (errorclass == MPI_ERR_READ_ONLY) return NC_EPERM;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_ACCESS
-    if (errorclass == MPI_ERR_ACCESS) return NC_EACCESS;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_BAD_FILE
-    if (errorclass == MPI_ERR_BAD_FILE) return NC_EBAD_FILE;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_NO_SPACE
-    if (errorclass == MPI_ERR_NO_SPACE) return NC_ENO_SPACE;
-#endif
-#ifdef HAVE_DECL_MPI_ERR_QUOTA
-    if (errorclass == MPI_ERR_QUOTA) return NC_EQUOTA;
-#endif
+    if (errorclass == MPI_ERR_ACCESS)    return NC_EACCESS;
+    if (errorclass == MPI_ERR_BAD_FILE)  return NC_EBAD_FILE;
+    if (errorclass == MPI_ERR_NO_SPACE)  return NC_ENO_SPACE;
+    if (errorclass == MPI_ERR_QUOTA)     return NC_EQUOTA;
 
     /* other errors that currently have no corresponding PnetCDF error codes,
-     * or the error class is MPI_ERR_IO (Other I/O error).
+     * or the error class is MPI_ERR_IO (Other I/O error). For example,
+     * MPI_ERR_INFO_VALUE (MPI info Value longer than MPI_MAX_INFO_VAL).
      */
 
     MPI_Error_string(mpi_errorcode, errorString, &errorStringLen);

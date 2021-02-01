@@ -9,12 +9,14 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>  /* getenv() */
-#include <string.h>  /* strtok(), strtok_r(), strchr(), strdup(), strcpy() */
-#include <fcntl.h>   /* open() */
-#include <unistd.h>  /* read(), close() */
-#include <assert.h>  /* assert() */
-#include <errno.h>   /* errno */
+#include <stdlib.h>     /* getenv() */
+#include <string.h>     /* strtok(), strtok_r(), strchr(), strcpy(), strdup() */
+#include <strings.h>    /* strcasecmp() */
+#include <fcntl.h>      /* open() */
+#include <sys/types.h>  /* lseek() */
+#include <unistd.h>     /* read(), close(), lseek() */
+#include <assert.h>     /* assert() */
+#include <errno.h>      /* errno */
 
 #ifdef ENABLE_THREAD_SAFE
 #include<pthread.h>
@@ -30,14 +32,12 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 #include <pnc_debug.h>
 #include <common.h>
 
-#ifdef ENABLE_ADIOS 
-#include "adios_read.h" 
+#ifdef ENABLE_ADIOS
+#include "adios_read.h"
 #include <arpa/inet.h>
 #define BP_MINIFOOTER_SIZE 28
-#define BUFREAD64(buf,var) var = *(off_t *) (buf); \
-                         if (diff_endian) \
-                             swap_64(&var);
-#endif 
+#define BUFREAD64(buf,var) memcpy(&var, buf, 8); if (diff_endian) swap_64(&var);
+#endif
 
 /* TODO: the following 3 global variables make PnetCDF not thread safe */
 
@@ -58,25 +58,9 @@ static int ncmpi_default_create_format = NC_FORMAT_CLASSIC;
         printf("%s error at line %d file %s (%s)\n", func, __LINE__, __FILE__, errorString); \
     }
 
-/* strdup() is a POSIX function, not a standard C function */
-#ifndef HAVE_STRDUP
-static char *strdup(const char *str)
-{
-    char *ptr;
-
-    if (str == NULL) return NULL;
-
-    ptr = (char*) malloc(strlen(str) + 1);
-    if (ptr != NULL)
-        strcpy(ptr, str);
-
-    return ptr;
-}
-#endif
-
 /*----< new_id_PNCList() >---------------------------------------------------*/
 /* Return a new ID (array index) from the PNC list, pnc_filelist[] that is
- * not used. Note the used elements in pnc_filelist[] may not be contiguus.
+ * not used. Note the used elements in pnc_filelist[] may not be contiguous.
  * For example, some files created/opened later may be closed earlier than
  * others, leaving those array elements NULL in the middle.
  */
@@ -127,23 +111,6 @@ del_from_PNCList(int ncid)
 #endif
 }
 
-#if 0 /* refer to netCDF library's USE_REFCOUNT */
-static PNC*
-find_in_PNCList_by_name(const char* path)
-{
-    int i;
-    PNC* pncp = NULL;
-    for (i=0; i<NC_MAX_NFILES; i++) {
-         if (pnc_filelist[i] == NULL) continue;
-         if (strcmp(pnc_filelist[i]->path, path) == 0) {
-             pncp = pnc_filelist[i];
-             break;
-         }
-    }
-    return pncp;
-}
-#endif
-
 /*----< PNC_check_id() >-----------------------------------------------------*/
 int
 PNC_check_id(int ncid, PNC **pncp)
@@ -170,8 +137,8 @@ PNC_check_id(int ncid, PNC **pncp)
 
 /*----< construct_info() >---------------------------------------------------*/
 static void
-combine_env_hints(MPI_Info  user_info,
-                  MPI_Info *new_info)
+combine_env_hints(MPI_Info  user_info,  /* IN */
+                  MPI_Info *new_info)   /* OUT: may be MPI_INFO_NULL */
 {
     char *warn_str="Warning: skip ill-formed hint set in PNETCDF_HINTS";
     char *env_str;
@@ -495,12 +462,6 @@ ncmpi_create(MPI_Comm    comm,
         /* default is the driver built on top of MPI-IO */
         driver = ncmpio_inq_driver();
 
-#if 0 /* refer to netCDF library's USE_REFCOUNT */
-    /* check whether this path is already opened */
-    pncp = find_in_PNCList_by_name(path);
-    if (pncp != NULL) return NC_ENFILE;
-#endif
-
     /* allocate a new PNC object */
     pncp = (PNC*) NCI_Malloc(sizeof(PNC));
     if (pncp == NULL) {
@@ -779,11 +740,11 @@ ncmpi_open(MPI_Comm    comm,
             format == NC_FORMAT_CDF5) {
             driver = ncmpio_inq_driver();
         }
-#ifdef ENABLE_ADIOS 
-        else if (format == NC_FORMAT_BP) { 
-            driver = ncadios_inq_driver(); 
-        } 
-#endif 
+#ifdef ENABLE_ADIOS
+        else if (format == NC_FORMAT_BP) {
+            driver = ncadios_inq_driver();
+        }
+#endif
         else /* unrecognized file format */
             DEBUG_RETURN_ERROR(NC_ENOTNC)
     }
@@ -1223,15 +1184,17 @@ ncmpi_inq_format(int  ncid,
 #ifdef ENABLE_ADIOS
 static void swap_64(void *data)
 {
-    uint64_t d = *(uint64_t *)data;
-    *(uint64_t *)data = ((d&0x00000000000000FF)<<56) 
-                          + ((d&0x000000000000FF00)<<40)
-                          + ((d&0x0000000000FF0000)<<24)
-                          + ((d&0x00000000FF000000)<<8)
-                          + ((d&0x000000FF00000000LL)>>8)
-                          + ((d&0x0000FF0000000000LL)>>24)
-                          + ((d&0x00FF000000000000LL)>>40)
-                          + ((d&0xFF00000000000000LL)>>56);
+    uint64_t *dest = (uint64_t*) data;
+    uint64_t tmp;
+    memcpy(&tmp, dest, 8);
+    *dest = ((tmp & 0x00000000000000FFULL) << 56) |
+            ((tmp & 0x000000000000FF00ULL) << 40) |
+            ((tmp & 0x0000000000FF0000ULL) << 24) |
+            ((tmp & 0x00000000FF000000ULL) <<  8) |
+            ((tmp & 0x000000FF00000000ULL) >>  8) |
+            ((tmp & 0x0000FF0000000000ULL) >> 24) |
+            ((tmp & 0x00FF000000000000ULL) >> 40) |
+            ((tmp & 0xFF00000000000000ULL) >> 56);
 }
 
 static int adios_parse_endian(char *footer, int *diff_endianness) {
@@ -1242,7 +1205,7 @@ static int adios_parse_endian(char *footer, int *diff_endianness) {
     char *v = (char *) (&version);
     if ((*v && !*(char *) &test) /* Both writer and reader are big endian */
         || (!*(v+3) && *(char *) &test)){ /* Both are little endian */
-        *diff_endianness = 0; /* No need to change endiannness */
+        *diff_endianness = 0; /* No need to change endianness */
     }
     else{
         *diff_endianness = 1;
@@ -1301,40 +1264,65 @@ ncmpi_inq_file_format(const char *filename,
         DEBUG_RETURN_ERROR(NC_EFILE)
     }
 
-    if (memcmp(signature, hdf5_signature, 8) == 0) {
-        /* TODO: whether the file is NC_FORMAT_NETCDF4_CLASSIC is determined by
-         * HDF5 attribute "_nc3_strict" which requires a call to H5Aget_name().
-         * For now, we do not distinguish NC_CLASSIC_MODEL, but simply return
-         * NETCDF4 format.
-         */
-#ifdef ENABLE_NETCDF4
-        int err, ncid;
-        err = nc_open(path, NC_NOWRITE, &ncid);
-        if (err != NC_NOERR) DEBUG_RETURN_ERROR(err)
-        err = nc_inq_format(ncid, formatp);
-        if (err != NC_NOERR) DEBUG_RETURN_ERROR(err)
-        err = nc_close(ncid);
-        if (err != NC_NOERR) DEBUG_RETURN_ERROR(err)
-#else
-        *formatp = NC_FORMAT_NETCDF4;
-#endif
-    }
-    else if (memcmp(signature, cdf_signature, 3) == 0) {
+    if (memcmp(signature, cdf_signature, 3) == 0) {
              if (signature[3] == 5)  *formatp = NC_FORMAT_CDF5;
         else if (signature[3] == 2)  *formatp = NC_FORMAT_CDF2;
         else if (signature[3] == 1)  *formatp = NC_FORMAT_CLASSIC;
     }
-#ifdef ENABLE_ADIOS 
-    else{ 
-        ADIOS_FILE *fp = NULL; 
+
+    /* check if the file is an HDF5. */
+    if (*formatp == NC_FORMAT_UNKNOWN) {
+        /* The HDF5 superblock is located by searching for the HDF5 format
+         * signature at byte offset 0, byte offset 512, and at successive
+         * locations in the file, each a multiple of two of the previous
+         * location; in other words, at these byte offsets: 0, 512, 1024, 2048,
+         * and so on. The space before the HDF5 superblock is referred as to
+         * "user block".
+         */
+        off_t offset=0;
+
+        fd = open(path, O_RDONLY, 00400); /* error check already done */
+        /* get first 8 bytes of file */
+        rlen = read(fd, signature, 8); /* error check already done */
+
+        while (rlen == 8 && memcmp(signature, hdf5_signature, 8)) {
+            offset = (offset == 0) ? 512 : offset * 2;
+            lseek(fd, offset, SEEK_SET);
+            rlen = read(fd, signature, 8);
+        }
+        close(fd); /* ignore error */
+
+        if (rlen == 8) { /* HDF5 signature found */
+            /* TODO: whether the file is NC_FORMAT_NETCDF4_CLASSIC is
+             * determined by HDF5 attribute "_nc3_strict" which requires a call
+             * to H5Aget_name(). For now, we do not distinguish
+             * NC_CLASSIC_MODEL, but simply return NETCDF4 format.
+             */
+#ifdef ENABLE_NETCDF4
+            int err, ncid;
+            err = nc_open(path, NC_NOWRITE, &ncid);
+            if (err != NC_NOERR) DEBUG_RETURN_ERROR(err)
+            err = nc_inq_format(ncid, formatp);
+            if (err != NC_NOERR) DEBUG_RETURN_ERROR(err)
+            err = nc_close(ncid);
+            if (err != NC_NOERR) DEBUG_RETURN_ERROR(err)
+#else
+            *formatp = NC_FORMAT_NETCDF4;
+#endif
+        }
+    }
+
+#ifdef ENABLE_ADIOS
+    /* check if the file is a BP. */
+    if (*formatp == NC_FORMAT_UNKNOWN) {
         off_t fsize;
         int diff_endian;
         char footer[BP_MINIFOOTER_SIZE];
         off_t h1, h2, h3;
-        
-        /* We test if the mini footer of the BP file follows BP specification */
-        if ((fd = open(path, O_RDONLY, 00400)) == -1) { 
-            if (errno == ENOENT)       DEBUG_RETURN_ERROR(NC_ENOENT)
+
+        /* test if the file footer follows BP specification */
+        if ((fd = open(path, O_RDONLY, 00400)) == -1) {
+                 if (errno == ENOENT)       DEBUG_RETURN_ERROR(NC_ENOENT)
             else if (errno == EACCES)       DEBUG_RETURN_ERROR(NC_EACCESS)
             else if (errno == ENAMETOOLONG) DEBUG_RETURN_ERROR(NC_EBAD_FILE)
             else {
@@ -1344,45 +1332,47 @@ ncmpi_inq_file_format(const char *filename,
             }
         }
 
-        /* Seek to end */
+        /* Seek to end of file */
         fsize = lseek(fd, (off_t)(-(BP_MINIFOOTER_SIZE)), SEEK_END);
 
-        /* Get footer */
+        /* read footer */
         rlen = read(fd, footer, BP_MINIFOOTER_SIZE);
         if (rlen != BP_MINIFOOTER_SIZE) {
-            close(fd); 
+            close(fd);
             DEBUG_RETURN_ERROR(NC_EFILE)
         }
         if (close(fd) == -1) {
             DEBUG_RETURN_ERROR(NC_EFILE)
         }
 
+        /* check endianness of file and this running system */
         adios_parse_endian(footer, &diff_endian);
 
-        BUFREAD64(footer, h1) /* Position of process group index table */
-        BUFREAD64(footer + 8, h2) /* Position of variables index table */
-        BUFREAD64(footer + 16, h3) /* Position of attributes index table */
+        BUFREAD64(footer,      h1) /* file offset of process group index table */
+        BUFREAD64(footer + 8,  h2) /* file offset of variable index table */
+        BUFREAD64(footer + 16, h3) /* file offset of attribute index table */
 
-        /* All index tables must fall within the file
-         * Process group index table must comes before variable index table. 
-         * Variables index table must comes before attributes index table.
+        /* All index tables must fall within the range of file size.
+         * Process group index table must comes before variable index table.
+         * Variable index table must comes before attribute index table.
          */
         if (0 < h1 && h1 < fsize &&
             0 < h2 && h2 < fsize &&
             0 < h3 && h3 < fsize &&
-            h1 < h2 && h2 < h3){ 
-            /* The footer ehck is passed, now we try to open the file with 
-             * ADIOS to make sure it is indeed a BP formated file
-             */ 
-            fp = adios_read_open_file (path, ADIOS_READ_METHOD_BP, 
-                                        MPI_COMM_SELF); 
-            if (fp != NULL) { 
-                *formatp = NC_FORMAT_BP; 
-                adios_read_close(fp); 
-            } 
+            h1 < h2 && h2 < h3){
+            /* basic footer check is passed, now we try to open the file with
+             * ADIOS library to make sure it is indeed a BP formated file
+             */
+            ADIOS_FILE *fp;
+            fp = adios_read_open_file(path, ADIOS_READ_METHOD_BP,
+                                        MPI_COMM_SELF);
+            if (fp != NULL) {
+                *formatp = NC_FORMAT_BP;
+                adios_read_close(fp);
+            }
         }
-    } 
-#endif 
+    }
+#endif
 
     return NC_NOERR;
 }

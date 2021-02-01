@@ -42,17 +42,20 @@
 static int
 str2err(char *err_str, int *expected_errno)
 {
-         if (!strcmp(err_str, "NC_ENOTNC"))   *expected_errno = NC_ENOTNC;
-    else if (!strcmp(err_str, "NC_EMAXVARS")) *expected_errno = NC_EMAXVARS;
-    else if (!strcmp(err_str, "NC_EUNLIMIT")) *expected_errno = NC_EUNLIMIT;
-    else if (!strcmp(err_str, "NC_ENULLPAD")) *expected_errno = NC_ENULLPAD;
+         if (!strcmp(err_str, "NC_ENOTNC"))    *expected_errno = NC_ENOTNC;
+    else if (!strcmp(err_str, "NC_EMAXVARS"))  *expected_errno = NC_EMAXVARS;
+    else if (!strcmp(err_str, "NC_EUNLIMIT"))  *expected_errno = NC_EUNLIMIT;
+    else if (!strcmp(err_str, "NC_ENULLPAD"))  *expected_errno = NC_ENULLPAD;
+    else if (!strcmp(err_str, "NC_EVARSIZE"))  *expected_errno = NC_EVARSIZE;
+    else if (!strcmp(err_str, "NC_ENOTBUILT")) *expected_errno = NC_ENOTBUILT;
+    else if (!strcmp(err_str, "NC_NOERR"))     *expected_errno = NC_NOERR;
     else return NC_EINVAL;
     return NC_NOERR;
 }
 
 int main(int argc, char** argv) {
     char filename[256];
-    int nerrs=0, rank, err, ncid, expected_errno;
+    int nerrs=0, rank, err, ncid, expected_errno=NC_NOERR;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);

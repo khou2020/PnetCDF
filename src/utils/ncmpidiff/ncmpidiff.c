@@ -2,19 +2,17 @@
  *  Copyright (C) 2010, Northwestern University and Argonne National Laboratory
  *  See COPYRIGHT notice in top-level directory.
  */
-/* $Id$ */
 
-/* wkliao: This diff utility compares header and variables of two files
- *         regardless the define order of the variables and attributes.
+/* This utility program compares header and variables of two files regardless
+ * the define order of the variables and attributes. It can also compare a
+ * subset of the variables, for example
+ *    mpiexec -n 8 ncmpidiff -v var1,var2 file1.nc file2.nc
  *
- *         It can also compare a subset of the variables, for example
- *           mpiexec -n 8 ncmpidiff -v var1,var2 file1.nc file2.nc
+ * or compare the header only, for example,
+ *    mpiexec -n 8 ncmpidiff -h file1.nc file2.nc
  *
- *         or compare the header only, for example,
- *           mpiexec -n 8 ncmpidiff -h file1.nc file2.nc
- *
- *         or compare header + a subset of variables, for example,
- *           mpiexec -n 8 ncmpidiff -h -v var1,var2 file1.nc file2.nc
+ * or compare header + a subset of variables, for example,
+ *    mpiexec -n 8 ncmpidiff -h -v var1,var2 file1.nc file2.nc
  */
 
 #ifdef HAVE_CONFIG_H
@@ -46,6 +44,7 @@
 #define uint64 unsigned long long
 #endif
 
+
 #define OOM_ERROR { \
     fprintf(stderr, "Error: calloc() out of memory at line %d\n",__LINE__); \
     exit(1); \
@@ -60,77 +59,131 @@
     }                                                                     \
 }
 
-#define CHECK_GLOBAL_ATT_DIFF(type, func, nctype) {                    \
+#define CHECK_GLOBAL_ATT_DIFF(type, func) {                            \
     int pos;                                                           \
-    size_t len = (size_t)attlen1 * sizeof(type);                       \
-    type *b1 = (type *)calloc(attlen1, sizeof(type));                  \
+    type *b1, *b2;                                                     \
+    b1 = (type *)calloc(attlen[0] * 2, sizeof(type));                  \
     if (!b1) OOM_ERROR                                                 \
-    type *b2 = (type *)calloc(attlen1, sizeof(type));                  \
-    if (!b2) OOM_ERROR                                                 \
-    err = func(ncid1, NC_GLOBAL, name1, b1);                           \
+    b2 = b1 + attlen[0];                                               \
+    err = func(ncid[0], NC_GLOBAL, name[0], b1);                       \
     HANDLE_ERROR                                                       \
-    err = func(ncid2, NC_GLOBAL, name1, b2);                           \
+    err = func(ncid[1], NC_GLOBAL, name[0], b2);                       \
     HANDLE_ERROR                                                       \
-    if ((pos = memcmp(b1, b2, len)) != 0) {                            \
-        printf("DIFF: global attribute \"%s\" of type \"%s\" (%d)\n",  \
-                name1,#nctype,pos);                                    \
-        numHeadDIFF++;                                                 \
+    for (pos=0; pos<attlen[0]; pos++) {                                \
+        if (b1[pos] != b2[pos]) {                                      \
+            printf("DIFF: global attribute \"%s\" of type \"%s\" differs first at element %d\n",  \
+                    name[0], get_type(xtype[0]), pos);                 \
+            numHeadDIFF++;                                             \
+            break;                                                     \
+        }                                                              \
     }                                                                  \
-    else if (verbose)                                                  \
+    if (pos == attlen[0] && verbose)                                   \
         printf("\tSAME: attribute contents\n");                        \
     free(b1);                                                          \
-    free(b2);                                                          \
     break;                                                             \
 }
 
-#define CHECK_VAR_ATT_DIFF(type, func, nctype) {                              \
-    int pos;                                                                  \
-    size_t len = (size_t)attlen1 * sizeof(type);                              \
-    type *b1 = (type *)calloc(attlen1, sizeof(type));                         \
-    if (!b1) OOM_ERROR                                                        \
-    type *b2 = (type *)calloc(attlen1, sizeof(type));                         \
-    if (!b2) OOM_ERROR                                                        \
-    err = func(ncid1, i, attrname, b1);                                       \
-    HANDLE_ERROR                                                              \
-    err = func(ncid2, varid, attrname, b2);                                   \
-    HANDLE_ERROR                                                              \
-    if ((pos = memcmp(b1, b2, len)) != 0) {                                   \
-        printf("DIFF: variable \"%s\" attribute \"%s\" of type \"%s\" (%d)\n",\
-               name1,attrname,#nctype,pos);                                   \
-        numHeadDIFF++;                                                        \
-    }                                                                         \
-    else if (verbose)                                                         \
-        printf("\t\tSAME: attribute contents\n");                             \
-    free(b1);                                                                 \
-    free(b2);                                                                 \
-    break;                                                                    \
+#define CHECK_VAR_ATT_DIFF(type, func) {                               \
+    int pos;                                                           \
+    type *b1, *b2;                                                     \
+    b1 = (type *)calloc(attlen[0] * 2, sizeof(type));                  \
+    if (!b1) OOM_ERROR                                                 \
+    b2 = b1 + attlen[0];                                               \
+    err = func(ncid[0], varid[0], attrname, b1);                       \
+    HANDLE_ERROR                                                       \
+    err = func(ncid[1], varid[1], attrname, b2);                       \
+    HANDLE_ERROR                                                       \
+    for (pos=0; pos<attlen[0]; pos++) {                                \
+        if (b1[pos] != b2[pos]) {                                      \
+            printf("DIFF: variable \"%s\" attribute \"%s\" of type \"%s\" first at element %d\n",  \
+                    name[0], attrname, get_type(xtype[0]), pos);       \
+            numHeadDIFF++;                                             \
+            break;                                                     \
+        }                                                              \
+    }                                                                  \
+    if (pos == attlen[0] && verbose)                                   \
+        printf("\t\tSAME: attribute contents\n");                      \
+    free(b1);                                                          \
+    break;                                                             \
 }
 
-#define CHECK_VAR_DIFF(type, func, nctype) {                                 \
-    int pos, isDiff;                                                         \
-    size_t len = (size_t)varsize * sizeof(type);                             \
-    type *b1 = (type *)calloc(varsize, sizeof(type));                        \
+#define CHECK_VAR_DIFF(type, func) {                                         \
+    int pos, isDiff, worst = -1;                                             \
+    type *b1, *b2;                                                           \
+    b1 = (type *)calloc(varsize * 2, sizeof(type));                          \
     if (!b1) OOM_ERROR                                                       \
-    type *b2 = (type *)calloc(varsize, sizeof(type));                        \
-    if (!b2) OOM_ERROR                                                       \
-    err = func(ncid1, varid1, start, shape, b1);                             \
+    b2 = b1 + varsize;                                                       \
+    err = func(ncid[0], varid1, start, shape, b1);                           \
     HANDLE_ERROR                                                             \
-    err = func(ncid2, varid2, start, shape, b2);                             \
+    err = func(ncid[1], varid2, start, shape, b2);                           \
     HANDLE_ERROR                                                             \
-    if ((pos = memcmp(b1, b2, len)) != 0) {                                  \
-        printf("DIFF: variable \"%s\" of type \"%s\" (%d)\n",                \
-               name1,#nctype,pos);                                           \
-        numVarDIFF++;                                                        \
+    if (!check_tolerance) {                                                  \
+        for (pos=0; pos<varsize; pos++) {                                    \
+            if (b1[pos] != b2[pos])                                          \
+                break;                                                       \
+        }                                                                    \
+    } else {                                                                 \
+        double error_difference = tolerance_difference;                      \
+        double error_ratio = tolerance_ratio;                                \
+        for (pos=0; pos<varsize; pos++) {                                    \
+            double diff, ratio;                                              \
+            if ( b1[pos] == b2[pos] ) continue;                              \
+            if ( b1[pos] > b2[pos] ) {                                       \
+                diff  = b1[pos] - b2[pos];                                   \
+                ratio = (double)b1[pos] / (double)b2[pos] - 1.0;             \
+            } else {                                                         \
+                diff  = b2[pos] - b1[pos];                                   \
+                ratio = (double)b2[pos] / (double)b1[pos] - 1.0;             \
+            }                                                                \
+            if (diff <= error_difference || ratio <= error_ratio)            \
+                continue;                                                    \
+            /* fail to meet both tolerance errors */                         \
+            error_difference = diff;                                         \
+            error_ratio      = ratio;                                        \
+            worst            = pos;                                          \
+        }                                                                    \
     }                                                                        \
+    if (pos != varsize || worst != -1) { /* diff is found */                 \
+        if (ndims[0] == 0) { /* scalar variable */                           \
+            if (worst == -1)                                                 \
+                printf("DIFF: scalar variable \"%s\" of type \"%s\"\n",      \
+                       name[0], get_type(xtype[0]));                         \
+            else                                                             \
+                printf("DIFF (tolerance): scalar variable \"%s\" of type \"%s\" of value %f vs %f\n", \
+                       name[0], get_type(xtype[0]), (double)b1[worst], (double)b2[worst]);            \
+        } else {                                                             \
+            int _i;                                                          \
+            MPI_Offset *diffStart;                                           \
+            diffStart = (MPI_Offset*) malloc(ndims[0] * sizeof(MPI_Offset)); \
+            if (worst != -1) pos = worst;                                    \
+            for (_i=ndims[0]-1; _i>=0; _i--) {                               \
+                diffStart[_i] = pos % shape[_i] + start[_i];                 \
+                pos /= shape[_i];                                            \
+            }                                                                \
+            if (worst == -1)                                                 \
+                printf("DIFF: variable \"%s\" of type \"%s\" first at element [%lld", \
+                       name[0], get_type(xtype[0]), diffStart[0]);           \
+            else                                                             \
+                printf("DIFF (tolerance): variable \"%s\" of type \"%s\" max at element [%lld", \
+                       name[0], get_type(xtype[0]), diffStart[0]);           \
+            for (_i=1; _i<ndims[0]; _i++)                                    \
+                printf(", %lld", diffStart[_i]);                             \
+            if (worst == -1)                                                 \
+                printf("]\n");                                               \
+            else                                                             \
+                printf("] of value %f vs %f\n", (double)b1[worst], (double)b2[worst]); \
+            free(diffStart);                                                 \
+        }                                                                    \
+        numVarDIFF++;                                                        \
+        pos = 1;                                                             \
+    } else                                                                   \
+        pos = 0;                                                             \
     MPI_Allreduce(&pos, &isDiff, 1, MPI_INT, MPI_MAX, comm);                 \
     if (isDiff == 0 && !rank && verbose)                                     \
-        printf("\tSAME: variable \"%s\" contents\n",name1);                  \
+        printf("\tSAME: variable \"%s\" contents\n",name[0]);                \
     free(b1);                                                                \
-    free(b2);                                                                \
     break;                                                                   \
 }
-
-char *progname;
 
 #ifndef EXIT_FAILURE
 #ifndef vms
@@ -143,26 +196,6 @@ char *progname;
 #endif
 #endif
 
-/*
- *  * Print error message to stderr and exit
- */
-#if 0
-static void
-error(const char *fmt, ...)
-{
-    va_list args ;
-
-    (void) fprintf(stderr,"%s: ", progname);
-    va_start(args, fmt) ;
-    (void) vfprintf(stderr,fmt,args) ;
-    va_end(args) ;
-
-    (void) fprintf(stderr, "\n") ;
-    (void) fflush(stderr);      /* to ensure log files are current */
-    exit(EXIT_FAILURE);
-}
-#endif
-
 /*----< usage() >-------------------------------------------------------------*/
 static void
 usage(int rank, char *progname)
@@ -173,10 +206,13 @@ usage(int rank, char *progname)
   [-q]             quiet mode (no output if two files are the same)\n\
   [-h]             Compare header information only, no variables\n\
   [-v var1[,...]]  Compare variable(s) <var1>,... only\n\
+  [-t diff,ratio]  Tolerance: diff is absolute element-wise difference\n\
+                   and ratio is relative element-wise ratio\n\
   file1 file2      File names of two input netCDF files to be compared\n"
 
     if (rank == 0) {
-        printf("  %s [-b] [-q] [-h] [-v ...] file1 file2\n%s", progname, USAGE);
+        printf("  %s [-b] [-q] [-h] [-v ...] [-t diff,ratio] file1 file2\n%s",
+               progname, USAGE);
         printf("*PnetCDF library version %s\n", ncmpi_inq_libvers());
     }
     MPI_Finalize();
@@ -210,9 +246,8 @@ get_var_names(char *optarg, struct vspec* vspecp)
          cp != NULL;
          cp = strtok((char *) NULL, ",")) {
 
-        *cpp = (char *) calloc(strlen(cp) + 1, 1);
+        *cpp = strdup(cp);
         if (!*cpp) OOM_ERROR
-        strcpy(*cpp, cp);
         cpp++;
     }
     vspecp->nvars = nvars;
@@ -223,43 +258,43 @@ static char*
 get_type(int type)
 {
     switch (type) {
-        case NC_CHAR:   return "char";
-        case NC_SHORT:  return "short";
-        case NC_INT:    return "int";
-        case NC_FLOAT:  return "float";
-        case NC_DOUBLE: return "double";
-        case NC_UBYTE:  return "unsigned char";
-        case NC_USHORT: return "unsigned short";
-        case NC_UINT:   return "unsigned int";
-        case NC_INT64:  return "long long";
-        case NC_UINT64: return "unsigned long long";
+        case NC_BYTE:   return "NC_BYTE";
+        case NC_CHAR:   return "NC_CHAR";
+        case NC_SHORT:  return "NC_SHORT";
+        case NC_INT:    return "NC_INT";
+        case NC_FLOAT:  return "NC_FLOAT";
+        case NC_DOUBLE: return "NC_DOUBLE";
+        case NC_UBYTE:  return "NC_UBYTE";
+        case NC_USHORT: return "NC_USHORT";
+        case NC_UINT:   return "NC_UINT";
+        case NC_INT64:  return "NC_INT64";
+        case NC_UINT64: return "NC_UINT64";
     }
-    return "";
+    return "NC_NAT";
 }
 
 /*----< main() >--------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
-    int i, j, c, err, rank, nprocs, verbose, quiet;
-    int ncid1, ndims1, nvars1, natts1, unlimdimid1, *dimids1;
-    int ncid2, ndims2, nvars2, natts2, unlimdimid2, *dimids2;
-    char *name1, *name2;
-    MPI_Offset *shape=NULL, varsize, *start=NULL;
-    MPI_Offset attlen1, dimlen1, attlen2, dimlen2;
-    nc_type type1, type2;
-    MPI_Comm comm=MPI_COMM_WORLD;
-    int nvars, check_header, check_variable_list, check_entire_file;
-    long long numVarDIFF=0, numHeadDIFF=0, varDIFF, numDIFF;
-    struct vspec var_list;
     extern char *optarg;
     extern int optind;
-    MPI_Info info;
+    char *name[2];
+    int i, j, c, err, rank, nprocs, verbose, quiet, check_tolerance;
+    int ncid[2], ndims[2], nvars[2], natts[2], recdim[2], *dimids[2], fmt[2];
+    int cmp_nvars, check_header, check_variable_list, check_entire_file;
+    long long numVarDIFF=0, numHeadDIFF=0, varDIFF, numDIFF;
+    double tolerance_ratio, tolerance_difference;
+    MPI_Offset *shape=NULL, varsize, *start=NULL;
+    MPI_Offset attlen[2], dimlen[2];
+    MPI_Comm comm=MPI_COMM_WORLD;
+    MPI_Info info = MPI_INFO_NULL;
+    nc_type xtype[2];
+    struct vspec var_list;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    progname            = argv[0];
     verbose             = 0;
     quiet               = 0;
     check_header        = 0;
@@ -267,8 +302,10 @@ int main(int argc, char **argv)
     check_entire_file   = 0;
     var_list.names      = NULL;
     var_list.nvars      = 0;
+    check_tolerance     = 0;
 
-    while ((c = getopt(argc, argv, "bhqv:")) != -1)
+    while ((c = getopt(argc, argv, "bhqt:v:")) != -1) {
+        char *str, *ptr;
         switch(c) {
             case 'h':               /* compare header only */
                 check_header = 1;
@@ -284,319 +321,444 @@ int main(int argc, char **argv)
             case 'q':
                 quiet = 1;
                 break;
+            case 't':
+                str = strdup(optarg);
+                ptr = strtok(str, ",");
+                if (ptr == NULL) {
+                    usage(rank, argv[0]);
+                    break;
+                } else
+                    sscanf(ptr, "%lf", &tolerance_difference);
+                ptr = strtok(NULL, ",");
+                if (ptr == NULL) {
+                    usage(rank, argv[0]);
+                    break;
+                } else
+                    sscanf(ptr, "%lf", &tolerance_ratio);
+                check_tolerance = 1;
+                free(str);
+                break;
             case '?':
                 usage(rank, argv[0]);
                 break;
         }
+    }
 
-    /* quiet overwrites verbose */
+    /* quiet mode overwrites verbose */
     if (quiet) verbose = 0;
 
     if (argc - optind != 2) usage(rank, argv[0]);
 
     if (check_header == 0 && check_variable_list == 0) {
+        /* variable list is not provided, check header and all variables */
         check_entire_file = 1;
         check_header      = 1;
     }
-
-    name1   = (char*) calloc(NC_MAX_NAME, 1);
-    if (!name1) OOM_ERROR
-    name2   = (char*) calloc(NC_MAX_NAME, 1);
-    if (!name2) OOM_ERROR
 
     /* Nov. 18, 2014 -- disable subfiling as it does not correctly handle the
      * cases when  nprocs < num_subfiles */
     MPI_Info_create (&info);
     MPI_Info_set (info, "pnetcdf_subfiling", "disable");
 
-    /* open files */
-    err = ncmpi_open(comm, argv[optind], NC_NOWRITE, info, &ncid1);
-    HANDLE_ERROR
-    err = ncmpi_open(comm, argv[optind+1], NC_NOWRITE, info, &ncid2);
-    HANDLE_ERROR
+    ncid[0] = ncid[1] = -1;
 
-    MPI_Info_free(&info);
+    /* open files and retrieve headers into memory buffers */
+    for (i=0; i<2; i++) { /* i=0 for 1st file, i=1 for 2nd file */
+        /* file format version */
+        err = ncmpi_inq_file_format(argv[optind+i], &fmt[i]);
+        HANDLE_ERROR
 
-    err = ncmpi_inq(ncid1, &ndims1, &nvars1, &natts1, &unlimdimid1);
-    HANDLE_ERROR
-    err = ncmpi_inq(ncid2, &ndims2, &nvars2, &natts2, &unlimdimid2);
-    HANDLE_ERROR
+        if (fmt[i] == NC_FORMAT_NETCDF4 || fmt[i] == NC_FORMAT_NETCDF4_CLASSIC) {
+#ifndef ENABLE_NETCDF4
+            /* HDF5 files are not supported when --enable-netcdf4 is not used */
+            if (rank == 0)
+                fprintf(stderr, "Error: HDF5 based NetCDF4 file %s is not supported\n",
+                        argv[optind+i]);
+            numHeadDIFF++;
+            quiet = 1;
+            goto cmp_exit;
+#endif
+        } else if (fmt[i] == NC_FORMAT_BP) {
+            /* BP files are not supported */
+            if (rank == 0)
+                fprintf(stderr, "Error: BP file %s is not supported\n",
+                        argv[optind+i]);
+            numHeadDIFF++;
+            quiet = 1;
+            goto cmp_exit;
+        } else if (fmt[i] != NC_FORMAT_CLASSIC &&
+                   fmt[i] != NC_FORMAT_CDF2 &&
+                   fmt[i] != NC_FORMAT_CDF5) {
+            /* valid classic NetCDF files are CDF-1, CDF-2, and CDF-5 */
+            if (rank == 0)
+                fprintf(stderr, "Error: %s is not a classic NetCDF file\n",
+                        argv[optind+i]);
+            numHeadDIFF++;
+            quiet = 1;
+            goto cmp_exit;
+        }
 
-    /* check header */
+        name[i] = (char*) calloc(NC_MAX_NAME, 1);
+        if (!name[i]) OOM_ERROR
+
+        /* open files */
+        err = ncmpi_open(comm, argv[optind+i], NC_NOWRITE, info, &ncid[i]);
+        HANDLE_ERROR
+
+        err = ncmpi_inq(ncid[i], &ndims[i], &nvars[i], &natts[i], &recdim[i]);
+        HANDLE_ERROR
+    }
+
+    /* compare file format */
+    if (fmt[0] != fmt[1]) {
+        if (!quiet && rank == 0)
+            printf("DIFF: file format (CDF-%d) != (CDF-%d)\n",fmt[0], fmt[1]);
+        numHeadDIFF++;
+        /* even formats are different, we continue to compare the contents
+         * of the files (headers and variables).
+         */
+    }
+
+    /* compare file header */
     if (check_header && rank == 0) { /* only root checks header */
         int attnump;
 
-        if (ndims1 != ndims2) { /* check number of dimensions if equal */
-            if (!quiet) printf("DIFF: number of dimensions (%d) != (%d)\n",ndims1, ndims2);
+        /* compare number of dimensions defined */
+        if (ndims[0] != ndims[1]) {
+            if (!quiet)
+                printf("DIFF: number of dimensions (%d) != (%d)\n",ndims[0], ndims[1]);
             numHeadDIFF++;
         }
         else if (verbose)
-            printf("SAME: number of dimensions (%d)\n",ndims1);
-        if (nvars1 != nvars2) { /* check number of variables if equal */
-            if (!quiet) printf("DIFF: number of variables (%d) != (%d)\n",nvars1, nvars2);
-            numHeadDIFF++;
-        }
-        else if (verbose)
-            printf("SAME: number of variables (%d)\n",nvars1);
-        if (natts1 != natts2) { /* check number of global attributes if equal */
-            if (!quiet) printf("DIFF: number of global attributes (%d) != (%d)\n",natts1, natts2);
-            numHeadDIFF++;
-        }
-        else if (verbose)
-            printf("SAME: number of global attributes (%d)\n",natts1);
+            printf("SAME: number of dimensions (%d)\n",ndims[0]);
 
-        /* Compare global attributes, assume CHAR attributes. */
-        for (i=0; i<natts1; i++) { /* check what's in file1 also in file2 */
-            err = ncmpi_inq_attname(ncid1, NC_GLOBAL, i, name1);
+        /* compare number of variables defined */
+        if (nvars[0] != nvars[1]) {
+            if (!quiet)
+                printf("DIFF: number of variables (%d) != (%d)\n",nvars[0], nvars[1]);
+            numHeadDIFF++;
+        }
+        else if (verbose)
+            printf("SAME: number of variables (%d)\n",nvars[0]);
+
+        /* compare number of global attributes defined */
+        if (natts[0] != natts[1]) {
+            if (!quiet)
+                printf("DIFF: number of global attributes (%d) != (%d)\n",natts[0], natts[1]);
+            numHeadDIFF++;
+        }
+        else if (verbose)
+            printf("SAME: number of global attributes (%d)\n",natts[0]);
+
+        /* compare attributes defined in 1st file and also in 2nd file */
+        for (i=0; i<natts[0]; i++) {
+            err = ncmpi_inq_attname(ncid[0], NC_GLOBAL, i, name[0]);
             HANDLE_ERROR
-            /* find the attr with the same name from ncid2 */
-            err = ncmpi_inq_attid(ncid2, NC_GLOBAL, name1, &attnump);
+            /* find the attr with the same name from ncid[1] */
+            err = ncmpi_inq_attid(ncid[1], NC_GLOBAL, name[0], &attnump);
             if (err == NC_ENOTATT) {
-                if (!quiet) printf("DIFF: global attribute \"%s\" defined in %s not found in %s\n",
-                       name1,argv[optind],argv[optind+1]);
+                if (!quiet)
+                    printf("DIFF: global attribute \"%s\" defined in %s not found in %s\n",
+                           name[0],argv[optind],argv[optind+1]);
                 numHeadDIFF++;
-                continue;
+                continue; /* loop i */
             }
 
-            err = ncmpi_inq_att(ncid1, NC_GLOBAL, name1, &type1, &attlen1);
+            err = ncmpi_inq_att(ncid[0], NC_GLOBAL, name[0], &xtype[0], &attlen[0]);
             HANDLE_ERROR
-            err = ncmpi_inq_att(ncid2, NC_GLOBAL, name1, &type2, &attlen2);
+            err = ncmpi_inq_att(ncid[1], NC_GLOBAL, name[0], &xtype[1], &attlen[1]);
             HANDLE_ERROR
-            if (type1 != type2) {
-                if (!quiet) printf("DIFF: global attribute \"%s\" data type (%s) != (%s)\n",
-                       name1,get_type(type1),get_type(type2));
+
+            /* compare attribute xtype */
+            if (xtype[0] != xtype[1]) {
+                if (!quiet)
+                    printf("DIFF: global attribute \"%s\" data type (%s) != (%s)\n",
+                           name[0],get_type(xtype[0]),get_type(xtype[1]));
                 numHeadDIFF++;
-                continue;
+                continue; /* loop i */
             }
             else if (verbose) {
-                printf("Global attribute \"%s\":\n",name1);
-                printf("\tSAME: data type (%s)\n",get_type(type1));
+                printf("Global attribute \"%s\":\n",name[0]);
+                printf("\tSAME: data type (%s)\n",get_type(xtype[0]));
             }
 
-            if (attlen1 != attlen2) {
-                if (!quiet) printf("DIFF: global attribute \"%s\" length (%lld) != (%lld)\n",
-                       name1,attlen1,attlen2);
+            /* compare attribute length */
+            if (attlen[0] != attlen[1]) {
+                if (!quiet)
+                    printf("DIFF: global attribute \"%s\" length (%lld) != (%lld)\n",
+                           name[0],attlen[0],attlen[1]);
                 numHeadDIFF++;
-                continue;
+                continue; /* loop i */
             }
             else if (verbose)
-                printf("\tSAME: length (%lld)\n",attlen1);
+                printf("\tSAME: length (%lld)\n",attlen[0]);
 
-            switch (type1) {
-                case NC_CHAR:   CHECK_GLOBAL_ATT_DIFF(char,   ncmpi_get_att_text,      NC_CHAR)
-                case NC_SHORT:  CHECK_GLOBAL_ATT_DIFF(short,  ncmpi_get_att_short,     NC_SHORT)
-                case NC_INT:    CHECK_GLOBAL_ATT_DIFF(int,    ncmpi_get_att_int,       NC_INT)
-                case NC_FLOAT:  CHECK_GLOBAL_ATT_DIFF(float,  ncmpi_get_att_float,     NC_FLOAT)
-                case NC_DOUBLE: CHECK_GLOBAL_ATT_DIFF(double, ncmpi_get_att_double,    NC_DOUBLE)
-                case NC_UBYTE:  CHECK_GLOBAL_ATT_DIFF(ubyte,  ncmpi_get_att_uchar,     NC_UBYTE)
-                case NC_USHORT: CHECK_GLOBAL_ATT_DIFF(ushort, ncmpi_get_att_ushort,    NC_USHORT)
-                case NC_UINT:   CHECK_GLOBAL_ATT_DIFF(uint,   ncmpi_get_att_uint,      NC_UINT)
-                case NC_INT64:  CHECK_GLOBAL_ATT_DIFF(int64,  ncmpi_get_att_longlong,  NC_INT64)
-                case NC_UINT64: CHECK_GLOBAL_ATT_DIFF(uint64, ncmpi_get_att_ulonglong, NC_UINT64)
+            /* compare attribute contents */
+            switch (xtype[0]) {
+                case NC_CHAR:   CHECK_GLOBAL_ATT_DIFF(char,   ncmpi_get_att_text);
+                case NC_SHORT:  CHECK_GLOBAL_ATT_DIFF(short,  ncmpi_get_att_short);
+                case NC_INT:    CHECK_GLOBAL_ATT_DIFF(int,    ncmpi_get_att_int);
+                case NC_FLOAT:  CHECK_GLOBAL_ATT_DIFF(float,  ncmpi_get_att_float);
+                case NC_DOUBLE: CHECK_GLOBAL_ATT_DIFF(double, ncmpi_get_att_double);
+                case NC_UBYTE:  CHECK_GLOBAL_ATT_DIFF(ubyte,  ncmpi_get_att_uchar);
+                case NC_USHORT: CHECK_GLOBAL_ATT_DIFF(ushort, ncmpi_get_att_ushort);
+                case NC_UINT:   CHECK_GLOBAL_ATT_DIFF(uint,   ncmpi_get_att_uint);
+                case NC_INT64:  CHECK_GLOBAL_ATT_DIFF(int64,  ncmpi_get_att_longlong);
+                case NC_UINT64: CHECK_GLOBAL_ATT_DIFF(uint64, ncmpi_get_att_ulonglong);
                 default: ; /* TODO: handle unexpected types */
             }
         }
-        for (i=0; i<natts2; i++) { /* check attributes in file2 but not in file1 */
-            err = ncmpi_inq_attname(ncid2, NC_GLOBAL, i, name2);
+
+        /* check global attributes defined in 2nd file but not in 1st file */
+        for (i=0; i<natts[1]; i++) {
+            err = ncmpi_inq_attname(ncid[1], NC_GLOBAL, i, name[1]);
             HANDLE_ERROR
-            /* find the attr with the same name from ncid1 */
-            if (ncmpi_inq_attid(ncid1, NC_GLOBAL, name2, &attnump) == NC_ENOTATT) {
+            /* find the attr with the same name from ncid[0] */
+            if (ncmpi_inq_attid(ncid[0], NC_GLOBAL, name[1], &attnump) == NC_ENOTATT) {
+                if (!quiet)
+                    printf("DIFF: global attribute \"%s\" defined in %s not found in %s\n",
+                           name[1],argv[optind+1],argv[optind]);
                 numHeadDIFF++;
-                if (!quiet) printf("DIFF: global attribute \"%s\" defined in %s not found in %s\n",
-                       name2,argv[optind+1],argv[optind]);
             }
         }
 
-        /* Compare dimension */
-        if (ndims1 && verbose)
-            printf("Dimension:\n");
+        /* Compare dimensions */
+        if (ndims[0] > 0 && ndims[1] > 0) {
+            if (verbose)
+                printf("Dimension:\n");
+        } else
+            goto cmp_vars;
 
-        for (i=0; i<ndims1; i++) { /* check dimensions in file1 also in file2 */
+        /* check dimensions in 1st file also appear in 2nd file */
+        for (i=0; i<ndims[0]; i++) {
             int dimid;
-            err = ncmpi_inq_dim(ncid1, i, name1, &dimlen1);
+            err = ncmpi_inq_dim(ncid[0], i, name[0], &dimlen[0]);
             HANDLE_ERROR
-            /* find the dim with the same name from ncid2 */
-            err = ncmpi_inq_dimid(ncid2, name1, &dimid);
+            /* find the dim with the same name from ncid[1] */
+            err = ncmpi_inq_dimid(ncid[1], name[0], &dimid);
             if (err == NC_EBADDIM) {
-                if (!quiet) printf("DIFF: dimension \"%s\" defined in %s not found in %s\n",
-                       name1,argv[optind],argv[optind+1]);
+                if (!quiet)
+                    printf("DIFF: dimension \"%s\" defined in %s not found in %s\n",
+                           name[0],argv[optind],argv[optind+1]);
                 numHeadDIFF++;
-                continue;
+                continue; /* loop i */
             }
 
-            err = ncmpi_inq_dimlen(ncid2, dimid, &dimlen2);
+            /* compare dimension length */
+            err = ncmpi_inq_dimlen(ncid[1], dimid, &dimlen[1]);
             HANDLE_ERROR
-            if (dimlen1 != dimlen2) {
+            if (dimlen[0] != dimlen[1]) {
                 /* cast to quiet warning on 32 bit platforms */
-                if (!quiet) printf("DIFF: dimension \"%s\" length (%lld) != (%lld)\n",
-                       name1,(long long int)dimlen1,(long long int)dimlen2);
+                if (!quiet)
+                    printf("DIFF: dimension \"%s\" length (%lld) != (%lld)\n",
+                           name[0],(long long int)dimlen[0],(long long int)dimlen[1]);
                 numHeadDIFF++;
             }
             else if (verbose)
                 printf("\tSAME: dimension \"%s\" length (%lld)\n",
-                       name1,(long long int)dimlen1);
+                       name[0],(long long int)dimlen[0]);
         }
-        for (i=0; i<ndims2; i++) { /* check dimensions in file2 but not in file1 */
+
+        /* check dimensions in 2nd file but not in 1st file */
+        for (i=0; i<ndims[1]; i++) {
             int dimid;
-            err = ncmpi_inq_dim(ncid2, i, name2, &dimlen2);
+            err = ncmpi_inq_dim(ncid[1], i, name[1], &dimlen[1]);
             HANDLE_ERROR
-            /* find the dim with the same name from ncid1 */
-            if (ncmpi_inq_dimid(ncid2, name1, &dimid) == NC_EBADDIM) {
-                if (!quiet) printf("DIFF: dimension \"%s\" defined in %s not found in %s\n",
-                       name1,argv[optind+1],argv[optind]);
+            /* find the dim with the same name from ncid[0] */
+            if (ncmpi_inq_dimid(ncid[1], name[0], &dimid) == NC_EBADDIM) {
+                if (!quiet)
+                    printf("DIFF: dimension \"%s\" defined in %s not found in %s\n",
+                           name[0],argv[optind+1],argv[optind]);
                 numHeadDIFF++;
             }
         }
 
         /* Compare variables' metadata */
-        for (i=0; i<nvars1; i++) {
-            int varid;
-            err = ncmpi_inq_varndims(ncid1, i, &ndims1); HANDLE_ERROR
-            dimids1 = (int*) calloc((size_t)ndims1, SIZEOF_INT);
-            if (!dimids1) OOM_ERROR
-            err = ncmpi_inq_var(ncid1, i, name1, &type1, &ndims1, dimids1, &natts1);
+cmp_vars:
+        if (nvars[0] > 0 && nvars[1] > 0) {
+            if (verbose)
+                printf("Variables:\n");
+        } else
+            goto cmp_exit;
+
+        /* check variables defined in 1st file and also in 2nd file */
+        for (i=0; i<nvars[0]; i++) {
+            int varid[2];
+
+            varid[0] = i;
+            err = ncmpi_inq_varndims(ncid[0], i, &ndims[0]); HANDLE_ERROR
+            dimids[0] = (int*) calloc((size_t)ndims[0], SIZEOF_INT);
+            if (!dimids[0]) OOM_ERROR
+            err = ncmpi_inq_var(ncid[0], i, name[0], &xtype[0], &ndims[0], dimids[0], &natts[0]);
             HANDLE_ERROR
-            /* find the variable with the same name from ncid2 */
-            err = ncmpi_inq_varid(ncid2, name1, &varid);
+            /* find the variable with the same name from ncid[1] */
+            err = ncmpi_inq_varid(ncid[1], name[0], &varid[1]);
             if (err == NC_ENOTVAR) {
-                if (!quiet) printf("DIFF: variable \"%s\"defined in %s not found in %s\n",
-                       name1,argv[optind],argv[optind+1]);
+                if (!quiet)
+                    printf("DIFF: variable \"%s\"defined in %s not found in %s\n",
+                           name[0],argv[optind],argv[optind+1]);
                 numHeadDIFF++;
                 numVarDIFF++;
                 continue;
             }
-            err = ncmpi_inq_varndims(ncid2, varid, &ndims2); HANDLE_ERROR
-            dimids2 = (int*) calloc((size_t)ndims2, SIZEOF_INT);
-            if (!dimids2) OOM_ERROR
-            err = ncmpi_inq_var(ncid2, varid, name2, &type2, &ndims2, dimids2, &natts2);
+
+            /* inquire variable metadata for varid[1] */
+            err = ncmpi_inq_varndims(ncid[1], varid[1], &ndims[1]); HANDLE_ERROR
+            dimids[1] = (int*) calloc((size_t)ndims[1], SIZEOF_INT);
+            if (!dimids[1]) OOM_ERROR
+            err = ncmpi_inq_var(ncid[1], varid[1], name[1], &xtype[1], &ndims[1], dimids[1], &natts[1]);
             HANDLE_ERROR
 
-            if (type1 != type2) {
-                if (!quiet) printf("DIFF: variable \"%s\" data type (%s) != (%s)\n",
-                       name1,get_type(type1),get_type(type2));
+            /* compare variable xtype */
+            if (xtype[0] != xtype[1]) {
+                if (!quiet)
+                    printf("DIFF: variable \"%s\" data type (%s) != (%s)\n",
+                           name[0],get_type(xtype[0]),get_type(xtype[1]));
                 numHeadDIFF++;
             }
             else if (verbose) {
-                printf("Variable \"%s\":\n",name1);
-                printf("\tSAME: data type (%s)\n",get_type(type1));
+                printf("Variable \"%s\":\n",name[0]);
+                printf("\tSAME: data type (%s)\n",get_type(xtype[0]));
             }
 
-            if (ndims1 != ndims2) {
-                if (!quiet) printf("DIFF: variable \"%s\" number of dimensions (%d) != (%d)\n",
-                       name1,ndims1,ndims2);
+            /* compare variable ndims */
+            if (ndims[0] != ndims[1]) {
+                if (!quiet)
+                    printf("DIFF: variable \"%s\" number of dimensions (%d) != (%d)\n",
+                           name[0],ndims[0],ndims[1]);
                 numHeadDIFF++;
             }
             else {
                 if (verbose)
-                    printf("\tSAME: number of dimensions (%d)\n",ndims1);
+                    printf("\tSAME: number of dimensions (%d)\n",ndims[0]);
 
-                for (j=0; j<ndims1; j++) { /* check variable's dimensionality */
-                    char dimname1[NC_MAX_NAME], dimname2[NC_MAX_NAME];
+                /* compare variable's dimensionality */
+                for (j=0; j<ndims[0]; j++) {
+                    char dimname[2][NC_MAX_NAME];
                     /* get dim name for each dim ID */
-                    err = ncmpi_inq_dim(ncid1, dimids1[j], dimname1, &dimlen1);
+                    err = ncmpi_inq_dim(ncid[0], dimids[0][j], dimname[0], &dimlen[0]);
                     HANDLE_ERROR
-                    err = ncmpi_inq_dim(ncid2, dimids2[j], dimname2, &dimlen2);
+                    err = ncmpi_inq_dim(ncid[1], dimids[1][j], dimname[1], &dimlen[1]);
                     HANDLE_ERROR
                     if (verbose)
                         printf("\tdimension %d:\n",j);
-                    if (strcmp(dimname1, dimname2) != 0) {
-                        if (!quiet) printf("DIFF: variable \"%s\" of type \"%s\" dimension %d's name (%s) != (%s)\n",
-                               name1,get_type(type1),j,dimname1,dimname2);
+                    if (strcmp(dimname[0], dimname[1]) != 0) {
+                        if (!quiet)
+                            printf("DIFF: variable \"%s\" of type \"%s\" dimension %d's name (%s) != (%s)\n",
+                                   name[0],get_type(xtype[0]),j,dimname[0],dimname[1]);
                         numHeadDIFF++;
                     }
                     else if (verbose)
-                        printf("\t\tSAME: name (%s)\n",dimname1);
-                    if (dimlen1 != dimlen2) {
-                        if (!quiet) printf("DIFF: variable \"%s\" of type \"%s\" dimension %d's length (%lld) != (%lld)\n",
-                               name1,get_type(type1),j,(long long int)dimlen1,(long long int)dimlen2);
+                        printf("\t\tSAME: name (%s)\n",dimname[0]);
+
+                    /* compare variable dimension j's length */
+                    if (dimlen[0] != dimlen[1]) {
+                        if (!quiet)
+                            printf("DIFF: variable \"%s\" of type \"%s\" dimension %d's length (%lld) != (%lld)\n",
+                                   name[0],get_type(xtype[0]),j,(long long int)dimlen[0],(long long int)dimlen[1]);
                         numHeadDIFF++;
                     }
                     else if (verbose)
-                        printf("\t\tSAME: length (%lld)\n",(long long int)dimlen1);
+                        printf("\t\tSAME: length (%lld)\n",(long long int)dimlen[0]);
                 }
             }
 
-            if (natts1 != natts2) {
-                if (!quiet) printf("DIFF: variable \"%s\" number of attributes (%d) != (%d)\n",
-                       name1,natts1,natts2);
+            /* compare number of attributes of this variable */
+            if (natts[0] != natts[1]) {
+                if (!quiet)
+                    printf("DIFF: variable \"%s\" number of attributes (%d) != (%d)\n",
+                           name[0],natts[0],natts[1]);
                 numHeadDIFF++;
             }
             else if (verbose)
-                printf("\tSAME: number of attributes (%d)\n",natts1);
+                printf("\tSAME: number of attributes (%d)\n",natts[0]);
 
-            /* var attributes, assume CHAR attributes */
-            for (j=0; j<natts1; j++) {
+            /* var attributes in 1st file also appear in 2nd file */
+            for (j=0; j<natts[0]; j++) {
                 char attrname[NC_MAX_NAME];
-                err = ncmpi_inq_attname(ncid1, i, j, attrname);
+                err = ncmpi_inq_attname(ncid[0], i, j, attrname);
                 HANDLE_ERROR
-                err = ncmpi_inq_att(ncid1, i, attrname, &type1, &attlen1);
+                err = ncmpi_inq_att(ncid[0], i, attrname, &xtype[0], &attlen[0]);
                 HANDLE_ERROR
-                /* find the variable attr with the same name from ncid2 */
-                err = ncmpi_inq_att(ncid2, varid, attrname, &type2, &attlen2);
+                /* find the variable attr with the same name from ncid[1] */
+                err = ncmpi_inq_att(ncid[1], varid[1], attrname, &xtype[1], &attlen[1]);
                 if (err == NC_ENOTATT) {
-                    if (!quiet) printf("DIFF: variable \"%s\" attribute \"%s\" defined in %s not found in %s\n",
-                           name1,attrname,argv[optind],argv[optind+1]);
+                    if (!quiet)
+                        printf("DIFF: variable \"%s\" attribute \"%s\" defined in %s not found in %s\n",
+                               name[0],attrname,argv[optind],argv[optind+1]);
                     numHeadDIFF++;
                     continue;
                 }
                 if (verbose)
                     printf("\tattribute \"%s\":\n",attrname);
 
-                if (type1 != type2) {
-                    if (!quiet) printf("DIFF: variable \"%s\" attribute \"%s\" data type (%s) != (%s)\n",
-                           name1,attrname,get_type(type1),get_type(type2));
+                /* compare attribute xtype */
+                if (xtype[0] != xtype[1]) {
+                    if (!quiet)
+                        printf("DIFF: variable \"%s\" attribute \"%s\" data type (%s) != (%s)\n",
+                               name[0],attrname,get_type(xtype[0]),get_type(xtype[1]));
                     numHeadDIFF++;
                     continue; /* skip this attribute */
                 }
                 else if (verbose)
-                    printf("\t\tSAME: data type (%s)\n",get_type(type1));
-                if (attlen1 != attlen2) {
-                    if (!quiet) printf("DIFF: variable \"%s\" attribute \"%s\" length (%lld) != (%lld)\n",
-                           name1,attrname,(long long int)attlen1,(long long int)attlen2);
-                    numHeadDIFF++;
-                    continue; /* skip this attribute */
-                }
-                else if (verbose)
-                    printf("\t\tSAME: length (%lld)\n",(long long int)attlen1);
+                    printf("\t\tSAME: data type (%s)\n",get_type(xtype[0]));
 
-                switch (type1) {
-                    case NC_CHAR:   CHECK_VAR_ATT_DIFF(char,   ncmpi_get_att_text,      NC_CHAR)
-                    case NC_SHORT:  CHECK_VAR_ATT_DIFF(short,  ncmpi_get_att_short,     NC_SHORT)
-                    case NC_INT:    CHECK_VAR_ATT_DIFF(int,    ncmpi_get_att_int,       NC_INT)
-                    case NC_FLOAT:  CHECK_VAR_ATT_DIFF(float,  ncmpi_get_att_float,     NC_FLOAT)
-                    case NC_DOUBLE: CHECK_VAR_ATT_DIFF(double, ncmpi_get_att_double,    NC_DOUBLE)
-                    case NC_UBYTE:  CHECK_VAR_ATT_DIFF(ubyte,  ncmpi_get_att_uchar,     NC_UBYTE)
-                    case NC_USHORT: CHECK_VAR_ATT_DIFF(ushort, ncmpi_get_att_ushort,    NC_USHORT)
-                    case NC_UINT:   CHECK_VAR_ATT_DIFF(uint,   ncmpi_get_att_uint,      NC_UINT)
-                    case NC_INT64:  CHECK_VAR_ATT_DIFF(int64,  ncmpi_get_att_longlong,  NC_INT64)
-                    case NC_UINT64: CHECK_VAR_ATT_DIFF(uint64, ncmpi_get_att_ulonglong, NC_UINT64)
+                /* compare attribute nelems */
+                if (attlen[0] != attlen[1]) {
+                    if (!quiet)
+                        printf("DIFF: variable \"%s\" attribute \"%s\" length (%lld) != (%lld)\n",
+                               name[0],attrname,(long long int)attlen[0],(long long int)attlen[1]);
+                    numHeadDIFF++;
+                    continue; /* skip this attribute */
+                }
+                else if (verbose)
+                    printf("\t\tSAME: length (%lld)\n",(long long int)attlen[0]);
+
+                /* compare attribute contents */
+                switch (xtype[0]) {
+                    case NC_CHAR:   CHECK_VAR_ATT_DIFF(char,   ncmpi_get_att_text);
+                    case NC_SHORT:  CHECK_VAR_ATT_DIFF(short,  ncmpi_get_att_short);
+                    case NC_INT:    CHECK_VAR_ATT_DIFF(int,    ncmpi_get_att_int);
+                    case NC_FLOAT:  CHECK_VAR_ATT_DIFF(float,  ncmpi_get_att_float);
+                    case NC_DOUBLE: CHECK_VAR_ATT_DIFF(double, ncmpi_get_att_double);
+                    case NC_UBYTE:  CHECK_VAR_ATT_DIFF(ubyte,  ncmpi_get_att_uchar);
+                    case NC_USHORT: CHECK_VAR_ATT_DIFF(ushort, ncmpi_get_att_ushort);
+                    case NC_UINT:   CHECK_VAR_ATT_DIFF(uint,   ncmpi_get_att_uint);
+                    case NC_INT64:  CHECK_VAR_ATT_DIFF(int64,  ncmpi_get_att_longlong);
+                    case NC_UINT64: CHECK_VAR_ATT_DIFF(uint64, ncmpi_get_att_ulonglong);
                     default: ; /* TODO: handle unexpected types */
                 }
             }
-            for (j=0; j<natts2; j++) {
+
+            /* check attributes in 2nd file but not in 1st file */
+            for (j=0; j<natts[1]; j++) {
                 char attrname[NC_MAX_NAME];
-                err = ncmpi_inq_attname(ncid2, varid, j, attrname);
+                err = ncmpi_inq_attname(ncid[1], varid[1], j, attrname);
                 HANDLE_ERROR
-                /* find the variable attr with the same name from ncid1 */
-                err = ncmpi_inq_att(ncid1, i, attrname, &type1, &attlen1);
+                /* find the variable attr with the same name from ncid[0] */
+                err = ncmpi_inq_att(ncid[0], i, attrname, &xtype[0], &attlen[0]);
                 if (err == NC_ENOTATT) {
-                    if (!quiet) printf("DIFF: variable \"%s\" attribute \"%s\" defined in %s not found in %s\n",
-                           name1,attrname,argv[optind+1],argv[optind]);
+                    if (!quiet)
+                        printf("DIFF: variable \"%s\" attribute \"%s\" defined in %s not found in %s\n",
+                               name[0],attrname,argv[optind+1],argv[optind]);
                     numHeadDIFF++;
                 }
             }
-            free(dimids1);
-            free(dimids2);
+            free(dimids[0]);
+            free(dimids[1]);
         }
-        for (i=0; i<nvars2; i++) { /* check variables in file2 but not in file1 */
+
+        /* check variables defined in 2nd file but not in 1st file */
+        for (i=0; i<nvars[1]; i++) { /* check variables in file2 but not in file1 */
             int varid;
-            err = ncmpi_inq_varname(ncid2, i, name2);
+            err = ncmpi_inq_varname(ncid[1], i, name[1]);
             HANDLE_ERROR
-            /* find the variable with the same name from ncid1 */
-            err = ncmpi_inq_varid(ncid1, name2, &varid);
+            /* find the variable with the same name from ncid[0] */
+            err = ncmpi_inq_varid(ncid[0], name[1], &varid);
             if (err == NC_ENOTVAR) {
-                if (!quiet) printf("DIFF: variable \"%s\" defined in %s not found in %s\n",
-                       name2,argv[optind+1],argv[optind]);
+                if (!quiet)
+                    printf("DIFF: variable \"%s\" defined in %s not found in %s\n",
+                           name[1],argv[optind+1],argv[optind]);
                 numHeadDIFF++;
                 numVarDIFF++;
             }
@@ -604,28 +766,31 @@ int main(int argc, char **argv)
     }
 
     /* compare variable contents */
-    nvars = 0;
-    if (check_variable_list) nvars = var_list.nvars;
+    cmp_nvars = 0;
+    if (check_variable_list) /* variable list is given at command line */
+        cmp_nvars = var_list.nvars;
 
-    if (check_entire_file) { /* header has been checked */
-        ncmpi_inq_nvars(ncid1, &nvars);
-        var_list.nvars = nvars;
-        var_list.names = (char**) calloc((size_t)nvars, sizeof(char*));
+    if (check_entire_file) { /* In this case, header has been checked */
+        /* var_list.names is initialized to NULL */
+        ncmpi_inq_nvars(ncid[0], &cmp_nvars);
+        var_list.nvars = cmp_nvars;
+        var_list.names = (char**) calloc((size_t)cmp_nvars, sizeof(char*));
         if (!var_list.names) OOM_ERROR
-        /* get all the variable names from file1 */
-        for (i=0; i<nvars; i++) {
-            ncmpi_inq_varname(ncid1, i, name1);
-            var_list.names[i] = (char *) calloc(strlen(name1) + 1, 1);
+        /* collect all the variable names from 1st file */
+        for (i=0; i<cmp_nvars; i++) {
+            ncmpi_inq_varname(ncid[0], i, name[0]);
+            var_list.names[i] = strdup(name[0]);
             if (!var_list.names[i]) OOM_ERROR
-            strcpy(var_list.names[i], name1);
         }
     }
-    if (!rank && verbose) printf("number of variables to be compared = %d\n",nvars);
+    if (!rank && verbose) printf("number of variables to be compared = %d\n",cmp_nvars);
 
-    for (i=0; i<nvars; i++) { /* compare one variable at a time */
+    /* compare variables, one at a time */
+    for (i=0; i<cmp_nvars; i++) {
         int varid1, varid2;
 
-        err = ncmpi_inq_varid(ncid1, var_list.names[i], &varid1);
+        /* find variable ID in 1st file corresponding to var_list.names[i] */
+        err = ncmpi_inq_varid(ncid[0], var_list.names[i], &varid1);
         if (err == NC_ENOTVAR) {
             if (!check_header) {
                 if (!rank && !quiet)
@@ -635,7 +800,9 @@ int main(int argc, char **argv)
             }
             continue;
         }
-        err = ncmpi_inq_varid(ncid2, var_list.names[i], &varid2);
+
+        /* find variable ID in 2nd file corresponding to var_list.names[i] */
+        err = ncmpi_inq_varid(ncid[1], var_list.names[i], &varid2);
         if (err == NC_ENOTVAR) {
             if (!check_header) {
                 if (!rank && !quiet)
@@ -645,94 +812,102 @@ int main(int argc, char **argv)
             }
             continue;
         }
-        err = ncmpi_inq_varndims(ncid1, varid1, &ndims1); HANDLE_ERROR
-        dimids1 = (int*) calloc((size_t)ndims1, SIZEOF_INT);
-        if (!dimids1) OOM_ERROR
-        err = ncmpi_inq_var(ncid1, varid1, name1, &type1, &ndims1, dimids1, &natts1);
+
+        /* Header comparison may have been skipped. Even if file headers have
+         * been compared, we still need to compare variable's xtype and
+         * dimensions to skip variables when their structures are different.
+         */
+
+        err = ncmpi_inq_varndims(ncid[0], varid1, &ndims[0]); HANDLE_ERROR
+        dimids[0] = (int*) calloc((size_t)ndims[0], SIZEOF_INT);
+        if (!dimids[0]) OOM_ERROR
+        err = ncmpi_inq_var(ncid[0], varid1, name[0], &xtype[0], &ndims[0], dimids[0], &natts[0]);
         HANDLE_ERROR
-        err = ncmpi_inq_varndims(ncid2, varid2, &ndims2); HANDLE_ERROR
-        dimids2 = (int*) calloc((size_t)ndims2, SIZEOF_INT);
-        if (!dimids2) OOM_ERROR
-        err = ncmpi_inq_var(ncid2, varid2, name2, &type2, &ndims2, dimids2, &natts2);
+        err = ncmpi_inq_varndims(ncid[1], varid2, &ndims[1]); HANDLE_ERROR
+        dimids[1] = (int*) calloc((size_t)ndims[1], SIZEOF_INT);
+        if (!dimids[1]) OOM_ERROR
+        err = ncmpi_inq_var(ncid[1], varid2, name[1], &xtype[1], &ndims[1], dimids[1], &natts[1]);
         HANDLE_ERROR
 
-        /* check data type */
-        if (type1 != type2) {
+        /* compare variable's NC data type */
+        if (xtype[0] != xtype[1]) {
             if (!check_header) { /* if header has not been checked */
                 if (!rank && !quiet)
                     printf("DIFF: variable \"%s\" data type (%s) != (%s)\n",
-                           name1,get_type(type1),get_type(type2));
+                           name[0],get_type(xtype[0]),get_type(xtype[1]));
                 numHeadDIFF++;
                 numVarDIFF++;
             }
             continue; /* skip this variable */
         }
         else if (!check_header && !rank && verbose) {
-            printf("Variable \"%s\":\n",name1);
-            printf("\tSAME: data type (%s)\n",get_type(type1));
+            printf("Variable \"%s\":\n",name[0]);
+            printf("\tSAME: data type (%s)\n",get_type(xtype[0]));
         }
 
-        /* check number of dimensions */
-        if (ndims1 != ndims2) {
+        /* compare variable's number of dimensions */
+        if (ndims[0] != ndims[1]) {
             if (!check_header) { /* if header has not been checked */
                 if (!rank && !quiet)
                     printf("DIFF: variable \"%s\" number of dimensions (%d) != (%d)\n",
-                           name1,ndims1,ndims2);
+                           name[0],ndims[0],ndims[1]);
                 numHeadDIFF++;
                 numVarDIFF++;
             }
             continue; /* skip this variable */
         }
         else if (!check_header && !rank && verbose)
-            printf("\tSAME: number of dimensions (%d)\n",ndims1);
+            printf("\tSAME: number of dimensions (%d)\n",ndims[0]);
 
-        shape = (MPI_Offset*) calloc((size_t)ndims1 * 2, SIZEOF_MPI_OFFSET);
+        shape = (MPI_Offset*) calloc((size_t)ndims[0] * 2, SIZEOF_MPI_OFFSET);
         if (!shape) OOM_ERROR
-        start = shape + ndims1;
+        start = shape + ndims[0];
 
-        /* check dimension length only */
-        for (j=0; j<ndims1; j++) { /* check variable's dimensionality */
-            err = ncmpi_inq_dimlen(ncid1, dimids1[j], &dimlen1);
+        /* compare variable's dimension sizes, not dimension's names */
+        for (j=0; j<ndims[0]; j++) {
+            err = ncmpi_inq_dimlen(ncid[0], dimids[0][j], &dimlen[0]);
             HANDLE_ERROR
-            err = ncmpi_inq_dimlen(ncid2, dimids2[j], &dimlen2);
+            err = ncmpi_inq_dimlen(ncid[1], dimids[1][j], &dimlen[1]);
             HANDLE_ERROR
             if (!check_header && !rank && verbose)
                 printf("\tDimension %d:\n",j);
-            if (dimlen1 != dimlen2) {
+            if (dimlen[0] != dimlen[1]) {
                 if (!check_header) { /* if header has not been checked */
                     if (!rank && !quiet)
                         printf("DIFF: variable \"%s\" of type \"%s\" dimension %d's length (%lld) != (%lld)\n",
-                               name1,get_type(type1),j,(long long int)dimlen1,(long long int)dimlen2);
+                               name[0],get_type(xtype[0]),j,(long long int)dimlen[0],(long long int)dimlen[1]);
                     numHeadDIFF++;
                     numVarDIFF++;
                 }
                 break; /* skip this variable */
             }
             else if (!check_header && !rank && verbose)
-                printf("\t\tSAME: length (%lld)\n",(long long int)dimlen1);
-            shape[j] = dimlen1;
+                printf("\t\tSAME: length (%lld)\n",(long long int)dimlen[0]);
+            shape[j] = dimlen[0];
         }
-        if (j != ndims1) {
+        if (j != ndims[0]) {
             free(shape);
-            free(dimids1);
-            free(dimids2);
+            free(dimids[0]);
+            free(dimids[1]);
             continue; /* skip this variable */
         }
 
-        if (ndims1 > 0 && dimids1[0] == unlimdimid1) { /* record variable */
-            err = ncmpi_inq_dimlen(ncid1, unlimdimid1, &shape[0]);
+        if (ndims[0] > 0 && dimids[0][0] == recdim[0]) { /* record variable */
+            err = ncmpi_inq_dimlen(ncid[0], recdim[0], &shape[0]);
             HANDLE_ERROR
             if (shape[0] == 0) {
                 /* No record has been written to the file, skip comparison */
                 free(shape);
-                free(dimids1);
-                free(dimids2);
+                free(dimids[0]);
+                free(dimids[1]);
                 continue;
             }
         }
 
-        for (j=0; j<ndims1; j++) {
-            if (shape[j] >= nprocs) { /* partition along dimension j among processes */
+        /* calculate read amount of this process in start[] and shape[] */
+        for (j=0; j<ndims[0]; j++) {
+            /* partition along dimension j among processes */
+            if (shape[j] >= nprocs) {
                 MPI_Offset dimLen = shape[j];
                 shape[j] = dimLen / nprocs;
                 start[j] = shape[j] * rank;
@@ -746,36 +921,51 @@ int main(int argc, char **argv)
             }
         }
         /* if none of shape[*] >= nprocs, then let all processes compare the
-         * whole variable */
+         * whole variable
+         */
 
         varsize = 1;
         /* block partition the variable along the 1st dimension */
-        for (j=0; j<ndims1; j++) varsize *= shape[j];
+        for (j=0; j<ndims[0]; j++) varsize *= shape[j];
 
         /* compare the variable contents */
-        switch (type1) {
-            case NC_CHAR:   CHECK_VAR_DIFF(char,   ncmpi_get_vara_text_all,      NC_CHAR)
-            case NC_SHORT:  CHECK_VAR_DIFF(short,  ncmpi_get_vara_short_all,     NC_SHORT)
-            case NC_INT:    CHECK_VAR_DIFF(int,    ncmpi_get_vara_int_all,       NC_INT)
-            case NC_FLOAT:  CHECK_VAR_DIFF(float,  ncmpi_get_vara_float_all,     NC_FLOAT)
-            case NC_DOUBLE: CHECK_VAR_DIFF(double, ncmpi_get_vara_double_all,    NC_DOUBLE)
-            case NC_UBYTE:  CHECK_VAR_DIFF(ubyte,  ncmpi_get_vara_uchar_all,     NC_UBYTE)
-            case NC_USHORT: CHECK_VAR_DIFF(ushort, ncmpi_get_vara_ushort_all,    NC_USHORT)
-            case NC_UINT:   CHECK_VAR_DIFF(uint,   ncmpi_get_vara_uint_all,      NC_UINT)
-            case NC_INT64:  CHECK_VAR_DIFF(int64,  ncmpi_get_vara_longlong_all,  NC_INT64)
-            case NC_UINT64: CHECK_VAR_DIFF(uint64, ncmpi_get_vara_ulonglong_all, NC_UINT64)
+        switch (xtype[0]) {
+            case NC_CHAR:   CHECK_VAR_DIFF(char,   ncmpi_get_vara_text_all);
+            case NC_SHORT:  CHECK_VAR_DIFF(short,  ncmpi_get_vara_short_all);
+            case NC_INT:    CHECK_VAR_DIFF(int,    ncmpi_get_vara_int_all);
+            case NC_FLOAT:  CHECK_VAR_DIFF(float,  ncmpi_get_vara_float_all);
+            case NC_DOUBLE: CHECK_VAR_DIFF(double, ncmpi_get_vara_double_all);
+            case NC_UBYTE:  CHECK_VAR_DIFF(ubyte,  ncmpi_get_vara_uchar_all);
+            case NC_USHORT: CHECK_VAR_DIFF(ushort, ncmpi_get_vara_ushort_all);
+            case NC_UINT:   CHECK_VAR_DIFF(uint,   ncmpi_get_vara_uint_all);
+            case NC_INT64:  CHECK_VAR_DIFF(int64,  ncmpi_get_vara_longlong_all);
+            case NC_UINT64: CHECK_VAR_DIFF(uint64, ncmpi_get_vara_ulonglong_all);
             default: ; /* TODO: handle unexpected types */
         }
         free(shape);
-        free(dimids1);
-        free(dimids2);
+        free(dimids[0]);
+        free(dimids[1]);
+    }
+    free(name[0]);
+    free(name[1]);
+
+    /* free up the memory previously allocated */
+    if (var_list.nvars) {
+        for (i=0; i<var_list.nvars; i++)
+            free(var_list.names[i]);
+        free(var_list.names);
     }
 
-    /* close files */
-    err = ncmpi_close(ncid1);
-    HANDLE_ERROR
-    err = ncmpi_close(ncid2);
-    HANDLE_ERROR
+cmp_exit:
+    for (i=0; i<2; i++) {
+        /* close files */
+        if (ncid[i] >= 0) {
+            err = ncmpi_close(ncid[i]);
+            HANDLE_ERROR
+        }
+    }
+    if (info != MPI_INFO_NULL)
+        MPI_Info_free(&info);
 
     /* summary of the difference */
     MPI_Reduce(&numVarDIFF, &varDIFF, 1, MPI_LONG_LONG_INT, MPI_SUM, 0, comm);
@@ -799,15 +989,6 @@ int main(int argc, char **argv)
                 printf("Number of differences in variables %lld\n",varDIFF);
         }
     }
-
-    /* free up the memory previously allocated */
-    if (var_list.nvars) {
-        for (i=0; i<var_list.nvars; i++)
-            free(var_list.names[i]);
-        free(var_list.names);
-    }
-    free(name1);
-    free(name2);
 
     if (rank == 0) numDIFF = varDIFF + numHeadDIFF;
     MPI_Bcast(&numDIFF, 1, MPI_LONG_LONG_INT, 0, comm);

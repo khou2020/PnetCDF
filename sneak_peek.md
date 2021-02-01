@@ -3,30 +3,19 @@ This is essentially a placeholder for the next release note ...
 ------------------------------------------------------------------------------
 
 * New features
-  + ADIOS BP read capability -- Reading ADIOS 1.x BP formatted file. 
-    PnetCDF will detect BP file format automatically. No additional flag needed when opening a BP formatted file.
-    Currently, the ADIOS driver does not support the low-level API.
+  + none
 
 * New optimization
   + none
 
 * New Limitations
-  + ADIOS driver is ready only. For more detail on limitations, please refer to /doc/README.ADIOS.md
+  + none
 
 * Update configure options
-  + Enable ADIOS support.
-    - `--enable-adios`: enable reading BP formated file
-    - `--with-adios=/path/to/netcdf-4`: path to ADIOS library installation
-  + When building with NetCDF-4 feature, using NetCDF-4 library built with
-    PnetCDF enabled, i.e. --enable-pnetcdf, is not supported. See
-    [Issue #33](https://github.com/Parallel-NetCDF/PnetCDF/issues/33).
-  + Option `--with-netcdf4` now allows a form of `--with-netcdf4=INC,LIB` in
-    addition to `--with-netcdf4=DIR`. This is in case the include and lib
-    folders of NetCDF-4 installation are in different locations.
+  + none
 
 * New constants
-  + NC_BP, NF_BP, and NF90_BP is the flag indicating BP file access mode.
-  + NC_FORMAT_BP, NF_FORMAT_BP, and NF90_FORMAT_BP indicate BP file format.
+  + none
 
 * New APIs
   + none
@@ -44,8 +33,7 @@ This is essentially a placeholder for the next release note ...
   + none
 
 * New error code
-  + NC_EADIOS, NF_EADIOS, NF90_EADIOS
-    ADIOS library internal error that does not corresponds to any PnetCDF error code.
+  + none
 
 * New PnetCDF hint
   + none
@@ -56,53 +44,61 @@ This is essentially a placeholder for the next release note ...
 * Build recipes
   + none
 
-* New/updated utility program
-  + ncmpidump
-    It can now be used to dump BP formated file.
+* Updated utility program
+  + ncvalidator now reports the name of variable that violates the NetCDF
+    limitation on large variables for CDF-2 files
+  + add corrupted file bad_large_fixed_var.nc2 that contains one large
+    fixed-size variables that is not defined last
+  + add corrupted file bad_large_rec_2_vars.nc2 that contains 2 large record
+    variables
+  + add corrupted file bad_large_rec_var.nc2 that contains 1 large record
+    variable that is not defined last
+  + add URLs of NetCDF limitations on large variables for CDF-1 and 2 file
+    formats
 
 * Other updates:
-  + none
+  + When using NC_CLOBBER in the call of ncmpi_create(), use access() to check
+    whether file exists. If not, successive calls to truncate() or unlink() can
+    be skip.
+  + Improve detection of HDF5 signature. The HDF5 signature is located at the
+    beginning of the HDF5 superblock, but the location of HDF5 superblock may
+    not be at the beginning of the file. It is located at byte offset 0, byte
+    offset 512, and at successive locations in the file, each a multiple of two
+    of the previous location; in other words, at these byte offsets: 0, 512,
+    1024, 2048, and so on.
 
 * Bug fixes
-  + When `--enable-netcdf4` is used at configure time, users may encounter
-    problem during configure or make time, if the NetCDF4 library was built
-    with static libraries only. Thanks Bruno Pagani for reporting. This has
-    been fixed in
-    [pull request #46](https://github.com/Parallel-NetCDF/PnetCDF/pull/46).
-  + When calling a nonblocking API with a zero-length request and argument
-    request ID being NULL, segmentation fault may occur. See
-    [PR #51](https://github.com/Parallel-NetCDF/PnetCDF/pull/51)
+  + Fix NC_CLOBBER mode for ncmpi_create() when called on existing symbolically
+    linked files. In all previous PnetCDF implementations, symbolic links, like
+    other regular files, was first deleted by unlink() and then created. This
+    can result in an unexpected outcome, i.e. the symbolic link being deleted.
+    NetCDF library implements this differently, by adding O_TRUNC flag when
+    calling open() to truncate the file to length 0. Historically, PnetCDF did
+    not adopt the same approach because MPI does not define a similar flag to
+    O_TRUNC and the only way to achieve the file clobber effect is to through
+    MPI_File_set_size(), which can be expensive as the function takes an MPI
+    file handler argument, which requires to open the file first with a call to
+    MPI_File_open().
+  + Fix various compile and link bugs when NAG Fortran is used. Bugs include
+    flag needed to verbose linking output, unrecognized link option -pthread,
+    unmatched C compiler underneath. Thanks Sergey Kosukhin for providing the
+    fix in [PR #59](https://github.com/Parallel-NetCDF/PnetCDF/pull/59)
+    and [PR #60](https://github.com/Parallel-NetCDF/PnetCDF/pull/60)
+  + Fix a bug of calling Fortran getarg() with the first argument k with a
+    value > 0 when there is no command-line argument is used. NAG Fortran may
+    crash the program. See
+    [f16bd3c](https://github.com/Parallel-NetCDF/PnetCDF/commit/f16bd3c1ba1b08eade2384f094c519f3f2dc114e)
+  + Fix a bug that limits FLASH-IO to run on less than 16K MPI processes. See
+    [1d84fa5](https://github.com/Parallel-NetCDF/PnetCDF/commit/1d84fa5d54ca9179da4a5b1a4ee3b92cc92287ed)
 
 * New example programs
-  + examples/adios/read_metadata.c - Dump all metadata in a ADIOS BP file.
-  + examples/adios/read_var.c -  Read a variable form a BP file generated by the 
-    ADIOS example program examples/C/arrays/arrays_write.
-  + examples/adios/read_var_nb.c -  Read a variable form a BP file generated by the 
-    ADIOS example program examples/C/arrays/arrays_write using non-blocking API.
+  + none
 
 * New programs for I/O benchmarks
   + none
 
 * New test program
-  + test/adios/open.c - tests if PnetCDF recognize ADIOS file.
-  + test/adios/header.c - tests if PnetCDF can parse ADIOS header.
-  + test/adios/var.c - tests if PnetCDF can access ADIOS variables.
-  + test/adios/varm.c - tests if PnetCDF can access ADIOS variables with discontiguous memory.
-  + test/adios/vars.c - tests if PnetCDF can access ADIOS variables with stride.
-  + test/adios/ivar.c - tests if PnetCDF can access ADIOS variables using non-blocking API.
-  + test/adios/ivarm.c - tests if PnetCDF can access ADIOS variables with discontiguous memory using non-blocking API.
-  + test/adios/ivars.c - tests if PnetCDF can access ADIOS variables with stride using non-blocking API.
-  + test/adios/att.c - tests if PnetCDF can access ADIOS attributes.
-  + test/adios/indep.c - tests if PnetCDF can access ADIOS variables independently.
-  + test/burst_buffer/varn.c -- to test varn API when burst buffer driver is
-    used. The test includes cases when argument counts are is or some of the
-    elements in counts are NULL.
-  + test/nc4/notsupport - Test if error code NC_ENOTSUPPORT is properly
-    returned when calling APIs for unsupported NetCDF-4 feature.
-  + test/nc4/rec - Test creating and reading a NetCDF-4 file with 1 unlimited
-    dimension. 
-  + test/nc4/rec2 - Test opening a NetCDF-4 file with more than 1 unlimited
-    dimensions.
+  + none
 
 * Conformity with NetCDF library
   + none

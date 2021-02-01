@@ -21,12 +21,14 @@
 #define FILE_ALIGNMENT_LB      4
 
 /* MPI_OFFSET datatype was introduced in MPI 2.2 */
+#if MPI_VERSION < 3
 #ifndef HAVE_DECL_MPI_OFFSET
     #if SIZEOF_MPI_OFFSET ==  SIZEOF_MPI_LONG_LONG_INT
         #define MPI_OFFSET MPI_LONG_LONG_INT
     #else
         #define MPI_OFFSET MPI_INT
     #endif
+#endif
 #endif
 
 /* XXX: this seems really low.  do we end up spending a ton of time mallocing?
@@ -559,7 +561,7 @@ ncmpio_close_files(NC *ncp, int doUnlink);
 
 /* Begin defined in ncmpio_utils.c ------------------------------------------*/
 extern void
-ncmpio_set_pnetcdf_hints(NC *ncp, MPI_Info info);
+ncmpio_set_pnetcdf_hints(NC *ncp, MPI_Info user_info, MPI_Info info_used);
 
 extern int
 ncmpio_NC_check_name(const char *name, int file_ver);

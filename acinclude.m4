@@ -905,9 +905,9 @@ AC_DEFUN([UD_FORTRAN_TYPES],
 	UD_CHECK_CTYPE_FORTRAN(real, float double, REAL)
 	UD_CHECK_CTYPE_FORTRAN(doubleprecision, double float, DOUBLEPRECISION)
 
-	UD_CHECK_FORTRAN_NCTYPE(NCBYTE_T, byte integer*1 integer, byte)
+dnl	UD_CHECK_FORTRAN_NCTYPE(NCBYTE_T, byte integer*1 integer, byte)
 
-	UD_CHECK_FORTRAN_NCTYPE(NCSHORT_T, integer*2 integer, short)
+dnl	UD_CHECK_FORTRAN_NCTYPE(NCSHORT_T, integer*2 integer, short)
 dnl	UD_CHECK_FORTRAN_CTYPE(NF_SHORT_T, $NCSHORT_T, short, SHRT_MIN, SHRT_MAX)
 
 dnl	UD_CHECK_FORTRAN_NCTYPE(NCLONG_T, integer*4 integer, long)
@@ -1706,64 +1706,66 @@ AC_DEFUN([UD_CHECK_MPICC_IS_SOLARIS],[
 
 dnl Check MPI C compiler base
 dnl
-AC_DEFUN([UD_CHECK_MPICC_BASE],[
+AC_DEFUN([UD_CHECK_MPICC_BASE_VENDOR],[
    AC_MSG_CHECKING([MPI C compiler base])
-   ac_cv_mpicc_base=
+   ac_cv_mpicc_base_vendor=
    # Check GCC
    ac_MPICC_VER="$($MPICC --version 2>&1)"
    ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w gcc`
    # AC_MSG_NOTICE(GCC ac_MPICC_VER=$ac_MPICC_VER)
    if test "x${ac_MPICC_VER}" != x ; then
-      ac_cv_mpicc_base="GCC"
+      ac_cv_mpicc_base_vendor="GCC"
    else
       # Check CLANG
       ac_MPICC_VER="$($MPICC --version 2>&1)"
       ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w clang`
       # AC_MSG_NOTICE(clang ac_MPICC_VER=$ac_MPICC_VER)
       if test "x${ac_MPICC_VER}" != x ; then
-         ac_cv_mpicc_base="CLANG"
+         ac_cv_mpicc_base_vendor="CLANG"
       else
          # Check Intel C
          ac_MPICC_VER="$($MPICC --version 2>&1)"
-         ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w icc`
+         # grep keyword Intel instead of "icc"
+         ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w Intel`
          # AC_MSG_NOTICE(icc ac_MPICC_VER=$ac_MPICC_VER)
          if test "x${ac_MPICC_VER}" != x ; then
-            ac_cv_mpicc_base="ICC"
+            ac_cv_mpicc_base_vendor="ICC"
          else
             # Check XLC
             ac_MPICC_VER="$($MPICC -qversion 2>&1)"
             ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} "IBM XL C"`
             # AC_MSG_NOTICE(XLC ac_MPICC_VER=$ac_MPICC_VER)
             if test "x${ac_MPICC_VER}" != x ; then
-               ac_cv_mpicc_base="XLC"
+               ac_cv_mpicc_base_vendor="XLC"
             else
                # Check PGCC
                ac_MPICC_VER="$($MPICC -V -c 2>&1)"
-               ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w pgcc`
+               # grep keyword PGI instead of "pgcc"
+               ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w PGI`
                # AC_MSG_NOTICE(pgcc ac_MPICC_VER=$ac_MPICC_VER)
                if test "x${ac_MPICC_VER}" != x ; then
-                  ac_cv_mpicc_base="PGCC"
+                  ac_cv_mpicc_base_vendor="PGCC"
                else
                   # Check SOLARIS
                   ac_MPICC_VER="$($MPICC -V 2>&1)"
                   ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w Sun`
                   # AC_MSG_NOTICE(Sun ac_MPICC_VER=$ac_MPICC_VER)
                   if test "x${ac_MPICC_VER}" != x ; then
-                     ac_cv_mpicc_base="SOLARIS"
+                     ac_cv_mpicc_base_vendor="SOLARIS"
                   else
                      # Check FCCPX
                      ac_MPICC_VER="$($MPICC --showme 2>&1)"
                      ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w fccpx`
                      # AC_MSG_NOTICE(fccpx ac_MPICC_VER=$ac_MPICC_VER)
                      if test "x${ac_MPICC_VER}" != x ; then
-                        ac_cv_mpicc_base="FCCPX"
+                        ac_cv_mpicc_base_vendor="FCCPX"
                      else
                         # If just cc, check if it is a wrapper of GCC
                         ac_MPICC_VER="$($MPICC -v 2>&1)"
                         UD_MSG_DEBUG(GCC ac_MPICC_VER=$ac_MPICC_VER)
                         ac_MPICC_VER=`echo $ac_MPICC_VER | ${GREP} -w gcc`
                         if test "x${ac_MPICC_VER}" != x ; then
-                           ac_cv_mpicc_base="GCC"
+                           ac_cv_mpicc_base_vendor="GCC"
                         fi
                      fi
                   fi
@@ -1772,10 +1774,10 @@ AC_DEFUN([UD_CHECK_MPICC_BASE],[
          fi
       fi
    fi
-   if test "x$ac_cv_mpicc_base" = x ; then
+   if test "x$ac_cv_mpicc_base_vendor" = x ; then
       AC_MSG_RESULT([unknown])
    else
-      AC_MSG_RESULT([$ac_cv_mpicc_base])
+      AC_MSG_RESULT([$ac_cv_mpicc_base_vendor])
    fi
 ])
 
@@ -1806,26 +1808,6 @@ AC_DEFUN([UD_CHECK_MPIF77_IS_PGF77],[
      fi
      ${RM} -f conftest.ver
      unset ac_MPIF77_VENDOR
-    ])
-])
-
-dnl Check if Fortran compiler is NAG
-dnl According to nagfor manual the command-line option to get version is -V
-dnl % nagfor -V
-dnl NAG Fortran Compiler Release 6.1(Tozai) Build 6106
-dnl Product NPL6A61NA for x86-64 Linux
-dnl Copyright 1990-2016 The Numerical Algorithms Group Ltd., Oxford, U.K.
-dnl
-dnl Note "nagfor -V" prints the version info on stderr, instead of stdout
-dnl
-AC_DEFUN([UD_CHECK_MPIF90_IS_NAG],[
-    AC_CACHE_CHECK([if MPI Fortran 90 compiler is NAG Fortran], [ac_cv_mpif90_is_NAG],
-    [ac_cv_mpif90_is_NAG=no
-     ac_MPIF90_VENDOR=`eval $MPIF90 -V 2>&1 | head -c 3`
-     if test "x${ac_MPIF90_VENDOR}" = xNAG ; then
-        ac_cv_mpif90_is_NAG=yes
-     fi
-     unset ac_MPIF90_VENDOR
     ])
 ])
 
@@ -1918,7 +1900,7 @@ AC_DEFUN([UD_MPI_PATH_PROG], [
 
    dnl First check if ac_first_token contain a full path
    dnl If yes, check, check if the file exists. Need not check MPI_INSTALL.
-   ac_mpi_prog_path=`dirname $ac_first_token`
+   ac_mpi_prog_path=`AS_DIRNAME(["$ac_first_token"])`
    if test "x$ac_mpi_prog_path" != "x." ; then
       AC_MSG_CHECKING([whether $ac_first_token exists and is executable])
       if test -x "$ac_first_token" ; then
@@ -1953,7 +1935,11 @@ AC_DEFUN([UD_MPI_PATH_PROG], [
             fi
          fi
          if test "x$ac_mpi_prog_$1" != x ; then
-            $1="${ac_mpi_prog_$1} $ac_rest_tokens"
+            if test "x$ac_rest_tokens" != x ; then
+               $1="${ac_mpi_prog_$1} $ac_rest_tokens"
+            else
+               $1=${ac_mpi_prog_$1}
+            fi
          else
             $1=
          fi
@@ -1961,7 +1947,11 @@ AC_DEFUN([UD_MPI_PATH_PROG], [
          dnl MPI_INSTALL is not set, i.e. --with-mpi is not used
          AC_PATH_PROG([ac_mpi_prog_$1], [$ac_first_token])
          if test "x$ac_mpi_prog_$1" != x ; then
-            $1="${ac_mpi_prog_$1} $ac_rest_tokens"
+            if test "x$ac_rest_tokens" != x ; then
+               $1="${ac_mpi_prog_$1} $ac_rest_tokens"
+            else
+               $1=${ac_mpi_prog_$1}
+            fi
          else
             $1=
          fi
@@ -2270,7 +2260,7 @@ AC_DEFUN([LT_MPI_CHECK_SHLIB],[
    $RM -rf $objdir conftest.$ac_objext conftest.la
    dnl RM must have -f option when calling libtool
    ac_RM_saved=${RM}
-   if test "x$RM" = xrm -o "x$RM" = "x/bin/rm" ; then
+   if test "x$RM" = xrm || test "x$RM" = "x/bin/rm" ; then
       RM="$RM -f"
    fi
    ac_ltcompile='./libtool --mode=compile $MPICC -c $CFLAGS $CPPFLAGS conftest.$ac_ext -o conftest.lo >&AS_MESSAGE_LOG_FD'
@@ -2290,8 +2280,9 @@ AC_DEFUN([LT_MPI_CHECK_SHLIB],[
 # -----------------------------------------------------------------
 # check MPI version and vendor
 AC_DEFUN([CHECK_MPI_VERSION],[
+   AC_REQUIRE([AX_COMPILER_VENDOR])
    AC_REQUIRE([AC_PROG_GREP])
-   AC_MSG_CHECKING([MPI version])
+   AC_MSG_CHECKING([MPI Standard version implemented])
    AC_COMPUTE_INT([mpi_version], [MPI_VERSION], [[#include <mpi.h>]])
    AC_COMPUTE_INT([mpi_subversion], [MPI_SUBVERSION], [[#include <mpi.h>]])
    if test "x$mpi_version" = x ; then
@@ -2300,42 +2291,225 @@ AC_DEFUN([CHECK_MPI_VERSION],[
       AC_MSG_RESULT([${mpi_version}.${mpi_subversion}])
    fi
 
-   AC_CHECK_DECLS([MPICH_VERSION, MPICH2_VERSION, OMPI_MAJOR_VERSION, MVAPICH2_VERSION],
-                  [], [], [#include <mpi.h>])
+   AC_CHECK_DECL([MPICH_VERSION],      [], [], [#include <mpi.h>])
+   AC_CHECK_DECL([MPICH2_VERSION],     [], [], [#include <mpi.h>])
+   AC_CHECK_DECL([OMPI_MAJOR_VERSION], [], [], [#include <mpi.h>])
+   AC_CHECK_DECL([MVAPICH2_VERSION],   [], [], [#include <mpi.h>])
    AC_MSG_CHECKING([MPI vendor])
 
-cat - <<_ACEOF >conftest.c
-#include <mpi.h>
-_ACEOF
-
-   # CPP flag to show macro definitions
-   # For GCC, Intel, and PGI, it is -dM and prints to stdout
-   # For Oracle Solaris Studio compiler, it is -xdumpmacros=defs and prints to stderr
+   # MACRO_FLAG is the CPP flag to show macro definitions. For GCC, Intel, and
+   # PGI, it is -dM and prints to stdout. For Oracle Solaris Studio compiler,
+   # it is -xdumpmacros=defs and prints to stderr
    MACRO_FLAG="-dM"
-   if test "x$ac_cv_mpicc_base" = xXLC ; then
+   if test "x$ax_cv_c_compiler_vendor" = xibm ; then
       MACRO_FLAG="-qshowmacros"
    fi
 
+   saved_CPPFLAGS=$CPPFLAGS
+   CPPFLAGS="$CPPFLAGS $MACRO_FLAG"
+   AC_PREPROC_IFELSE([AC_LANG_PROGRAM([[#include <mpi.h>]], [])],
+                     [`cp conftest.i saved_conftest.i`])
+   CPPFLAGS=$saved_CPPFLAGS
+   unset MACRO_FLAG
+
+   # version_str=`${EGREP} -E 'MVAPICH2_VERSION|MPICH_VERSION|MPICH2_VERSION|OMPI_MAJOR_VERSION|OMPI_MINOR_VERSION|OMPI_RELEASE_VERSION' conftest.i`
+   # echo a variable deletes any linefeeds in that variable, so we cannot use
+   # `echo $version_str | ${GREP} MVAPICH2_VERSION`. Instead, we can use
+   # version=`${GREP} MPICH_VERSION <<< "$version_str" | cut -d' ' -d'"' -f2`
+
    # Note MVAPICH2's mpi.h also defines MPICH_VERSION, so this check must be
    # done before MPICH.
-   if test "x$ac_cv_have_decl_MVAPICH2_VERSION" = xyes ; then
-      mvapich2_version=`$CPP $MACRO_FLAG conftest.c |& ${GREP} MVAPICH2_VERSION | cut -d' ' -d'"' -f2`
-      AC_MSG_RESULT(MVAPICH2 $mvapich2_version)
-   elif test "x$ac_cv_have_decl_MPICH_VERSION" = xyes ; then
-      mpich_version=`$CPP $MACRO_FLAG conftest.c |& ${GREP} MPICH_VERSION | cut -d' ' -d'"' -f2`
-      AC_MSG_RESULT(MPICH $mpich_version)
-   elif test "x$ac_cv_have_decl_MPICH2_VERSION" = xyes ; then
-      mpich2_version=`$CPP $MACRO_FLAG conftest.c |& ${GREP} MPICH2_VERSION | cut -d' ' -d'"' -f2`
-      AC_MSG_RESULT(MPICH2 $mpich2_version)
-   elif test "x$ac_cv_have_decl_OMPI_MAJOR_VERSION" = xyes ; then
-      AC_COMPUTE_INT([OMPI_MAJOR_VERSION], [OMPI_MAJOR_VERSION], [[#include <mpi.h>]])
-      AC_COMPUTE_INT([OMPI_MINOR_VERSION], [OMPI_MINOR_VERSION], [[#include <mpi.h>]])
-      AC_COMPUTE_INT([OMPI_RELEASE_VERSION], [OMPI_RELEASE_VERSION], [[#include <mpi.h>]])
-      ompi_version="${OMPI_MAJOR_VERSION}.${OMPI_MINOR_VERSION}.${OMPI_RELEASE_VERSION}"
-      AC_MSG_RESULT(OpenMPI $ompi_version)
+   if test -f saved_conftest.i ; then
+      if test "x$ac_cv_have_decl_MVAPICH2_VERSION" = xyes ; then
+         mvapich2_version=`${GREP} MVAPICH2_VERSION saved_conftest.i | cut -d' ' -d'"' -f2`
+         AC_MSG_RESULT(MVAPICH2 $mvapich2_version)
+         unset mvapich2_version
+      elif test "x$ac_cv_have_decl_MPICH_VERSION" = xyes ; then
+         mpich_version=`${GREP} MPICH_VERSION saved_conftest.i | cut -d' ' -d'"' -f2`
+         AC_MSG_RESULT(MPICH $mpich_version)
+         unset mpich_version
+      elif test "x$ac_cv_have_decl_MPICH2_VERSION" = xyes ; then
+         mpich2_version=`${GREP} MPICH2_VERSION saved_conftest.i | cut -d' ' -d'"' -f2`
+         AC_MSG_RESULT(MPICH2 $mpich2_version)
+         unset mpich2_version
+      elif test "x$ac_cv_have_decl_OMPI_MAJOR_VERSION" = xyes ; then
+         # AC_COMPUTE_INT([OMPI_MAJOR], [OMPI_MAJOR_VERSION], [[#include <mpi.h>]])
+         # AC_COMPUTE_INT([OMPI_MINOR], [OMPI_MINOR_VERSION], [[#include <mpi.h>]])
+         # AC_COMPUTE_INT([OMPI_RELEASE], [OMPI_RELEASE_VERSION], [[#include <mpi.h>]])
+         OMPI_MAJOR=`${GREP} OMPI_MAJOR_VERSION saved_conftest.i | cut -d' ' -f3`
+         OMPI_MINOR=`${GREP} OMPI_MINOR_VERSION saved_conftest.i | cut -d' ' -f3`
+         OMPI_RELEASE=`${GREP} OMPI_RELEASE_VERSION saved_conftest.i | cut -d' ' -f3`
+         ompi_version="${OMPI_MAJOR}.${OMPI_MINOR}.${OMPI_RELEASE}"
+         AC_MSG_RESULT(OpenMPI $ompi_version)
+         unset OMPI_MAJOR
+         unset OMPI_MINOR
+         unset OMPI_RELEASE
+         unset ompi_version
+      fi
    else
       AC_MSG_RESULT([unknown])
    fi
-   ${RM} -f conftest.c
-   unset MACRO_FLAG
+   ${RM} -f saved_conftest.i
 ])
+
+dnl It is not sufficient to use AC_CHECK_DECLS to check whether deprecated MPI
+dnl constants are defined. OpenMPI still define the constants deprecated by MPI
+dnl 3.0 as some error messages. We need to call AC_COMPILE_IFELSE to check
+dnl whether they can be used without compilation errors.
+dnl
+m4_define([_UD_CHECK_MPI_CONSTANTS],
+   [AC_MSG_CHECKING([whether $1 is defined])
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([$4],[[int dummy=$1;]])],
+                      [ac_have_const=yes], [ac_have_const=no])
+    AC_MSG_RESULT([$ac_have_const])
+    if test "x$ac_have_const" = xyes ; then
+       AC_DEFINE([HAVE_$1], [1], [Define if $1 is defined and not deprecated])
+    fi]
+   [m4_ifvaln([$2$3], [AS_IF([test x$ac_have_const = xyes], [$2], [$3])])])
+
+AC_DEFUN([UD_CHECK_MPI_CONSTANTS],
+   [m4_map_args_sep([_$0(], [, [$2], [$3], [$4])], [], $1)])
+
+# _ACX_FC_MISMATCH([ACTION-IF-SUCCESS],
+#                  [ACTION-IF-FAILURE = FAILURE])
+# -----------------------------------------------------------------------------
+# Finds the compiler flag needed to allow routines to be called with different
+# argument types. The result is either "unknown", or the actual compiler flag
+# required to downgrade consistency checking of procedure argument lists, which
+# may be an empty string.
+#
+# If successful, runs ACTION-IF-SUCCESS, otherwise runs ACTION-IF-FAILURE
+# (defaults to failing with an error message).
+#
+# The flag is cached in the acx_cv_[]_AC_LANG_ABBREV[]_mismatch_flag variable.
+#
+# Known flags:
+# NAGWare: -mismatch
+#
+AC_DEFUN([_ACX_FC_MISMATCH],
+  [_AC_FORTRAN_ASSERT()dnl
+   m4_pushdef([acx_cache_var], [acx_cv_[]_AC_LANG_ABBREV[]_mismatch_flag])dnl
+   AC_MSG_CHECKING([for _AC_LANG compiler flag needed to allow routines to dnl
+be called with different argument types])
+   AC_CACHE_VAL([acx_cache_var],
+     [acx_cache_var=unknown
+      acx_save_[]_AC_LANG_PREFIX[]FLAGS=$[]_AC_LANG_PREFIX[]FLAGS
+      AC_LANG_CONFTEST([AC_LANG_PROGRAM([], [[      implicit none
+      integer a
+      real b
+      character c
+      call foo1(a)
+      call foo1(b)
+      call foo1(c)]])])
+      for acx_flag in '' -mismatch; do
+        _AC_LANG_PREFIX[]FLAGS="${acx_save_[]_AC_LANG_PREFIX[]FLAGS} $acx_flag"
+        AC_COMPILE_IFELSE([], [acx_cache_var=$acx_flag])
+        test "x$acx_cache_var" != xunknown && break
+      done
+      rm -f conftest.$ac_ext
+      _AC_LANG_PREFIX[]FLAGS=$acx_save_[]_AC_LANG_PREFIX[]FLAGS])
+   AS_IF([test -n "$acx_cache_var"],
+     [AC_MSG_RESULT([$acx_cache_var])],
+     [AC_MSG_RESULT([none needed])])
+   AS_VAR_IF([acx_cache_var], [unknown], [m4_default([$2],
+     [AC_MSG_FAILURE([unable to detect _AC_LANG compiler flag needed to dnl
+allow routines to be called with different argument types])])], [$1])
+   m4_popdef([acx_cache_var])])
+
+# ACX_FC_MISMATCH([ACTION-IF-SUCCESS], [ACTION-IF-FAILURE = FAILURE])
+# -----------------------------------------------------------------------------
+AC_DEFUN([ACX_FC_MISMATCH],
+  [AC_LANG_PUSH([Fortran])_ACX_FC_MISMATCH($@)AC_LANG_POP([Fortran])])
+
+# ACX_F77_MISMATCH([ACTION-IF-SUCCESS], [ACTION-IF-FAILURE = FAILURE])
+# -----------------------------------------------------------------------------
+AC_DEFUN([ACX_F77_MISMATCH],
+  [AC_LANG_PUSH([Fortran 77])_ACX_FC_MISMATCH($@)AC_LANG_POP([Fortran 77])])
+
+# _AC_PROG_FC_V
+# -------------
+# Determine the flag that causes the Fortran compiler to print
+# information of library and object files (normally -v)
+# Needed for _AC_FC_LIBRARY_FLAGS
+# Some compilers don't accept -v (Lahey: (-)-verbose, xlf: -V, Fujitsu: -###)
+# Fujitsu accepts --verbose and passes it to the linker, which doesn't yield
+# the desired result. Therefore test for -### before testing for --verbose.
+# -------------
+# This macro is used by AC_F77_LIBRARY_LDFLAGS and AC_FC_LIBRARY_LDFLAGS.
+# We need to overload it to allow for additional possible results:
+# NAG: -Wl,-v
+AC_DEFUN([_AC_PROG_FC_V],
+[_AC_FORTRAN_ASSERT()dnl
+AC_CACHE_CHECK([how to get verbose linking output from $[]_AC_FC[]],
+                [ac_cv_prog_[]_AC_LANG_ABBREV[]_v],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+[ac_cv_prog_[]_AC_LANG_ABBREV[]_v=
+# Try some options frequently used verbose output
+for ac_verb in -v -verbose -V -\#\#\# --verbose -Wl,-v; do
+  _AC_PROG_FC_V_OUTPUT($ac_verb)
+  # look for -l* and *.a constructs in the output
+  for ac_arg in $ac_[]_AC_LANG_ABBREV[]_v_output; do
+     case $ac_arg in
+	[[\\/]]*.a | ?:[[\\/]]*.a | -[[lLRu]]*)
+	  ac_cv_prog_[]_AC_LANG_ABBREV[]_v=$ac_verb
+	  break 2 ;;
+     esac
+  done
+done
+if test -z "$ac_cv_prog_[]_AC_LANG_ABBREV[]_v"; then
+   AC_MSG_WARN([cannot determine how to obtain linking information from $[]_AC_FC[]])
+fi],
+                  [AC_MSG_WARN([compilation failed])])
+])])# _AC_PROG_FC_V
+
+# MPI_COMPILER_BASE
+# -----------------------------------------------------------------
+# Returns the base compiler command used in MPI compiler wrapper in
+# ac_cv_mpi_compiler_base_MPICC, ac_cv_mpi_compiler_base_MPICXX,
+# ac_cv_mpi_compiler_base_MPIF90, such as /usr/bin/gcc, /usr/bin/g++,
+# /usr/bin/gfortran
+#
+AC_DEFUN([MPI_COMPILER_BASE],[
+   # before checking, remove compile command-line options, if there is any
+   compile_cmd=`echo $$1 | cut -d" " -f1`
+   AC_MSG_CHECKING([base compiler command in $1 wrapper])
+   compile_basename=
+   case $compile_cmd in
+        mpicc | mpicxx | mpif77 | mpif90 | mpifort | *[[\\/]]mpicc | *[[\\/]]mpicxx | *[[\\/]]mpif77 | *[[\\/]]mpif90 | *[[\\/]]mpifort )
+           # MPICH, OpenMPI
+           compile_basename=`$compile_cmd -show | cut -d' ' -f1`
+           ;;
+        mpixlc | mpixlcxx | mpixlf77 | mpixlf90 | *[[\\/]]mpixlc | *[[\\/]]mpixlcxx | *[[\\/]]mpixlf77 | *[[\\/]]mpixlf90 )
+           # IBM XL MPI compilers
+           compile_basename=`$compile_cmd -show | cut -d' ' -f1`
+           ;;
+        mpifccpx | mpiFCCpx | mpifrtpx | *[[\\/]]mpifccpx | *[[\\/]]mpiFCCpx | *[[\\/]]mpifrtpx )
+           # Fujitsu MPI compilers: fccpx, FCCpx, frtpx
+           compile_basename=`$compile_cmd -showme | cut -d' ' -f1`
+           ;;
+        cc | CC | ftn | *[[\\/]]cc | *[[\\/]]CC | *[[\\/]]ftn )
+           # For Cray PrgEnv-intel, cc is a wrapper of icc
+           # For Cray PrgEnv-gnu, cc is a wrapper of gcc
+           eval "$compile_cmd --version" < /dev/null >& conftest.ver
+           compile_basename=`head -n1 conftest.ver |cut -d' ' -f1`
+           ${RM} -f conftest.ver
+           if test "x${compile_basename}" = x ; then
+              # For Cray PrgEnv-cray, cc is a wrapper of Cray CC
+              # Cray cc -V sends the output to stderr.
+              eval "$compile_cmd -V" < /dev/null >& conftest.ver
+              compile_basename=`head -n1 conftest.ver |cut -d' ' -f1`
+              ${RM} -f conftest.ver
+           fi
+           ;;
+        *) break;;
+   esac
+   if test "x${compile_basename}" != x ; then
+      AC_MSG_RESULT([$compile_basename])
+      AC_PATH_PROG([ac_cv_mpi_compiler_base_$1], [$compile_basename])
+   else
+      AC_MSG_RESULT([not found])
+   fi
+   unset compile_basename
+   unset compile_cmd
+])# MPI_COMPILER_BASE
+

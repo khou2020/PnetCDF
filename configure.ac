@@ -14,12 +14,16 @@ dnl AC_REVISION([$Revision$])dnl
 
 dnl autoconf v2.69 was released in 2012-04-24
 AC_PREREQ([2.69])
-AC_INIT([PnetCDF],[1.11.2],[parallel-netcdf@mcs.anl.gov],[pnetcdf],[https://parallel-netcdf.github.io])
+AC_INIT([PnetCDF],[1.12.1],[parallel-netcdf@mcs.anl.gov],[pnetcdf],[https://parallel-netcdf.github.io])
 
 dnl config.h.in will be created by autoreconf (autoheader)
 dnl call it right after AC_INIT, as suggested by autoconf
 AC_CONFIG_HEADERS([src/include/config.h])
-
+AH_TOP([/*
+ * Copyright (C) 2003, Northwestern University and Argonne National Laboratory
+ * See COPYRIGHT notice in top-level directory.
+ */
+])
 AC_CONFIG_SRCDIR([src/include/pnetcdf.h.in])
 
 AC_CONFIG_AUX_DIR([./scripts])
@@ -152,7 +156,8 @@ AC_ARG_VAR(RM, Command for deleting files or directories. @<:@default: rm@:>@)
 if test "x${RM}" != x ; then
    dnl ${RM} set by user may contain flags
    RM_CMD=`echo ${RM} | cut -d' ' -f1`
-   if ! test -f ${RM_CMD} ; then
+   # use "if ! test" is not portable, according to autoconf user guide
+   if test -f ${RM_CMD} ; then :; else
       AC_CHECK_PROG([rm_cmd], [${RM_CMD}], [yes], [no])
       if test "x${rm_cmd}" = xno ; then
          RM=rm
@@ -179,14 +184,24 @@ AC_ARG_ENABLE(echo,
 MPI_INSTALL=
 AC_ARG_WITH(mpi,
    [AS_HELP_STRING([--with-mpi=/path/to/implementation],
-                   [The installation prefix path for MPI implementation.])],
-   [if test "x${withval}" = x ; then
-       AC_MSG_ERROR(--with-mpi is set but the value is NULL)
-    fi
-    if (! test -d "${withval}") ; then
-      AC_MSG_ERROR(Directory '${withval}' specified in --with-mpi does not exist)
-    fi
-    MPI_INSTALL=${withval}]
+                   [The installation prefix path for MPI implementation.])
+   ],[ dnl this clause is run when --with-mpi or --without-mpi is used
+   if test "x${withval}" = xno ; then
+      AC_MSG_ERROR([
+      -----------------------------------------------------------------------
+        PnetCDF is built on top of MPI. Configure option --without-mpi or
+        --with-mpi=no should not be used. Abort.
+      -----------------------------------------------------------------------])
+   elif test "x${withval}" = x ; then
+      AC_MSG_ERROR(--with-mpi is set but the value is NULL)
+   elif test "x${withval}" != xyes && test ! -d "${withval}" ; then
+      # user may use --with-mpi without an argument, which results in withval
+      # being "yes". This case is OK and we simply take no action, as PnetCDF
+      # requires MPI compilers and will check them.
+      AC_MSG_ERROR(Directory '${withval}' specified in --with-mpi does not exist or is not a directory)
+   fi
+   MPI_INSTALL=${withval}
+   ]
 )
 dnl MPI_INSTALL will be referred in UD_MPI_PATH_PROGS and UD_MPI_PATH_PROG
 dnl defined in acinclude.m4
@@ -207,12 +222,12 @@ ac_user_MPICC=$MPICC
 ac_user_MPICXX=$MPICXX
 ac_user_MPIF77=$MPIF77
 ac_user_MPIF90=$MPIF90
-if test "x$MPICC"  = x -a "x$CC"  != x ; then ac_user_MPICC=$CC   ; fi
-if test "x$MPICXX" = x -a "x$CXX" != x ; then ac_user_MPICXX=$CXX ; fi
-if test "x$MPIF77" = x -a "x$F77" != x ; then ac_user_MPIF77=$F77 ; fi
-if test "x$MPIF77" = x -a "x$FC"  != x ; then ac_user_MPIF77=$FC  ; fi
-if test "x$MPIF90" = x -a "x$F90" != x ; then ac_user_MPIF90=$F90 ; fi
-if test "x$MPIF90" = x -a "x$FC"  != x ; then ac_user_MPIF90=$FC  ; fi
+if test "x$MPICC"  = x && test "x$CC"  != x ; then ac_user_MPICC=$CC   ; fi
+if test "x$MPICXX" = x && test "x$CXX" != x ; then ac_user_MPICXX=$CXX ; fi
+if test "x$MPIF77" = x && test "x$F77" != x ; then ac_user_MPIF77=$F77 ; fi
+if test "x$MPIF77" = x && test "x$FC"  != x ; then ac_user_MPIF77=$FC  ; fi
+if test "x$MPIF90" = x && test "x$F90" != x ; then ac_user_MPIF90=$F90 ; fi
+if test "x$MPIF90" = x && test "x$FC"  != x ; then ac_user_MPIF90=$FC  ; fi
 
 CANDIDATE_MPICC="${MPICC} mpicc mpicc_r"
 CANDIDATE_MPICXX="${MPICXX} mpicxx mpic++ mpiCC mpcxx mpc++ mpicxx_r mpiCC_r mpcxx_r mpic++_r mpc++_r"
@@ -220,48 +235,49 @@ CANDIDATE_MPIF77="${MPIF77} mpif77 mpif77_r mpf77 mpf77_r"
 CANDIDATE_MPIF90="${MPIF90} mpif90 mpif90_r mpf90 mpf90_r mpif95 mpif95_r mpf95 mpf95_r"
 
 dnl add GNU MPI compilers
-CANDIDATE_MPICC+=" mpigcc mpgcc mpigcc_r mpgcc_r"
-CANDIDATE_MPICXX+=" mpig++ mpg++ mpig++_r mpg++_r"
-CANDIDATE_MPIF77+=" mpig77 mpig77_r mpg77 mpg77_r"
-CANDIDATE_MPIF90+=" mpigfortran mpgfortran mpigfortran_r mpgfortran_r"
+CANDIDATE_MPICC="$CANDIDATE_MPICC mpigcc mpgcc mpigcc_r mpgcc_r"
+CANDIDATE_MPICXX="$CANDIDATE_MPICXX mpig++ mpg++ mpig++_r mpg++_r"
+CANDIDATE_MPIF77="$CANDIDATE_MPIF77 mpig77 mpig77_r mpg77 mpg77_r"
+CANDIDATE_MPIF90="$CANDIDATE_MPIF90 mpigfortran mpgfortran mpigfortran_r mpgfortran_r"
 
 dnl add IBM MPI compilers
-CANDIDATE_MPICC+=" mpcc_r mpcc mpixlc_r mpixlc"
-CANDIDATE_MPICXX+=" mpCC_r mpCC mpixlcxx_r mpixlcxx mpixlC_r mpixlC"
-CANDIDATE_MPIF77+=" mpixlf77_r mpixlf77"
-CANDIDATE_MPIF90+=" mpixlf90_r mpixlf90"
+CANDIDATE_MPICC="$CANDIDATE_MPICC mpcc_r mpcc mpixlc_r mpixlc"
+CANDIDATE_MPICXX="$CANDIDATE_MPICXX mpCC_r mpCC mpixlcxx_r mpixlcxx mpixlC_r mpixlC"
+CANDIDATE_MPIF77="$CANDIDATE_MPIF77 mpixlf77_r mpixlf77"
+CANDIDATE_MPIF90="$CANDIDATE_MPIF90 mpixlf90_r mpixlf90"
 
 dnl add IBM BGL MPI compilers
-CANDIDATE_MPICC+=" blrts_xlc mpxlc_r mpxlc"
-CANDIDATE_MPICXX+=" blrts_xlC mpxlC_r mpxlC mpixlc++ mpxlcxx mpxlc++ mpxlCC mpixlc++_r mpxlcxx_r mpxlc++_r mpxlCC_r"
-CANDIDATE_MPIF77+=" blrts_xlf mpxlf_r mpxlf mpxlf77 mpxlf77_r mpixlf mpixlf_r"
-CANDIDATE_MPIF90+=" blrts_xlf90 mpxlf90_r mpxlf90 mpxlf95_r mpxlf95 mpixlf95 mpixlf95_r"
+CANDIDATE_MPICC="$CANDIDATE_MPICC blrts_xlc mpxlc_r mpxlc"
+CANDIDATE_MPICXX="$CANDIDATE_MPICXX blrts_xlC mpxlC_r mpxlC mpixlc++ mpxlcxx mpxlc++ mpxlCC mpixlc++_r mpxlcxx_r mpxlc++_r mpxlCC_r"
+CANDIDATE_MPIF77="$CANDIDATE_MPIF77 blrts_xlf mpxlf_r mpxlf mpxlf77 mpxlf77_r mpixlf mpixlf_r"
+CANDIDATE_MPIF90="$CANDIDATE_MPIF90 blrts_xlf90 mpxlf90_r mpxlf90 mpxlf95_r mpxlf95 mpixlf95 mpixlf95_r"
 
 dnl add Fujitsu MPI compilers
-CANDIDATE_MPICC+=" mpifccpx"
-CANDIDATE_MPICXX+=" mpiFCCpx"
-CANDIDATE_MPIF77+=" mpifrtpx"
-CANDIDATE_MPIF90+=" mpifrtpx"
+CANDIDATE_MPICC="$CANDIDATE_MPICC mpifccpx"
+CANDIDATE_MPICXX="$CANDIDATE_MPICXX mpiFCCpx"
+CANDIDATE_MPIF77="$CANDIDATE_MPIF77 mpifrtpx"
+CANDIDATE_MPIF90="$CANDIDATE_MPIF90 mpifrtpx"
 
 dnl add Cray MPI compiler wrappers
-CANDIDATE_MPICC+=" cc"
-CANDIDATE_MPICXX+=" CC"
-CANDIDATE_MPIF77+=" ftn"
-CANDIDATE_MPIF90+=" ftn"
+CANDIDATE_MPICC="$CANDIDATE_MPICC cc"
+CANDIDATE_MPICXX="$CANDIDATE_MPICXX CC"
+CANDIDATE_MPIF77="$CANDIDATE_MPIF77 ftn"
+CANDIDATE_MPIF90="$CANDIDATE_MPIF90 ftn"
 
 dnl add Intel MPI compiler wrappers
-CANDIDATE_MPICC+=" mpiicc icc"
-CANDIDATE_MPICXX+=" mpiicpc mpiicxx mpiic++ mpiiCC icpc"
-CANDIDATE_MPIF77+=" mpiifort mpiifc mpiif77 ifort"
-CANDIDATE_MPIF90+=" mpiifort mpiifc mpiif95 mpiif90 ifort"
+CANDIDATE_MPICC="$CANDIDATE_MPICC mpiicc icc"
+CANDIDATE_MPICXX="$CANDIDATE_MPICXX mpiicpc mpiicxx mpiic++ mpiiCC icpc"
+CANDIDATE_MPIF77="$CANDIDATE_MPIF77 mpiifort mpiifc mpiif77 ifort"
+CANDIDATE_MPIF90="$CANDIDATE_MPIF90 mpiifort mpiifc mpiif95 mpiif90 ifort"
 
 dnl add PGI MPI compiler wrappers
-CANDIDATE_MPICC+=" mpipgcc mppgcc"
-CANDIDATE_MPICXX+=" mpipgCC mppgCC"
-CANDIDATE_MPIF77+=" mpipgf77 mppgf77"
-CANDIDATE_MPIF90+=" mpipgf90 mpipgf95 mppgf90 mppgf95 "
+CANDIDATE_MPICC="$CANDIDATE_MPICC mpipgcc mppgcc"
+CANDIDATE_MPICXX="$CANDIDATE_MPICXX mpipgCC mppgCC"
+CANDIDATE_MPIF77="$CANDIDATE_MPIF77 mpipgf77 mppgf77"
+CANDIDATE_MPIF90="$CANDIDATE_MPIF90 mpipgf90 mpipgf95 mppgf90 mppgf95 "
 
 dnl find the full path of MPICC from CANDIDATE_MPICC and MPI_INSTALL
+UD_MSG_DEBUG([ac_user_MPICC=$ac_user_MPICC])
 if test "x${ac_user_MPICC}" = x ; then
    dnl if MPICC or CC has not been set by users, then search from
    dnl CANDIDATE_MPICC, and find the full path of MPICC
@@ -270,6 +286,7 @@ else
    dnl check whether user specified MPICC is valid
    UD_MPI_PATH_PROG([MPICC], [$ac_user_MPICC])
 fi
+UD_MSG_DEBUG([MPICC=$MPICC])
 
 if test "x${MPICC}" = x ; then
    if test "x$ac_user_MPICC" = x ; then
@@ -278,7 +295,7 @@ if test "x${MPICC}" = x ; then
       ERR_MSG="Specified MPI C compiler \"$ac_user_MPICC\" cannot be found"
    fi
    if test "x$MPI_INSTALL" != x ; then
-      ERR_MSG+=" under $MPI_INSTALL"
+      ERR_MSG="$ERR_MSG under $MPI_INSTALL"
    fi
    AC_MSG_ERROR([
    -----------------------------------------------------------------------
@@ -294,6 +311,13 @@ dnl Now MPICC is configured, do some basic compiler tests
 CC=${MPICC}
 AC_PROG_CC
 dnl AM_PROG_CC_C_O
+
+dnl get compiler vendor in ax_cv_c_compiler_vendor (e.g. gnu, intel)
+AX_COMPILER_VENDOR
+
+dnl get base compiler command of MPI C compiler wrapper in
+dnl ac_cv_mpi_compiler_base_MPICC (e.g. /usr/bin/gcc)
+MPI_COMPILER_BASE(MPICC)
 
 dnl Set output variable CPP to a command that runs the C preprocessor.
 dnl Some C compilers require -E to be used as C preprocessor.
@@ -325,7 +349,7 @@ AC_CHECK_FUNC([MPI_Comm_rank], [],
 
 AC_CHECK_FUNC([MPI_File_open], [],
    dnl maybe -lmpio is needed at link stage
-   [AC_SEARCH_LIBS([MPI_File_open], [mpio], [],
+   [AC_SEARCH_LIBS([MPI_File_open], [mpi mpio], [],
                    [AC_MSG_ERROR([
    -----------------------------------------------------------------------
      The underneath MPI implementation does not support MPI-IO.
@@ -334,13 +358,34 @@ AC_CHECK_FUNC([MPI_File_open], [],
 ])])
 
 dnl check the base of MPICC compiler
-UD_CHECK_MPICC_BASE
-AM_CONDITIONAL(MPICC_IS_XLC,   [test "x${ac_cv_mpicc_base}" = xXLC])
-AM_CONDITIONAL(MPICC_IS_PGCC,  [test "x${ac_cv_mpicc_base}" = xPGCC])
-AM_CONDITIONAL(MPICC_IS_FCCPX, [test "x${ac_cv_mpicc_base}" = xFCCPX])
+AM_CONDITIONAL(MPICC_IS_XLC,  [test "x${ax_cv_c_compiler_vendor}" = xibm])
+AM_CONDITIONAL(MPICC_IS_PGCC, [test "x${ax_cv_c_compiler_vendor}" = xportland])
+AM_CONDITIONAL(MPICC_IS_FCCPX,[test "x${ax_cv_c_compiler_vendor}" = xfujitsu])
 
-dnl print out MPI version and vendor infomration
+dnl print out MPI version and vendor information
 CHECK_MPI_VERSION
+
+dnl PnetCDF requires MPI-IO support and MPI-IO was first introduced in MPI 2.0
+if test "$mpi_version" -lt "2" ; then
+   AC_MSG_ERROR([
+   -----------------------------------------------------------------------
+     PnetCDF requires the MPI library that supports MPI standard version
+     2.0 and later. The supplied MPI library only supports MPI $mpi_version.
+     Abort.
+   -----------------------------------------------------------------------])
+fi
+
+dnl check whether MPICC is built using a C++ compiler
+AC_MSG_CHECKING([whether $MPICC is a wrapper of a C++ compiler])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [int class=0;])],
+                  [AC_MSG_RESULT(no)],
+                  [AC_MSG_ERROR([
+   -----------------------------------------------------------------------
+     PnetCDF requires the supplied MPI C compiler is not a wrapper of a
+     C++ compiler. MPI C compiler is $MPICC
+     Abort.
+   -----------------------------------------------------------------------])]
+)
 
 dnl compute canonical system types
 AC_CANONICAL_BUILD
@@ -394,7 +439,7 @@ if test "x${enable_cxx}" != xno ; then
          ERR_MSG="Specified MPI C++ compiler \"$ac_user_MPICXX\" cannot be found"
       fi
       if test "x$MPI_INSTALL" != x ; then
-         ERR_MSG+=" under $MPI_INSTALL"
+         ERR_MSG="$ERR_MSG under $MPI_INSTALL"
       fi
       if test "x${enable_cxx}" = xyes ; then
          dnl --enable-cxx is explicitly set at command line
@@ -417,7 +462,7 @@ if test "x${enable_cxx}" != xno ; then
    fi
 fi
 
-if test "x${enable_cxx}" = xno -o "x${MPICXX}" = x ; then
+if test "x${enable_cxx}" = xno || test "x${MPICXX}" = x ; then
    dnl when cxx is explicitly disabled or no MPICXX can be found
    has_mpicxx=no
 else
@@ -437,9 +482,14 @@ dnl AC_PROG_CXX_C_O
 if test "x${has_mpicxx}" = xyes ; then
    dnl test if MPICXX can compile an MPI-IO program
    AC_LANG_PUSH(C++)
+   dnl get compiler vendor in ax_cv_cxx_compiler_vendor (e.g. gnu, intel)
+   AX_COMPILER_VENDOR
+   dnl get base compiler command of MPI C++ compiler wrapper in
+   dnl ac_cv_mpi_compiler_base_MPICXX (e.g. /usr/bin/g++)
+   MPI_COMPILER_BASE(MPICXX)
    AC_CHECK_FUNC([MPI_File_close], [],
       dnl maybe -lmpi++ is needed at link stage
-      [AC_SEARCH_LIBS([MPI_File_close], [mpi++ mpichcxx mpi_cxx], [],
+      [AC_SEARCH_LIBS([MPI_File_close], [mpi mpio mpi++ mpichcxx mpi_cxx], [],
                       [has_mpicxx=no])])
    AC_LANG_POP(C++)
    if test "x$has_mpicxx" = xno ; then
@@ -472,9 +522,6 @@ UD_MSG_DEBUG(has_mpicxx=$has_mpicxx)
 AM_CONDITIONAL(HAS_MPICXX, [test x$has_mpicxx = xyes])
 AM_CONDITIONAL(SEEK_SET_REDEFINED, [test x$ac_cv_CHECK_MPI_CPP_SEEK_SET = xyes])
 
-dnl I took the "-ansi" off the CFLAGS for the strict case, as it was
-dnl preventing PATH_MAX from being defined for some of the test files,
-dnl and I was having a tough time figuring out how to get it back! -- RobR
 dnl Note this must be done after the type of C compiler is determined
 AC_ARG_ENABLE(strict,
     [AS_HELP_STRING([--enable-strict],
@@ -484,7 +531,7 @@ AC_ARG_ENABLE(strict,
 
 if test "x${enable_strict}" = xyes; then
    if test "x${GCC}" = xyes; then
-      CFLAGS+=" -Wall -Wstrict-prototypes -Wmissing-prototypes -Wundef -Wpointer-arith -Wbad-function-cast"
+      CFLAGS="$CFLAGS -Wall -Wstrict-prototypes -Wmissing-prototypes -Wundef -Wpointer-arith -Wbad-function-cast"
    else
       AC_MSG_WARN([--enable-strict is for GNU compiler only])
       enable_strict=no
@@ -519,7 +566,7 @@ else
          ERR_MSG="Specified MPI Fortran 77 compiler \"$ac_user_MPIF77\" cannot be found"
       fi
       if test "x$MPI_INSTALL" != x ; then
-         ERR_MSG+=" under $MPI_INSTALL"
+         ERR_MSG="$ERR_MSG under $MPI_INSTALL"
       fi
       if test "x${enable_fortran}" = xyes ; then
          dnl --enable-fortran is explicitly set at command line
@@ -560,7 +607,7 @@ if test "x${has_fortran}" = xyes ; then
          ERR_MSG="Specified MPI Fortran 90 compiler \"$ac_user_MPIF90\" cannot be found"
       fi
       if test "x$MPI_INSTALL" != x ; then
-         ERR_MSG+=" under $MPI_INSTALL"
+         ERR_MSG="$ERR_MSG under $MPI_INSTALL"
       fi
       if test "x${enable_fortran}" = xyes ; then
          dnl --enable-fortran is explicitly set at command line
@@ -587,10 +634,12 @@ UD_MSG_DEBUG([MPIF77=$MPIF77])
 UD_MSG_DEBUG([MPIF90=$MPIF90])
 
 if test "x${has_fortran}" = xyes ; then
+
    dnl Check if MPIF77 is a valid MPI compiler
    F77=${MPIF77}
    AC_PROG_F77
    dnl FFLAGS is set in AC_PROG_F77
+
    AC_F77_LIBRARY_LDFLAGS
 
    AC_MSG_CHECKING([whether $MPIF77 is a valid MPI compiler])
@@ -626,6 +675,7 @@ fi
 
 mpi_mod=no
 if test "x${has_fortran}" = xyes ; then
+
    dnl Check if MPIF90 is a valid MPI compiler
    FC=${MPIF90}
    AC_PROG_FC
@@ -705,10 +755,10 @@ AM_CONDITIONAL(HAS_FORTRAN, [test x$has_fortran = xyes])
 AM_CONDITIONAL(HAVE_MPI_MOD, [test x$mpi_mod = xyes])
 
 if test "x${has_fortran}" = xyes ; then
-   if test "x${enable_strict}" = xyes -a "x${GFC}" = xyes; then
+   if test "x${enable_strict}" = xyes && test "x${GFC}" = xyes; then
       dnl not all Fortran compilers recognize -Wall
-      FFLAGS+=" -Wall"
-      FCFLAGS+=" -Wall"
+      FFLAGS="$FFLAGS -Wall"
+      FCFLAGS="$FCFLAGS -Wall"
    fi
    dnl AC_SUBST(FLIBS)
    dnl AC_SUBST(FCLIBS)
@@ -760,6 +810,15 @@ if test "x${has_fortran}" = xyes ; then
    AC_FC_SRCEXT([F])
    AC_FC_SRCEXT([f90])
    AC_FC_SRCEXT([F90])
+
+   AC_LANG_PUSH([Fortran])
+   dnl get compiler vendor in ax_cv_fc_compiler_vendor (e.g. gnu, intel)
+   AX_COMPILER_VENDOR
+   AC_LANG_POP([Fortran])
+
+   dnl get base compiler command of MPI Fortran compiler wrapper in
+   dnl ac_cv_mpi_compiler_base_MPIF90 (e.g. /usr/bin/gfortran)
+   MPI_COMPILER_BASE(MPIF90)
 
    dnl customized AC_FC_FIXEDFORM: to just get ac_cv_fc_fixedform without
    dnl appending ac_cv_fc_fixedform to FCFLAGS
@@ -813,21 +872,6 @@ if test "x${has_fortran}" = xyes ; then
    dnl because _8 modifier is a Fortran 90 feature
    dnl UD_CHECK_MPIF77_IS_PGF77
    dnl UD_MSG_DEBUG([ac_cv_mpif77_is_PGF77=$ac_cv_mpif77_is_PGF77])
-
-   dnl Check if the Fortran compiler is an NAG
-   UD_CHECK_MPIF90_IS_NAG
-   if test "x${ac_cv_mpif90_is_NAG}" = xyes ; then
-      dnl Add -mismatch if they are not set by users
-      if ! echo "${FFLAGS}" | ${EGREP} -q -- "-mismatch" ; then
-         FFLAGS+=" -mismatch"
-      fi
-      if ! echo "${FCFLAGS}" | ${EGREP} -q -- "-mismatch" ; then
-         FCFLAGS+=" -mismatch"
-      fi
-      dnl Add -DNAGFortran
-       FFLAGS+=" -DNAGFortran"
-      FCFLAGS+=" -DNAGFortran"
-   fi
 
    dnl check Fortran parameter modifier for 8-byte integer type
    dnl We need this to set the max constants for UINT, INT64, and UINT64
@@ -898,6 +942,31 @@ if test "x${has_fortran}" = xyes ; then
 fi
 AM_CONDITIONAL(UPPER_CASE_MOD, [test x$ac_cv_prog_f90_uppercase_mod = xyes])
 
+if test "x${has_fortran}" = xyes && test "x${ax_cv_fc_compiler_vendor}" = xnag ; then
+   # Special treatment for NAG Fortran compiler
+   # Command 'nagfor -dryrun dummy.f90' can reveal the C linker nagfor uses.
+   if test "x${ac_cv_mpi_compiler_base_MPICC}" != x ; then
+      UD_MSG_DEBUG([ac_cv_mpi_compiler_base_MPICC=$ac_cv_mpi_compiler_base_MPICC])
+      str_found=`echo "${FFLAGS}" | ${EGREP} -- "-Wc="`
+      if test "x$?" != x0 ; then
+         AC_MSG_WARN([Add to FFLAGS -Wc=$ac_cv_mpi_compiler_base_MPICC])
+         AS_VAR_APPEND([FFLAGS], [" -Wc=$ac_cv_mpi_compiler_base_MPICC"])
+      fi
+      str_found=`echo "${FCFLAGS}" | ${EGREP} -- "-Wc="`
+      if test "x$?" != x0 ; then
+         AC_MSG_WARN([Add to FCFLAGS -Wc=$ac_cv_mpi_compiler_base_MPICC])
+         AS_VAR_APPEND([FCFLAGS], [" -Wc=$ac_cv_mpi_compiler_base_MPICC"])
+      fi
+      unset str_found
+   fi
+
+   # Add -mismatch to downgrade consistency checking of procedure argument
+   # lists so that mismatches produce warning messages instead of error
+   # messages
+   ACX_F77_MISMATCH([AS_VAR_APPEND([FFLAGS], [" $acx_cv_f77_mismatch_flag"])])
+   ACX_FC_MISMATCH([AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_mismatch_flag"])])
+fi
+
 if test "x$enable_shared" = xyes ; then
    dnl Call LT_OUTPUT to produce file ./libtool which is used later in
    dnl. LT_AC_CHECK_SHLIB. Note LT_OUTPUT must be called after all compilers
@@ -910,7 +979,8 @@ if test "x$enable_shared" = xyes ; then
       AC_MSG_ERROR([
    -----------------------------------------------------------------------
      configure option --enable-shared is set, but the MPI library is not
-     built with shared library support. Abort.
+     built with shared library support. Either remove option --enable-shared
+     or use an MPI library built with shared library support. Abort.
    -----------------------------------------------------------------------])
    fi
 fi
@@ -960,8 +1030,8 @@ dnl     AC_MSG_ERROR([could not find flex/lex required by PnetCDF])
 dnl fi
 
 UD_PROG_M4
-M4FLAGS+=" -DPNETCDF"
-M4FFLAGS+=" -DPNETCDF"
+M4FLAGS="$M4FLAGS -DPNETCDF"
+M4FFLAGS="$M4FFLAGS -DPNETCDF"
 
 dnl Check for <stdbool.h> that conforms to C99 requirements
 dnl this is also for using bool type in utf8proc.h/utf8proc.c to support
@@ -989,7 +1059,48 @@ dnl AC_FUNC_VPRINTF
 dnl AC_CHECK_FUNCS([memset setlocale sqrt strchr strrchr strtol])
 dnl AC_CHECK_LIB([m], [tanh])
 dnl UD_CHECK_LIB_MATH
-AC_CHECK_FUNCS([strdup strerror access unlink])
+
+dnl When using gcc based compiler with -ansi flag, AC_CHECK_FUNCS can still
+dnl find strdup, but AC_CHECK_DECL cannot. So we check with AC_CHECK_DECL
+dnl first and then check AC_CHECK_FUNCS.
+dnl AC_CHECK_FUNCS([strdup strerror access unlink])
+AC_CHECK_DECL([strdup], [], [], [[#include <string.h>]])
+if test "x$ac_cv_have_decl_strdup" = xyes ; then
+   AC_CHECK_FUNCS([strdup])
+else
+   # strdup is not declared, we add our own implementation of strdup()
+   # do not call AC_REPLACE_FUNCS, as it calls AC_CHECK_FUNCS
+   AC_CONFIG_LIBOBJ_DIR([src/libs])
+   AC_LIBSOURCE([strdup.c])
+   AC_LIBOBJ([strdup])
+fi
+AC_CHECK_DECL([strerror], [], [], [[#include <string.h>]])
+if test "x$ac_cv_have_decl_strerror" = xyes ; then
+   AC_CHECK_FUNCS([strerror])
+fi
+AC_CHECK_DECL([access], [], [], [[#include <unistd.h>]])
+if test "x$ac_cv_have_decl_access" = xyes ; then
+   AC_CHECK_FUNCS([access])
+fi
+AC_CHECK_DECL([truncate], [], [], [[#include <unistd.h>
+#include <sys/types.h>]])
+if test "x$ac_cv_have_decl_truncate" = xyes ; then
+   AC_CHECK_FUNCS([truncate])
+fi
+AC_CHECK_DECL([unlink], [], [], [[#include <unistd.h>]])
+if test "x$ac_cv_have_decl_unlink" = xyes ; then
+   AC_CHECK_FUNCS([unlink])
+fi
+AC_CHECK_DECL([strcasecmp], [], [], [[#include <strings.h>]])
+if test "x$ac_cv_have_decl_strcasecmp" = xyes ; then
+   AC_CHECK_FUNCS([strcasecmp])
+else
+   # strcasecmp is not declared, we add our own implementation of strcasecmp()
+   # do not call AC_REPLACE_FUNCS, as it calls AC_CHECK_FUNCS
+   AC_CONFIG_LIBOBJ_DIR([src/libs])
+   AC_LIBSOURCE([strcasecmp.c])
+   AC_LIBOBJ([strcasecmp])
+fi
 
 AC_ARG_ENABLE([debug],
     [AS_HELP_STRING([--enable-debug],
@@ -1000,12 +1111,21 @@ AC_ARG_ENABLE([debug],
 
 dnl malloc memory allocation tracing relies on tdelete and tsearch
 AC_CHECK_HEADERS([search.h])
-AC_CHECK_FUNCS([tsearch tdelete])
+if test "x$ac_cv_header_search_h" = xyes ; then
+   AC_CHECK_DECL([tsearch], [], [], [[#include <search.h>]])
+   if test "x$ac_cv_have_decl_tsearch" = xyes ; then
+      AC_CHECK_FUNCS([tsearch])
+   fi
+   AC_CHECK_DECL([tdelete], [], [], [[#include <search.h>]])
+   if test "x$ac_cv_have_decl_tdelete" = xyes ; then
+      AC_CHECK_FUNCS([tdelete])
+   fi
+fi
 
 PNETCDF_DEBUG=0
 if test "x${debug}" = xyes; then
    dnl check required functions for enabling malloc tracing
-   if test "x${ac_cv_func_tsearch}" = xyes -a "x${ac_cv_func_tdelete}" = xyes ; then
+   if test "x${ac_cv_func_tsearch}" = xyes && test "x${ac_cv_func_tdelete}" = xyes ; then
       AC_DEFINE(PNC_MALLOC_TRACE)
    fi
    PNETCDF_DEBUG=1
@@ -1013,13 +1133,13 @@ fi
 AC_SUBST(PNETCDF_DEBUG)
 AM_CONDITIONAL(PNETCDF_DEBUG, [test x"$PNETCDF_DEBUG" = x1])
 
+dnl Data type MPI_Offset was first introduced in MPI 2 and since PnetCDF
+dnl requires MPI-IO (also introduced in MPI 2), there is no need to check
+dnl whether MPI_Offset is defined in mpi.h
+dnl AC_CHECK_TYPE([MPI_Offset], [], [], [#include <mpi.h>])
+
 dnl check the size of MPI_Offset. PnetCDF requires it be 8 bytes.
-AC_CHECK_TYPE([MPI_Offset], [], [], [#include <mpi.h>])
-if test "x${ac_cv_type_MPI_Offset}" = xyes; then
-   AC_CHECK_SIZEOF([MPI_Offset], [], [#include <mpi.h>])
-else
-   AC_MSG_ERROR([Unable to find type MPI_Offset in mpi.h])
-fi
+AC_CHECK_SIZEOF([MPI_Offset], [], [#include <mpi.h>])
 if test "$ac_cv_sizeof_MPI_Offset" -lt "8"; then
    AC_MSG_ERROR([
    -----------------------------------------------------------------------
@@ -1057,42 +1177,71 @@ dnl if test "x${ac_cv_type_MPI_Count}" = xyes; then
 dnl    AC_DEFINE(HAVE_MPI_COUNT)
 dnl fi
 
-dnl check MPI-2 only functions
-AC_CHECK_FUNCS([MPI_Get_address \
-                MPI_Type_create_subarray \
-                MPI_Type_create_hvector \
-                MPI_Type_create_hindexed \
-                MPI_Type_create_struct \
-                MPI_Type_create_resized \
-                MPI_Type_get_extent])
+dnl Because MPI-IO was first introduced in MPI 2.0 and MPI-IO is a requirement
+dnl of PnetCDF, there is no need to check the below APIs which were also
+dnl introduced in MPI 2.0.
+dnl AC_CHECK_FUNCS([MPI_Get_address \
+dnl                 MPI_Type_create_subarray \
+dnl                 MPI_Type_create_hvector \
+dnl                 MPI_Type_create_hindexed \
+dnl                 MPI_Type_create_struct \
+dnl                 MPI_Type_create_resized \
+dnl                 MPI_Type_get_extent])
 
 dnl Check presence of MPI COMBINERS. These are of type int.
-dnl These are introduced in MPI 2.0.
-AC_CHECK_DECLS([MPI_COMBINER_DUP,
-                MPI_COMBINER_HVECTOR_INTEGER,
-                MPI_COMBINER_HINDEXED_INTEGER,
-                MPI_COMBINER_SUBARRAY,
-                MPI_COMBINER_DARRAY,
-                MPI_COMBINER_RESIZED,
-                MPI_COMBINER_STRUCT_INTEGER,
-                MPI_COMBINER_INDEXED_BLOCK,
-                MPI_COMBINER_F90_REAL,
-                MPI_COMBINER_F90_INTEGER,
-                MPI_COMBINER_F90_COMPLEX],
-                [], [], [[#include <mpi.h>]])
+dnl These are introduced in MPI 2.0. As PnetCDF requires an MPI library that
+dnl supports MPI-IO and MPI-IO was first introduced in MPI 2.0, checking these
+dnl MPI constants is not necessary.
+dnl UD_CHECK_MPI_CONSTANTS([MPI_COMBINER_NAMED,
+dnl                         MPI_COMBINER_DUP,
+dnl                         MPI_COMBINER_CONTIGUOUS,
+dnl                         MPI_COMBINER_VECTOR,
+dnl                         MPI_COMBINER_HVECTOR,
+dnl                         MPI_COMBINER_HINDEXED,
+dnl                         MPI_COMBINER_INDEXED_BLOCK,
+dnl                         MPI_COMBINER_STRUCT,
+dnl                         MPI_COMBINER_SUBARRAY,
+dnl                         MPI_COMBINER_DARRAY,
+dnl                         MPI_COMBINER_F90_REAL,
+dnl                         MPI_COMBINER_F90_COMPLEX,
+dnl                         MPI_COMBINER_F90_INTEGER,
+dnl                         MPI_COMBINER_RESIZED,
+dnl                         MPI_COMBINER_HINDEXED_BLOCK],
+dnl                         [], [], [[#include <mpi.h>]])
+
+dnl Below MPI constants have been deprecated since MPI 3.0
+dnl Note from autoconfig user guide: "Unlike the other AC_CHECK_*S macros, when
+dnl a symbol is not declared, HAVE_DECL_symbol is defined to 0 instead of
+dnl leaving HAVE_DECL_symbol undeclared." So, use it like this example:
+dnl #if defined MPI_COMBINER_NAMED && MPI_COMBINER_NAMED
+dnl     ... use MPI_COMBINER_NAMED
+dnl #endif
+dnl However, we cannot use AC_CHECK_DECLS to check whether these MPI constants
+dnl are deprecated. OpenMPI still define those constants deprecated by MPI 3.0
+dnl as error messages. We need to call AC_COMPILE_IFELSE to check whether they
+dnl can be used without compilation errors.
+dnl
+dnl Check MPI constants below only when MPI library implements MPI 3 and later
+dnl as they were introduced in MPI 2, but deprecated since MPI 3.
+if test "$mpi_version" -ge "3" ; then
+   UD_CHECK_MPI_CONSTANTS([MPI_COMBINER_HVECTOR_INTEGER,
+                           MPI_COMBINER_HINDEXED_INTEGER,
+                           MPI_COMBINER_STRUCT_INTEGER],
+                          [], [], [[#include <mpi.h>]])
+fi
 
 dnl Check presence of various MPI error classes. Introduced in MPI 2.0.
 dnl These could be enums, so we have to do compile checks.
-AC_CHECK_DECLS([MPI_ERR_FILE_EXISTS,
-                MPI_ERR_NO_SUCH_FILE,
-                MPI_ERR_AMODE,
-                MPI_ERR_NOT_SAME,
-                MPI_ERR_BAD_FILE,
-                MPI_ERR_READ_ONLY,
-                MPI_ERR_ACCESS,
-                MPI_ERR_NO_SPACE,
-                MPI_ERR_QUOTA],
-                [], [], [[#include <mpi.h>]])
+dnl AC_CHECK_DECLS([MPI_ERR_FILE_EXISTS,
+dnl                 MPI_ERR_NO_SUCH_FILE,
+dnl                 MPI_ERR_AMODE,
+dnl                 MPI_ERR_NOT_SAME,
+dnl                 MPI_ERR_BAD_FILE,
+dnl                 MPI_ERR_READ_ONLY,
+dnl                 MPI_ERR_ACCESS,
+dnl                 MPI_ERR_NO_SPACE,
+dnl                 MPI_ERR_QUOTA],
+dnl                 [], [], [[#include <mpi.h>]])
 
 dnl Check presence of C MPI data types.
 dnl Note they are of type MPI_Datatype, thus cannot use AC_CHECK_DECLS
@@ -1115,7 +1264,11 @@ dnl UD_CHECK_MPI_DATATYPE(MPI_LB)		dnl first defined in MPI 1.0
 
 dnl C data type MPI_Offset was first introduced in MPI 2.0, but MPI_OFFSET was
 dnl introduced as a predefined MPI datatype in MPI 2.2
-UD_CHECK_MPI_DATATYPE(MPI_OFFSET)
+if test "$mpi_version" -ge "3" ; then
+   ac_cv_CHECK_MPI_DATATYPE_MPI_OFFSET=yes
+else
+   UD_CHECK_MPI_DATATYPE(MPI_OFFSET)
+fi
 AM_CONDITIONAL(DECL_MPI_OFFSET, [test x$ac_cv_CHECK_MPI_DATATYPE_MPI_OFFSET = xyes])
 
 dnl Check for presence of Fortran types
@@ -1125,19 +1278,19 @@ dnl We do this for a couple of reasons.  First, the MPI might have been
 dnl built without Fortran support, in which case these types might not
 dnl exist.  Second, we need to map these types to corresponding C types
 dnl where possible to simplify processing at run time.
-if test "x${has_fortran}" = xyes ; then
-    UD_CHECK_MPI_DATATYPE(MPI_INTEGER8)		dnl first defined in MPI 2.1
-    UD_CHECK_MPI_DATATYPE(MPI_CHARACTER)	dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_REAL)		dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_INTEGER)		dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_DOUBLE_PRECISION)	dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_INTEGER1)		dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_INTEGER2)		dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_INTEGER4)		dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_REAL2)		dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_REAL4)		dnl first defined in MPI 1.0
-    UD_CHECK_MPI_DATATYPE(MPI_REAL8)		dnl first defined in MPI 1.0
-fi
+dnl if test "x${has_fortran}" = xyes ; then
+dnl     UD_CHECK_MPI_DATATYPE(MPI_CHARACTER)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_INTEGER)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_INTEGER1)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_INTEGER2)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_INTEGER4)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_INTEGER8)		dnl first defined in MPI 2.1
+dnl     UD_CHECK_MPI_DATATYPE(MPI_REAL)			dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_REAL2)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_REAL4)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_REAL8)		dnl first defined in MPI 1.0
+dnl     UD_CHECK_MPI_DATATYPE(MPI_DOUBLE_PRECISION)	dnl first defined in MPI 1.0
+dnl fi
 
 AC_C_CHAR_UNSIGNED
 AC_C_BIGENDIAN
@@ -1169,7 +1322,7 @@ dnl AC_DEFINE(DISABLE_IN_PLACE_SWAP, $DISABLE_IN_PLACE_SWAP)
 
 dnl IN_PLACE_SWAP being -1 corresponds to "auto"
 IN_PLACE_SWAP=-1
-if test "x${ac_cv_c_bigendian}" = xyes -a "x${in_place_swap}" != xauto ; then
+if test "x${ac_cv_c_bigendian}" = xyes && test "x${in_place_swap}" != xauto ; then
    AC_MSG_WARN([--(en/dis)able-in-place-swap takes no effect on Big Endian])
 else
    if test "x${in_place_swap}" = xyes ; then
@@ -1189,7 +1342,7 @@ dnl For big Endian, put buffer needs no byte swap and hence can be declared as
 dnl INTENT(IN). For little Endian, put buffer may be used for byte swap in
 dnl place and hence must be declared as INTENT(INOUT).
 dnl This will configure/produce the file src/binding/f90/api.f90
-if test "x${ac_cv_c_bigendian}" = xyes -o "x${in_place_swap}" = xno ; then
+if test "x${ac_cv_c_bigendian}" = xyes || test "x${in_place_swap}" = xno ; then
    INTENTV="IN"
 else
    INTENTV="INOUT"
@@ -1339,7 +1492,7 @@ dnl Some C++ compilers (e.g. Fujitsu) have macro __FUNCTION__, but not __func__
 use_cxx_macro_function=no
 if test "x${has_mpicxx}" = xyes ; then
    UD_CXX_MACRO_FUNC
-   if test "x${ac_cv_cxx_macro_func}" = xno -a "x${ac_cv_cxx_macro_function}" = xyes ; then
+   if test "x${ac_cv_cxx_macro_func}" = xno && test "x${ac_cv_cxx_macro_function}" = xyes ; then
       use_cxx_macro_function=yes
    fi
 fi
@@ -1349,33 +1502,39 @@ if test "x${debug}" = xyes; then
    dnl add -g flag if not presented
    dnl remove all -O and -fast flags
    dnl add -O0 to all flags
-   if ! echo "${CFLAGS}" | ${EGREP} -q -- "-g" ; then
-      CFLAGS+=" -g"
+   # check exit status of grep command is more portable than using -q
+   str_found=`echo "${CFLAGS}" | ${EGREP} -- "-g"`
+   if test "x$?" != x0 ; then
+      CFLAGS="$CFLAGS -g"
    fi
    CFLAGS=`echo $CFLAGS | ${SED} 's/-O. *//g' | ${SED} 's/-fast *//g'`
-   CFLAGS+=" -O0"
+   CFLAGS="$CFLAGS -O0"
 
    if test "x${has_mpicxx}" = xyes ; then
-      if ! echo "${CXXFLAGS}" | ${EGREP} -q -- "-g" ; then
-         CXXFLAGS+=" -g"
+      str_found=`echo "${CXXFLAGS}" | ${EGREP} -- "-g"`
+      if test "x$?" != x0 ; then
+         CXXFLAGS="$CXXFLAGS -g"
       fi
       CXXFLAGS=`echo $CXXFLAGS | ${SED} 's/-O. *//g' | ${SED} 's/-fast *//g'`
-      CXXFLAGS+=" -O0"
+      CXXFLAGS="$CXXFLAGS -O0"
    fi
 
    if test "x${has_fortran}" = xyes ; then
-      if ! echo "${FFLAGS}" | ${EGREP} -q -- "-g" ; then
-         FFLAGS+=" -g"
+      str_found=`echo "${FFLAGS}" | ${EGREP} -- "-g"`
+      if test "x$?" != x0 ; then
+         FFLAGS="$FFLAGS -g"
       fi
-      if ! echo "${FCFLAGS}" | ${EGREP} -q -- "-g" ; then
-         FCFLAGS+=" -g"
+      str_found=`echo "${FCFLAGS}" | ${EGREP} -- "-g"`
+      if test "x$?" != x0 ; then
+         FCFLAGS="$FCFLAGS -g"
       fi
 
        FFLAGS=`echo $FFLAGS  | ${SED} 's/-O. *//g' | ${SED} 's/-fast *//g'`
       FCFLAGS=`echo $FCFLAGS | ${SED} 's/-O. *//g' | ${SED} 's/-fast *//g'`
-       FFLAGS+=" -O0"
-      FCFLAGS+=" -O0"
+       FFLAGS="$FFLAGS -O0"
+      FCFLAGS="$FCFLAGS -O0"
    fi
+   unset str_found
 fi
 
 chmod u+x ${srcdir}/scripts/install-sh
@@ -1397,7 +1556,8 @@ AM_CONDITIONAL(ENABLE_SUBFILING, [test x$enable_subfiling = xyes])
 AC_ARG_ENABLE([thread-safe],
     [AS_HELP_STRING([--enable-thread-safe],
                     [Enable thread-safe capability. @<:@default: disabled@:>@])],
-    [thread_safe=${enableval}], [thread_safe=no]
+    [thread_safe=${enableval}], # --enable-thread-safe or --disable-thread-safe is used
+    [thread_safe=no]            # neither --enable-thread-safe nor --disable-thread-safe is used
 )
 ENABLE_THREAD_SAFE=0
 if test "x${thread_safe}" = xyes ; then
@@ -1408,86 +1568,99 @@ AC_SUBST(ENABLE_THREAD_SAFE)
 AM_CONDITIONAL(ENABLE_THREAD_SAFE, [test x$thread_safe = xyes])
 
 AC_ARG_WITH([pthread],
-    [AS_HELP_STRING([--with-pthread=DIR],
-                    [Specify alternative path to Pthreads library when
-                     thread-safe capability is enabled.])],,
-    [withval=check])
+   [AS_HELP_STRING([--with-pthread=DIR],
+                   [Specify alternative path to Pthreads library when
+                    thread-safe capability is enabled.])
+   ],[ dnl this clause is run when --with-pthread or --without-pthread is used
+   if test "x$withval" = xno && test "x$thread_safe" = xyes ; then
+      AC_MSG_ERROR([conflicted options used: --enable-thread-safe and --without-pthread])
+   else
+      pthread_dir=$withval
+   fi
+   ],[ dnl this clause is run when neither --with-pthread nor --without-pthread is used
+   pthread_dir=check
+   ]
+)
 
 if test "x${thread_safe}" = xyes ; then
-   if test "x${withval}" = xcheck -o "x${withval}" = x ; then
+   if test "x${pthread_dir}" = xcheck || test "x${pthread_dir}" = x || test "x${pthread_dir}" = yes ; then
       AC_CHECK_HEADER([pthread.h],,[AC_MSG_ERROR([Cannot find pthread.h])])
       AC_CHECK_LIB([pthread], [pthread_self],, [AC_MSG_ERROR([Cannot find pthread library])])
    else
-      case "$withval" in
+      case "$pthread_dir" in
          *,*)
-            pthread_inc="`echo $withval | cut -f1 -d,`"
-            pthread_lib="`echo $withval | cut -f2 -d, -s`"
+            pthread_inc="`echo $pthread_dir | cut -f1 -d,`"
+            pthread_lib="`echo $pthread_dir | cut -f2 -d, -s`"
             ;;
          *)
-            # check $withval for empty is done above
-            pthread_inc="$withval/include"
-            pthread_lib="$withval/lib"
+            # check $pthread_dir for empty is done above
+            pthread_inc="$pthread_dir/include"
+            pthread_lib="$pthread_dir/lib"
             ;;
       esac
       CPPFLAGS="$CPPFLAGS -I$pthread_inc"
-      AC_CHECK_HEADER([pthread.h],, [AC_MSG_ERROR([Cannot find pthread.h under $withval])])
+      AC_CHECK_HEADER([pthread.h],, [AC_MSG_ERROR([Cannot find pthread.h under $pthread_dir])])
       LDFLAGS="$LDFLAGS -L$pthread_lib"
-      AC_CHECK_LIB([pthread], [pthread_self],, [AC_MSG_ERROR([Cannot find pthread library under $withval])])
+      AC_CHECK_LIB([pthread], [pthread_self],, [AC_MSG_ERROR([Cannot find pthread library under $pthread_dir])])
    fi
 fi
 
 AC_ARG_ENABLE([netcdf4],
    [AS_HELP_STRING([--enable-netcdf4],
                    [Enable NetCDF-4 support. @<:@default: disabled@:>@])],
-   [enable_netcdf4=${enableval}], [enable_netcdf4=no]
+   [enable_netcdf4=${enableval}]
 )
 
-ENABLE_NETCDF4=0
-if test "x$enable_netcdf4" = "xyes" ; then
-   AC_DEFINE(ENABLE_NETCDF4)
-   ENABLE_NETCDF4=1
+NETCDF4_INSTALL=""
+netcdf_includedir=""
+netcdf4_libdir=""
+AC_ARG_WITH(netcdf4,
+   [AS_HELP_STRING([--with-netcdf4=/path/to/netcdf4],
+                   [installation path(s) of NetCDF-4 libraries:
+    --with-netcdf4=INC,LIB for include directory and library directory separated by a comma
+    --with-netcdf4=DIR for directory containing include/ and lib/ subdirectories
+   ])],[ dnl this clause is run when --with-netcdf4 or --without-netcdf4 is used
+   if test "x${withval}" != xyes && test "x${withval}" != xno ; then
+      NETCDF4_INSTALL=${withval}
+   fi
+   UD_MSG_DEBUG([NETCDF4_INSTALL=$NETCDF4_INSTALL])
+
+   case $NETCDF4_INSTALL in
+     "") ;;
+     *,*)
+        netcdf_includedir="`echo $NETCDF4_INSTALL |cut -f1 -d,`"
+        netcdf4_libdir="`echo $NETCDF4_INSTALL |cut -f2 -d, -s`"
+        netcdf_bindir="$netcdf_includedir/../bin"
+        ;;
+     *)
+        netcdf_includedir="$NETCDF4_INSTALL/include"
+        netcdf4_libdir="$NETCDF4_INSTALL/lib"
+        netcdf_bindir="$NETCDF4_INSTALL/bin"
+        ;;
+   esac
+   UD_MSG_DEBUG([netcdf_includedir=$netcdf_includedir])
+   UD_MSG_DEBUG([netcdf4_libdir=$netcdf4_libdir])
+   ]
+)
+
+# check conflicted command-line options
+if test "x$enable_netcdf4" = xno && test "x$with_netcdf4" != x && test "x$with_netcdf4" != xno ; then
+   AC_MSG_ERROR([conflicted options used: --disable-netcdf4 and --with-netcdf4])
+elif test "x$enable_netcdf4" = xyes && test "x$with_netcdf4" = xno ; then
+   AC_MSG_ERROR([conflicted options used: --enable-netcdf4 and --without-netcdf4])
+elif test "x$enable_netcdf4" = x ; then
+   if test "x$with_netcdf4" = x || test "x$with_netcdf4" = xno ; then
+      enable_netcdf4=no
+   else
+      enable_netcdf4=yes
+   fi
 fi
-AC_SUBST(ENABLE_NETCDF4)
-AM_CONDITIONAL(ENABLE_NETCDF4, [test x$enable_netcdf4 = xyes])
 
-if test "x$enable_netcdf4" = "xyes" ; then
-   NETCDF4_INSTALL=""
-   netcdf_includedir=""
-   netcdf_libdir=""
-   AC_ARG_WITH(netcdf4,
-       [AS_HELP_STRING([--with-netcdf4=/path/to/netcdf4],
-                       [installation path(s) of NetCDF-4 libraries:
-        --with-netcdf4=INC,LIB for include directory and library directory separated by a comma
-        --with-netcdf4=DIR for directory containing include/ and lib/ subdirectories
-       ])], [
-       if test "x${withval}" = x; then
-          AC_MSG_ERROR(--with-netcdf4 is set but the value is NULL)
-       else
-          NETCDF4_INSTALL=${withval}
-       fi
-       UD_MSG_DEBUG([NETCDF4_INSTALL=$NETCDF4_INSTALL])
-
-       case $NETCDF4_INSTALL in
-         *,*)
-            netcdf_includedir="`echo $withval |cut -f1 -d,`"
-            netcdf_libdir="`echo $withval |cut -f2 -d, -s`"
-            netcdf_bindir="$netcdf_includedir/../bin"
-            ;;
-         *)
-            netcdf_includedir="$withval/include"
-            netcdf_libdir="$withval/lib"
-            netcdf_bindir="$withval/bin"
-            ;;
-       esac
-       UD_MSG_DEBUG([netcdf_includedir=$netcdf_includedir])
-       UD_MSG_DEBUG([netcdf_libdir=$netcdf_libdir])
-   ])
-
+if test "x$enable_netcdf4" = xyes ; then
    # check availability of nc-config only under $NETCDF4_INSTALL/bin
    nc_config=
    if test "x$NETCDF4_INSTALL" != x ; then
       AC_PATH_PROG([nc_config],[nc-config],,[$netcdf_bindir])
-
       if test "x$nc_config" = x ; then
          # nc-config may not be installed, even if NetCDF4 is installed. For
          # example, there are only include and lib installed under
@@ -1511,26 +1684,29 @@ if test "x$enable_netcdf4" = "xyes" ; then
          dnl be built with parallel I/O and NETCDF-4 support. Check
          dnl 'config.log' for more information. Stopping ...
          dnl ------------------------------------------------------------])
-      else
-         UD_MSG_DEBUG([nc_config=$nc_config])
-
-         dnl Check if NetCDF is built with HDF5 enabled
-         netcdf_has_hdf5=`$nc_config --has-hdf5`
-         if test "x$netcdf_has_hdf5" = xno ; then
-            AC_MSG_ERROR([
-            ------------------------------------------------------------
-            NetCDF-4 library is not built with HDF5 enabled, as indicated
-            by command '$nc_config --has-hdf5'
-            Stopping ...
-            ------------------------------------------------------------])
-         fi
-         unset netcdf_has_hdf5
-
-         dnl Get installation directory path of netcdf header files
-         dnl Add the path to CPPFLAGS, as it is needed to compile PnetCDF codes
-         dnl netcdf_includedir=`$nc_config --includedir`
-         dnl UD_MSG_DEBUG([netcdf_includedir=$netcdf_includedir])
       fi
+   else
+      dnl Check nc-config under $PATH
+      AC_PATH_PROG([nc_config],[nc-config])
+      if test "x$nc_config" != x ; then
+         netcdf_includedir=`$nc_config --includedir`
+         UD_MSG_DEBUG([netcdf_includedir=$netcdf_includedir])
+         netcdf4_libdir=`$nc_config --libdir`
+         UD_MSG_DEBUG([netcdf4_libdir=$netcdf4_libdir])
+      fi
+   fi
+
+   if test "x$nc_config" != x ; then
+      dnl Check if NetCDF is built with HDF5 enabled
+      netcdf_has_hdf5=`$nc_config --has-hdf5`
+      if test "x$netcdf_has_hdf5" = xno ; then
+         AC_MSG_ERROR([
+         ------------------------------------------------------------
+         NetCDF-4 library is not built with HDF5 enabled, as indicated
+         by command '$nc_config --has-hdf5'. Stop
+         ------------------------------------------------------------])
+      fi
+      unset netcdf_has_hdf5
    fi
 
    dnl find out how NetCDF is configured.
@@ -1543,7 +1719,7 @@ if test "x$enable_netcdf4" = "xyes" ; then
    fi
    have_netcdf4=yes
    AC_CHECK_HEADER([netcdf.h],      [], [have_netcdf4=no])
-   AC_CHECK_HEADER([netcdf_meta.h], [], [have_netcdf4=no])
+   AC_CHECK_HEADERS([netcdf_meta.h],[], [have_netcdf4=no], [[#include <netcdf.h>]])
    if test "x${have_netcdf4}" = xno; then
       AC_MSG_ERROR([
       ------------------------------------------------------------
@@ -1556,7 +1732,7 @@ if test "x$enable_netcdf4" = "xyes" ; then
       Stopping ...
       ------------------------------------------------------------])
    fi
-   AC_CHECK_HEADER([netcdf_par.h],  [], [have_netcdf4=no])
+   AC_CHECK_HEADERS([netcdf_par.h],  [], [have_netcdf4=no], [[#include <netcdf.h>]])
    if test "x${have_netcdf4}" = xno; then
       AC_MSG_ERROR([
       ------------------------------------------------------------
@@ -1660,8 +1836,8 @@ if test "x$enable_netcdf4" = "xyes" ; then
       # Get installation directory path of netcdf library files
       # if test "x$netcdf_ge_4_4_2" = xyes ; then
       #    # Option --libdir is first added in NetCDF 4.4.2
-      #    netcdf_libdir=`$nc_config --libdir`
-      #    UD_MSG_DEBUG([netcdf_libdir=$netcdf_libdir])
+      #    netcdf4_libdir=`$nc_config --libdir`
+      #    UD_MSG_DEBUG([netcdf4_libdir=$netcdf4_libdir])
       # fi
 
       # Get extra libraries used by netcdf library (dependent libraries)
@@ -1671,8 +1847,8 @@ if test "x$enable_netcdf4" = "xyes" ; then
       netcdf_libs=`echo $netcdf_libs | $SED "s/-lpnetcdf//g"`
    else
       # if test "x$NETCDF4_INSTALL" != x ; then
-      #    netcdf_libdir="$NETCDF4_INSTALL/lib"
-      #    UD_MSG_DEBUG([netcdf_libdir=$netcdf_libdir])
+      #    netcdf4_libdir="$NETCDF4_INSTALL/lib"
+      #    UD_MSG_DEBUG([netcdf4_libdir=$netcdf4_libdir])
       # fi
       netcdf_libs="-lnetcdf"
       UD_MSG_DEBUG([netcdf_libs=$netcdf_libs])
@@ -1681,14 +1857,14 @@ if test "x$enable_netcdf4" = "xyes" ; then
    # Validate netcdf library
    saved_LDFLAGS=$LDFLAGS
    saved_LIBS=$LIBS
-   if test "x$netcdf_libdir" != x ; then
-      LDFLAGS="-L$netcdf_libdir $LDFLAGS"
+   if test "x$netcdf4_libdir" != x ; then
+      LDFLAGS="-L$netcdf4_libdir $LDFLAGS"
    fi
    LIBS="$netcdf_libs $LIBS"
    AC_SEARCH_LIBS([nc_open], [netcdf],,[AC_MSG_ERROR([Cannot find nc_open in NetCDF-4 library])])
    LDFLAGS=$saved_LDFLAGS
    LIBS=$saved_LIBS
-   # Do not add -L$netcdf_libdir to LDFLAGS and -lnetcdf to LIBS
+   # Do not add -L$netcdf4_libdir to LDFLAGS and -lnetcdf to LIBS
    # They are only needed when linking executables.
 
    # Get directory path of netcdf library files
@@ -1704,8 +1880,8 @@ if test "x$enable_netcdf4" = "xyes" ; then
    # netcdf_libs=`echo $netcdf_libs | $SED "s/[[ ]]* / /g"`
    # UD_MSG_DEBUG([netcdf_ldflags=$netcdf_ldflags])
    # UD_MSG_DEBUG([netcdf_libs=$netcdf_libs])
-   # LDFLAGS+=" ${netcdf_ldflags}"
-   # LIBS+=" ${netcdf_libs}"
+   # LDFLAGS="$LDFLAGS ${netcdf_ldflags}"
+   # LIBS="$LIBS ${netcdf_libs}"
 
    dnl check if HDF5 version 1.10.4 or later is used to build NetCDF
    if test "x$nc_config" != x ; then
@@ -1713,7 +1889,7 @@ if test "x$enable_netcdf4" = "xyes" ; then
       netcdf_cflags=`$nc_config --cflags`
    fi
 
-   CPPFLAGS+=" $netcdf_cflags"
+   CPPFLAGS="$CPPFLAGS $netcdf_cflags"
    dnl AC_CHECK_HEADERS uses CPPFLAGS, not CFLAGS
    AC_CHECK_HEADER([hdf5.h], [have_hdf5=yes], [have_hdf5=no])
    if test "x$have_hdf5" = xyes ; then
@@ -1759,8 +1935,8 @@ if test "x$enable_netcdf4" = "xyes" ; then
    AC_SUBST([NETCDF4_INC])
 
    AC_MSG_CHECKING([NETCDF4_LDFLAGS])
-   if test "x$netcdf_libdir" != x ; then
-      NETCDF4_LDFLAGS="-L$netcdf_libdir"
+   if test "x$netcdf4_libdir" != x ; then
+      NETCDF4_LDFLAGS="-L$netcdf4_libdir"
    fi
    UD_MSG_DEBUG(NETCDF4_LDFLAGS=$NETCDF4_LDFLAGS)
    # remove all -l options from netcdf_libs that should leave -L only
@@ -1793,6 +1969,15 @@ if test "x$enable_netcdf4" = "xyes" ; then
 
    AC_SUBST([NETCDF4_PACKAGE], [netcdf])
 fi
+
+ENABLE_NETCDF4=0
+if test "x$enable_netcdf4" = xyes ; then
+   AC_DEFINE(ENABLE_NETCDF4)
+   ENABLE_NETCDF4=1
+fi
+AC_SUBST(ENABLE_NETCDF4)
+AM_CONDITIONAL(ENABLE_NETCDF4, [test x$enable_netcdf4 = xyes])
+
 
 AC_ARG_ENABLE([erange-fill],
    [AS_HELP_STRING([--disable-erange-fill],
@@ -2052,8 +2237,32 @@ fi
 AC_ARG_ENABLE([adios],
    [AS_HELP_STRING([--enable-adios],
                    [Enable ADIOS BP read support. @<:@default: disabled@:>@])],
-   [enable_adios=${enableval}], [enable_adios=no]
+   [enable_adios=${enableval}]
 )
+
+ADIOS_INSTALL=""
+AC_ARG_WITH(adios,
+   [AS_HELP_STRING([--with-adios=/path/to/implementation],
+                   [installation prefix path for ADIOS implementation])
+   ],[ dnl this clause is run when --with-adios or --without-adios is used
+   if test "x${withval}" != xyes && test "x${withval}" != xno ; then
+      ADIOS_INSTALL=${withval}
+   fi
+   ]
+)
+
+# check conflicted command-line options
+if test "x$enable_adios" = xno && test "x$with_adios" != x && test "x$with_adios" != xno ; then
+   AC_MSG_ERROR([conflicted options used: --disable-adios and --with-adios])
+elif test "x$enable_adios" = xyes && test "x$with_adios" = xno ; then
+   AC_MSG_ERROR([conflicted options used: --enable-adios and --without-adios])
+elif test "x$enable_adios" = x ; then
+   if test "x$with_adios" = x || test "x$with_adios" = xno ; then
+      enable_adios=no
+   else
+      enable_adios=yes
+   fi
+fi
 
 ENABLE_ADIOS=0
 if test "x$enable_adios" = "xyes" ; then
@@ -2064,52 +2273,44 @@ AC_SUBST(ENABLE_ADIOS)
 AM_CONDITIONAL(ENABLE_ADIOS, [test x$enable_adios = xyes])
 
 ADIOS_VER_GE_1132=0
-
 if test "x$enable_adios" = "xyes" ; then
-    ADIOS_INSTALL=""
-    AC_ARG_WITH(adios,
-        [AS_HELP_STRING([--with-adios=/path/to/implementation],
-                        [installation prefix for ADIOS implementation])],
-        if test "x${withval}" = xyes; then
-            AC_MSG_ERROR(--with-adios must be given a pathname)
-        else
-            ADIOS_INSTALL=${withval}
-        fi
-    )
+   if test "x$ADIOS_INSTALL" = x ; then
+      AC_PATH_PROG([adios_config],[adios_config],,[$PATH])
+   else
+      AC_PATH_PROG([adios_config],[adios_config],,[$ADIOS_INSTALL/bin])
+   fi
 
-    if test "x$ADIOS_INSTALL" = x ; then
-        AC_PATH_PROG([adios_config],[adios_config],,[$PATH])
-    else
-        AC_PATH_PROG([adios_config],[adios_config],,[$ADIOS_INSTALL/bin])
-    fi
+   if test "x$adios_config" = x ; then
+      AC_MSG_ERROR([
+      ------------------------------------------------------------
+      Cannot find adios_config, a utility command to show the
+      configuration of the ADIOS library. It is required to
+      build PnetCDF with BP read support. Use option
+          --with-adios=/path/to/implementation
+      to specify the location of ADIOS build. In addition,
+      please make sure the MPI C compiler is compatible with the
+      one used to build ADIOS. The ADIOS library used must
+      be built with parallel I/O support. Check
+      'config.log' for more information. Stopping ...
+      ------------------------------------------------------------])
+   fi
+   UD_MSG_DEBUG([adios_config=$adios_config])
 
-    if test "x$adios_config" = x ; then
-        AC_MSG_ERROR([
-        ------------------------------------------------------------
-        Cannot find adios_config, a utility command to show the
-        configuration of the ADIOS library. It is required to
-        build PnetCDF with BP read support. Use option
-            --with-adios=/path/to/implementation
-        to specify the location of ADIOS build. In addition,
-        please make sure the MPI C compiler is compatible with the
-        one used to build ADIOS. The ADIOS library used must
-        be built with parallel I/O support. Check
-        'config.log' for more information. Stopping ...
-        ------------------------------------------------------------])
-    fi
-    UD_MSG_DEBUG([adios_config=$adios_config])
-    
-    # Get adios compile flags
-    adios_cflag=`$adios_config -c`
-    UD_MSG_DEBUG([adios_compiler_flag=$adios_cflag])
+   # Get adios compile flags
+   adios_cflag=`$adios_config -c`
+   UD_MSG_DEBUG([adios_compiler_flag=$adios_cflag])
 
-    # Get adios linker flags
-    adios_ldflag=`$adios_config -l`
-    UD_MSG_DEBUG([adios_linker_flag=$adios_ldflag])
+   # Get adios linker flags
+   adios_ldflag=`$adios_config -l`
+   UD_MSG_DEBUG([adios_linker_flag=$adios_ldflag])
 
    # remove all -l options from adios_ldflag that should leave -L only
    adios_LDFLAGS=`echo $adios_ldflag | ${SED} 's/-l[[^ ]]*//g'`
    UD_MSG_DEBUG(adios_LDFLAGS=$adios_LDFLAGS)
+
+   # remove -L from adios_LDFLAGS that should leave libdir only
+   adios_libdir=`echo ${adios_LDFLAGS} | ${SED} 's/-L//g'`
+   UD_MSG_DEBUG(adios_libdir=$adios_libdir)
 
    # remove all -L options from adios_ldflag that should leave -l only
    adios_LIBS=`echo $adios_ldflag | ${SED} 's/-L[[^ ]]*//g'`
@@ -2118,91 +2319,91 @@ if test "x$enable_adios" = "xyes" ; then
    # remove space between -L and path
    netcdf4_L=`echo $netcdf4_L | ${SED} 's/-L[[ ]]*/-L/g'`
    UD_MSG_DEBUG(netcdf4_L=$netcdf4_L)
-    saved_CPPFLAGS=$CPPFLAGS
-    saved_LDFLAGS=$LDFLAGS
-    saved_LIBS=$LIBS
+   saved_CPPFLAGS=$CPPFLAGS
+   saved_LDFLAGS=$LDFLAGS
+   saved_LIBS=$LIBS
 
-    CPPFLAGS="$adios_cflag $CPPFLAGS"
-    LDFLAGS="$adios_LDFLAGS $adios_LDFLAGS"
-    LIBS="$adios_LIBS $LIBS"
- 
-    have_adios=no
-    AC_MSG_CHECKING(ADIOS library)
-    AC_SEARCH_LIBS([adios_read_open_file], [adiosread], [have_adios=yes], [have_adios=no])
-    if test "x${have_adios}" = xyes; then
-        AC_SEARCH_LIBS([adios_posix_open_read_internal], [adios], [have_adios=yes], [have_adios=no])
-        if test "x${have_adios}" = xyes; then
-            AC_CHECK_HEADERS([adios_read.h], [], [have_adios=no])
-        fi
-    fi
+   CPPFLAGS="$adios_cflag $CPPFLAGS"
+   LDFLAGS="$adios_LDFLAGS $adios_LDFLAGS"
+   LIBS="$adios_LIBS $LIBS"
 
-    if test "x${have_adios}" = xno; then
-        have_adios2=no
-        AC_MSG_CHECKING(ADIOS2 library)
-        AC_CHECK_HEADERS([adios2_c.h], [have_adios2=yes], [have_adios2=no])
-        if test "x${have_adios2}" = xno; then
-            AC_MSG_ERROR([
-            ------------------------------------------------------------
-            The ADIOS library and header file are required to build
-            PnetCDF with ADIOS BP read support. Use option
-                --with-adios=/path/to/implementation
-            to specify the location of ADIOS build. In addition,
-            please make sure the MPI C compiler is compatible with the
-            one used to build ADIOS.
-            Stopping ...
-            Check 'config.log' for more information.
-            ------------------------------------------------------------])
-        else
-            AC_MSG_ERROR([
-            ------------------------------------------------------------
-            PnetCDF currently only supports ADIOS 1.x.
-            ADIOS 1.x can be downloaded at:
-            https://github.com/ornladios/ADIOS
-            We will support ADIOS 2.x in future releases.
-            ------------------------------------------------------------])
-        fi
-    else
-        LIBS+=" -ladiosread -ladios"
-    fi
+   have_adios=no
+   AC_MSG_CHECKING(ADIOS library)
+   AC_SEARCH_LIBS([adios_read_open_file], [adiosread], [have_adios=yes], [have_adios=no])
+   if test "x${have_adios}" = xyes; then
+      AC_SEARCH_LIBS([adios_posix_open_read_internal], [adios], [have_adios=yes], [have_adios=no])
+      if test "x${have_adios}" = xyes; then
+         AC_CHECK_HEADERS([adios_read.h], [], [have_adios=no])
+      fi
+   fi
 
-    dnl Check if ADIOS version is 1.12.0 or later
-    AC_MSG_CHECKING([Check if ADIOS version is 1.12.0 or later])
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <adios_version.h>]], [[
+   if test "x${have_adios}" = xno; then
+      have_adios2=no
+      AC_MSG_CHECKING(ADIOS2 library)
+      AC_CHECK_HEADERS([adios2_c.h], [have_adios2=yes], [have_adios2=no])
+      if test "x${have_adios2}" = xno; then
+         AC_MSG_ERROR([
+         ------------------------------------------------------------
+         The ADIOS library and header file are required to build
+         PnetCDF with ADIOS BP read support. Use option
+             --with-adios=/path/to/implementation
+         to specify the location of ADIOS build. In addition,
+         please make sure the MPI C compiler is compatible with the
+         one used to build ADIOS.
+         Stopping ...
+         Check 'config.log' for more information.
+         ------------------------------------------------------------])
+      else
+         AC_MSG_ERROR([
+         ------------------------------------------------------------
+         PnetCDF currently only supports ADIOS 1.x.
+         ADIOS 1.x can be downloaded at:
+         https://github.com/ornladios/ADIOS
+         We will support ADIOS 2.x in future releases.
+         ------------------------------------------------------------])
+      fi
+   else
+      LIBS="$LIBS -ladiosread -ladios"
+   fi
+
+   dnl Check if ADIOS version is 1.12.0 or later
+   AC_MSG_CHECKING([Check if ADIOS version is 1.12.0 or later])
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <adios_version.h>]], [[
 #if (ADIOS_VERSION_MAJOR*1000000 + ADIOS_VERSION_MINOR*1000 + ADIOS_VERSION_PATCH < 1012000)
       choke me
 #endif
-    ]])], [adios_ge_1_12_0=yes], [adios_ge_1_12_0=no])
-    AC_MSG_RESULT([$adios_ge_1_12_0])
+   ]])], [adios_ge_1_12_0=yes], [adios_ge_1_12_0=no])
+   AC_MSG_RESULT([$adios_ge_1_12_0])
 
-    if test "x${adios_ge_1_12_0}" = xno; then
-        AC_MSG_ERROR([
-        ------------------------------------------------------------
-        ADIOS version 1.12.0 or later is required to build
-        PnetCDF with ADIOS BP read support. 
-        ------------------------------------------------------------])
-    fi
+   if test "x${adios_ge_1_12_0}" = xno; then
+      AC_MSG_ERROR([
+      ------------------------------------------------------------
+      ADIOS version 1.12.0 or later is required to build
+      PnetCDF with ADIOS BP read support.
+      ------------------------------------------------------------])
+   fi
 
-    dnl Check if ADIOS version is 1.13.2 or later
-    AC_MSG_CHECKING([Check if ADIOS version is 1.13.2 or later])
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <adios_version.h>]], [[
+   dnl Check if ADIOS version is 1.13.2 or later
+   AC_MSG_CHECKING([Check if ADIOS version is 1.13.2 or later])
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <adios_version.h>]], [[
 #if (ADIOS_VERSION_MAJOR*1000000 + ADIOS_VERSION_MINOR*1000 + ADIOS_VERSION_PATCH < 1013002)
       choke me
 #endif
-    ]])], [adios_ge_1_13_2=yes], [adios_ge_1_13_2=no])
-    AC_MSG_RESULT([$adios_ge_1_13_2])
+   ]])], [adios_ge_1_13_2=yes], [adios_ge_1_13_2=no])
+   AC_MSG_RESULT([$adios_ge_1_13_2])
 
-    if test "x${adios_ge_1_13_2}" = xyes; then
+   if test "x${adios_ge_1_13_2}" = xyes; then
       ADIOS_VER_GE_1132=1
-    fi
-    
-    CPPFLAGS=$saved_CPPFLAGS
-    LDFLAGS=$saved_LDFLAGS
-    LIBS=$saved_LIBS
+   fi
 
-    AC_SUBST([ADIOS_INC], ["$adios_cflag"])
-    AC_SUBST([ADIOS_LDFLAGS], ["$adios_LDFLAGS"])
-    AC_SUBST([ADIOS_LIBS], ["$adios_LIBS"])
-    AC_SUBST([ADIOS_PACKAGE], [adios])
+   CPPFLAGS=$saved_CPPFLAGS
+   LDFLAGS=$saved_LDFLAGS
+   LIBS=$saved_LIBS
+
+   AC_SUBST([ADIOS_INC], ["$adios_cflag"])
+   AC_SUBST([ADIOS_LDFLAGS], ["$adios_LDFLAGS"])
+   AC_SUBST([ADIOS_LIBS], ["$adios_LIBS"])
+   AC_SUBST([ADIOS_PACKAGE], [adios])
 fi
 
 AC_SUBST(ADIOS_VER_GE_1132)
@@ -2221,7 +2422,7 @@ if test "x$enable_profiling" = "xyes" ; then
 
    if test "x${debug}" = xno; then
       dnl check required functions for enabling malloc tracing
-      if test "x${ac_cv_func_tsearch}" = xyes -a "x${ac_cv_func_tdelete}" = xyes ; then
+      if test "x${ac_cv_func_tsearch}" = xyes && test "x${ac_cv_func_tdelete}" = xyes ; then
          AC_DEFINE(PNC_MALLOC_TRACE)
       fi
    fi
@@ -2241,7 +2442,7 @@ if test "x${TESTMPIRUN}" = x ; then
    dnl set default to "mpiexec -n NP"
    UD_MPI_PATH_PROGS([TESTMPIRUN], [mpiexec mpirun srun])
    if test "x${TESTMPIRUN}" != x ; then
-      TESTMPIRUN+=" -n NP"
+      TESTMPIRUN="$TESTMPIRUN -n NP"
    fi
 fi
 
@@ -2253,7 +2454,30 @@ fi
 
 # SEQ_CC is used to compile programs to be run sequentially, such as
 # pnetcdf_version, ncoffsets, and ncvalidator
-AC_PATH_PROG([SEQ_CC], [gcc], [$MPICC])
+# Note on Theta @ALCF, CPATH is set for Intel Compiler and when gcc is used to
+# compile the above utility programs, errors can occur. See doc/README.CRAY for
+# more information. Below we use the same C compiler as MPICC.
+if test "x$SEQ_CC" = x ; then
+   if test "x$ac_cv_mpicc_base" = xGCC ; then
+      AC_PATH_PROG([SEQ_CC], [gcc], [$MPICC])
+   elif test "x$ac_cv_mpicc_base" = xCLANG ; then
+      AC_PATH_PROG([SEQ_CC], [clang], [$MPICC])
+   elif test "x$ac_cv_mpicc_base" = xICC ; then
+      AC_PATH_PROG([SEQ_CC], [icc], [$MPICC])
+   elif test "x$ac_cv_mpicc_base" = xPGCC ; then
+      AC_PATH_PROG([SEQ_CC], [pgcc], [$MPICC])
+   elif test "x$ac_cv_mpicc_base" = xXLC ; then
+      AC_PATH_PROG([SEQ_CC], [xlc], [$MPICC])
+   elif test "x$ac_cv_mpicc_base" = xFCCPX ; then
+      AC_PATH_PROG([SEQ_CC], [fccpx], [$MPICC])
+   fi
+   # gcc should be available on most of the machines today
+   if test "x$SEQ_CC" = x ; then
+      AC_PATH_PROG([SEQ_CC], [gcc], [$MPICC])
+   fi
+fi
+AC_MSG_CHECKING([C compiler for serial utility programs])
+AC_MSG_RESULT([$SEQ_CC])
 AC_SUBST(SEQ_CC)
 
 dnl Configuration Date
@@ -2286,7 +2510,7 @@ dnl Update the version information only immediately before a public release.
 dnl PnetCDF starts with 1:0:0 (shared library is first supported in 1.9.0)
 dnl because some package distributors, such as Debian, may have already built
 dnl PnetCDF with shared libraries.
-ABIVERSION="3:2:0"
+ABIVERSION="4:1:0"
 AC_SUBST(ABIVERSION)
 if test "$enable_versioning" = "yes" ; then
    ABIVERSIONFLAGS="-version-info \$(ABIVERSION)"
@@ -2377,7 +2601,9 @@ AM_CONDITIONAL(BUILD_DRIVER_FOO, [test x${debug} = xyes])
 AC_SUBST(enable_static)
 AC_SUBST(enable_shared)
 AC_SUBST(enable_netcdf4)
-AC_SUBST(netcdf_libdir)
+AC_SUBST(netcdf4_libdir)
+AC_SUBST(enable_adios)
+AC_SUBST(adios_libdir)
 AM_CONDITIONAL(BUILD_SHARED_LIB, [test x${enable_shared} = xyes])
 
 AC_OUTPUT
@@ -2394,10 +2620,10 @@ if test "x${enable_netcdf4}" = xyes; then
    echo "\
               NetCDF-4 support                            - enabled"
 fi
-if test "x${enable_adios}" = xyes; then 
-   echo "\ 
-              ADIOS BP read support                       - enabled" 
-fi 
+if test "x${enable_adios}" = xyes; then
+   echo "\
+              ADIOS BP read support                       - enabled"
+fi
 if test "x${enable_bbdriver}" = xyes ; then
    echo "\
               Burst buffering                             - enabled"
@@ -2439,7 +2665,7 @@ if test "x${large_file_test}" = xyes; then
    echo "\
               Testing large file/variable I/O             - enabled"
 fi
-if test "x${has_fortran}" = xyes -a "x${ac_f77_support_freeform}" = xno ; then
+if test "x${has_fortran}" = xyes && test "x${ac_f77_support_freeform}" = xno ; then
    echo "\
               Support free form in Fortran 77             - disabled"
 fi
@@ -2499,14 +2725,14 @@ if test "x${enable_netcdf4}" = xyes; then
               NETCDF4_LDFLAGS = ${NETCDF4_LDFLAGS}
               NETCDF4_LIBS    = ${NETCDF4_LIBS}"
 fi
-if test "x${enable_adios}" = xyes; then 
+if test "x${enable_adios}" = xyes; then
    echo "\
 
    ADIOS library:
               ADIOS_INC     = ${ADIOS_INC}
               ADIOS_LDFLAGS = ${ADIOS_LDFLAGS}
               ADIOS_LIBS    = ${ADIOS_LIBS}"
-fi 
+fi
 echo "\
 
    Now run 'make' to build the library and utility tools.

@@ -1,8 +1,6 @@
 #
-# Copyright (C) 2003, Northwestern University and Argonne National Laboratory
+# Copyright (C) 2019, Northwestern University and Argonne National Laboratory
 # See COPYRIGHT notice in top-level directory.
-#
-# $Id$
 #
 # @configure_input@
 
@@ -36,7 +34,7 @@ TESTPROGRAMS = open header \
                ivars \
                indep
 
-M4_SRCS  = 
+M4_SRCS  =
 
 M4FLAGS += -I${top_srcdir}/m4
 
@@ -76,7 +74,8 @@ CLEANFILES = $(M4_SRCS:.m4=.c) \
              $(TESTOUTDIR)/put_get_all_kinds.nc.cdf4 \
              $(NC_FILES) testfile.nc
 
-EXTRA_DIST = $(M4_SRCS) wrap_runs.sh parallel_run.sh
+EXTRA_DIST = $(M4_SRCS) wrap_runs.sh parallel_run.sh \
+             arrays_big.bp  arrays.bp  attributes_big.bp  attributes.bp
 
 ../common/libtestutils.la:
 	set -e; cd ../common && $(MAKE) $(MFLAGS) tests

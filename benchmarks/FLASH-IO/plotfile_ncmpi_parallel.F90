@@ -207,7 +207,7 @@
       integer ngid
       integer err
 
-      integer n_to_left(0:16383)  ! must extend from 0 to NumPEs-1
+      integer n_to_left(0:NumPEs)  ! must extend from 0 to NumPEs-1
 
 ! 2-20-00 -- we don't need to allocate more space than necessary
 !      integer gid(mfaces+1+mchild,maxblocks_tr)
@@ -215,15 +215,15 @@
 
       integer tot_blocks
 
-      save gid, n_to_left
+      save gid
 
       integer nzones_block(3)
 
 ! create a character variable to hold the string representation of the block
 ! number.  Note this is set to be 4 characters long (i.e. max = 9999).
-      character*4  fnum_string
-      character*80 filename
-      character*8 str
+      character*4   fnum_string
+      character*512 filename
+      character*8   str
 
 ! set the number of variables we are going to write out
       integer, parameter ::  num_out = 4

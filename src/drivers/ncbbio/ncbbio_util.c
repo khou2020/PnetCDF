@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h> /* strcasecmp() */
 #include <stdio.h>
 #include <math.h>
 #include <ncbbio_driver.h>
@@ -26,13 +27,9 @@ void ncbbio_extract_hint(NC_bb *ncbbp, MPI_Info info) {
 
     /* Directory to store log files */
     MPI_Info_get(info, "nc_burst_buf_dirname", MPI_MAX_INFO_VAL - 1,
-                 value, &flag);
-    if (flag) {
-        strncpy(ncbbp->logbase, value, PATH_MAX);
-    }
-    else {
-        memset(ncbbp->logbase, 0, sizeof(ncbbp->logbase));
-    }
+                 ncbbp->logbase, &flag);
+    if (!flag)
+        ncbbp->logbase[0] = '\0';
 
     /* Overwrite the log file if already exists (disable) */
     MPI_Info_get(info, "nc_burst_buf_overwrite", MPI_MAX_INFO_VAL - 1,

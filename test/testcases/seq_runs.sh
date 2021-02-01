@@ -11,8 +11,6 @@ VALIDATOR=../../src/utils/ncvalidator/ncvalidator
 
 ${TESTSEQRUN} ./tst_version
 
-${TESTSEQRUN} ./error_precedence ${TESTOUTDIR}/error_precedence.nc
-
 ${TESTSEQRUN} ./put_all_kinds ${TESTOUTDIR}/put_all_kinds.nc
 ${TESTSEQRUN} ${VALIDATOR} -q ${TESTOUTDIR}/put_all_kinds.nc1
 ${TESTSEQRUN} ${VALIDATOR} -q ${TESTOUTDIR}/put_all_kinds.nc2
@@ -30,7 +28,7 @@ NCMPIDIFF=../../src/utils/ncmpidiff/ncmpidiff
 OUT_PATH=`echo "$TESTOUTDIR" | cut -d: -f2-`
 
 rm -f ${OUT_PATH}/testfile.nc ${OUT_PATH}/redef1.nc
-${TESTSEQRUN} ${NCMPIGEN} -v 2 -o ${TESTOUTDIR}/redef1.nc ${srcdir}/redef-good.ncdump
+${TESTSEQRUN} ${NCMPIGEN} -v 5 -o ${TESTOUTDIR}/redef1.nc ${srcdir}/redef-good.ncdump
 ${TESTSEQRUN} ./redef1 ${TESTOUTDIR}/testfile.nc
 ${TESTSEQRUN} ${NCMPIDIFF} -q ${TESTOUTDIR}/testfile.nc ${TESTOUTDIR}/redef1.nc
 # diff -q ${OUT_PATH}/testfile.nc ${OUT_PATH}/redef1.nc

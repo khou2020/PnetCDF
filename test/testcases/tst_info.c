@@ -35,8 +35,39 @@
 
 #define _RNDUP(x, unit) ((((x) + (unit) - 1) / (unit)) * (unit))
 
+#define CHECK_HINT(hint) { \
+    MPI_Info_get(info_used, hint, len, value, &flag); \
+    if (!flag) { \
+        printf("Error: hint \"%s\" is missing\n", hint); \
+        nerrs++; \
+    } \
+}
+
+static
+int check_pnetcdf_hints(int ncid)
+{
+    char value[MPI_MAX_INFO_VAL+1];
+    int err, nerrs=0, len=MPI_MAX_INFO_VAL, flag;
+    MPI_Info info_used;
+
+    err = ncmpi_inq_file_info(ncid, &info_used);
+    CHECK_ERR;
+
+    CHECK_HINT("nc_header_align_size");
+    CHECK_HINT("nc_var_align_size");
+    CHECK_HINT("nc_header_read_chunk_size");
+    CHECK_HINT("nc_record_align_size");
+    CHECK_HINT("pnetcdf_subfiling");
+    CHECK_HINT("nc_in_place_swap");
+    CHECK_HINT("nc_ibuf_size");
+
+    MPI_Info_free(&info_used);
+
+    return nerrs;
+}
+
 int main(int argc, char** argv) {
-    char filename[256], value[MPI_MAX_INFO_VAL], stderr_buf[BUFSIZ];
+    char filename[256], value[MPI_MAX_INFO_VAL];
     int ncid1, ncid2, rank, err, nerrs=0, len, flag, varid;
     MPI_Offset header_size, header_extent, expect;
     MPI_Info info, info_used;
@@ -59,12 +90,20 @@ int main(int argc, char** argv) {
         free(cmd_str);
     }
 
+    /* create a new file and keep it opened to make ncmpii_mem_root not NULL */
+    err = ncmpi_create(MPI_COMM_WORLD, "dummy", NC_CLOBBER, MPI_INFO_NULL, &ncid1); CHECK_ERR
+
+    /* retrieve MPI info object and check if all PnetCDF recognizable hints are
+     * present */
+    nerrs += check_pnetcdf_hints(ncid1);
+
     /* set environment variable PNETCDF_HINTS */
     err = setenv("PNETCDF_HINTS",
                  "romio_ds_write=disable;pnetcdf_subfiling=enable", 1);
     if (err != 0) {
         fprintf(stderr,"Error at line %d of %s calling setenv(): %s\n",
                 __LINE__,__FILE__,strerror(errno));
+        nerrs++;
     }
 
     /* create some PnetCDF-level I/O hints */
@@ -72,25 +111,17 @@ int main(int argc, char** argv) {
     MPI_Info_set(info, "nc_header_align_size", "1");   /* size in bytes */
     MPI_Info_set(info, "nc_var_align_size",    "197"); /* size in bytes */
 
-    /* create a new file and keep it opened to make ncmpii_mem_root not NULL */
-    err = ncmpi_create(MPI_COMM_WORLD, "dummy", NC_CLOBBER, MPI_INFO_NULL, &ncid1); CHECK_ERR
-
-    /* use stderr_buf to capture messages from stderr */
-    stderr_buf[0]='\0';
-    err = setvbuf(stderr, stderr_buf, _IOLBF, BUFSIZ);
-    if (err != 0) printf("Error: setvbuf %s\n",strerror(errno));
-
     /* create another new file using a non-NULL MPI info --------------------*/
     err = ncmpi_create(MPI_COMM_WORLD, filename, NC_CLOBBER, info, &ncid2); CHECK_ERR
-
-    /* any non-NULL stderr is considered an error */
-    if (stderr_buf[0] != '\0') nerrs++;
 
     MPI_Info_free(&info);
 
     err = ncmpi_def_var(ncid1, "var", NC_INT, 0, NULL, &varid); CHECK_ERR
-
     err = ncmpi_def_var(ncid2, "var", NC_INT, 0, NULL, &varid); CHECK_ERR
+
+    /* set fill mode, so ncmpidiff can compare 2 output files without error */
+    err = ncmpi_set_fill(ncid1, NC_FILL, NULL); CHECK_ERR
+    err = ncmpi_set_fill(ncid2, NC_FILL, NULL); CHECK_ERR
 
     /* calling ncmpi_enddef() to write the file header */
     err = ncmpi_enddef(ncid2); CHECK_ERR
@@ -126,36 +157,78 @@ int main(int argc, char** argv) {
     if (flag) {
         MPI_Info_get(info_used, "nc_header_align_size", len+1, value, &flag);
         expect = _RNDUP(1, 4);
-        if (expect != strtoll(value,NULL,10))
+        if (expect != strtoll(value,NULL,10)) {
             printf("Error: nc_header_align_size expect %lld but got %lld\n",
                     expect, strtoll(value,NULL,10));
+            nerrs++;
+        }
+    } else {
+        printf("Error: hint \"nc_header_align_size\" is missing\n");
+        nerrs++;
     }
+
     MPI_Info_get_valuelen(info_used, "nc_var_align_size", &len, &flag);
     if (flag) {
         MPI_Info_get(info_used, "nc_var_align_size", len+1, value, &flag);
         expect = _RNDUP(197, 4);
-        if (expect != strtoll(value,NULL,10))
-           printf("Error: nc_var_align_size expect %lld but got %lld\n",
-                  expect, strtoll(value,NULL,10));
+        if (expect != strtoll(value,NULL,10)) {
+            printf("Error: nc_var_align_size expect %lld but got %lld\n",
+                   expect, strtoll(value,NULL,10));
+            nerrs++;
+        }
+    } else {
+        printf("Error: hint \"nc_var_align_size\" is missing\n");
+        nerrs++;
     }
+
     MPI_Info_get_valuelen(info_used, "romio_ds_write", &len, &flag);
     if (flag) {
         MPI_Info_get(info_used, "romio_ds_write", len+1, value, &flag);
-        if (strcasecmp("disable", value))
-            printf("Error: romio_ds_write expect \"disable\" but got \"%s\"\n", value);
+        if (strcasecmp("disable", value)) {
+            printf("Error: romio_ds_write expect \"disable\" but got \"%s\"\n",
+                   value);
+            nerrs++;
+        }
     }
+
     MPI_Info_get_valuelen(info_used, "pnetcdf_subfiling", &len, &flag);
     if (flag) {
         MPI_Info_get(info_used, "pnetcdf_subfiling", len+1, value, &flag);
 #ifdef ENABLE_SUBFILING
-        if (strcasecmp("enable", value))
-            printf("Error: pnetcdf_subfiling expect \"enable\" but got \"%s\"\n", value);
+        if (strcasecmp("enable", value)) {
+            printf("Error: pnetcdf_subfiling expect \"enable\" but got \"%s\"\n",
+                   value);
+            nerrs++;
+        }
 #else
-        if (strcasecmp("disable", value))
-            printf("Error: pnetcdf_subfiling expect \"disable\" but got \"%s\"\n", value);
+        if (strcasecmp("disable", value)) {
+            printf("Error: pnetcdf_subfiling expect \"disable\" but got \"%s\"\n",
+                   value);
+            nerrs++;
+        }
 #endif
+    } else {
+        printf("Error: hint \"pnetcdf_subfiling\" is missing\n");
+        nerrs++;
     }
     MPI_Info_free(&info_used);
+
+    /* set environment variable PNETCDF_HINTS */
+    err = unsetenv("PNETCDF_HINTS");
+    if (err != 0) {
+        fprintf(stderr,"Error at line %d of %s calling unsetenv(): %s\n",
+                __LINE__,__FILE__,strerror(errno));
+        nerrs++;
+    }
+
+    /* re-open the file and get the MPI info object */
+    err = ncmpi_open(MPI_COMM_WORLD, filename, NC_NOWRITE, MPI_INFO_NULL, &ncid1); CHECK_ERR
+
+    /* retrieve MPI info object and check if all PnetCDF recognizable hints are
+     * present */
+    nerrs += check_pnetcdf_hints(ncid1);
+
+    err = ncmpi_close(ncid1); CHECK_ERR
 
     /* check if PnetCDF freed all internal malloc */
     MPI_Offset malloc_size, sum_size;

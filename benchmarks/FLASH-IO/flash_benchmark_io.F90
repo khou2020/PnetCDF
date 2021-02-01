@@ -9,7 +9,7 @@
 ! #define MPI_OFFSET MPI_INTEGER8
 ! #endif
 
-#ifdef NAGFortran
+#ifdef NAGFOR
       USE F90_UNIX_ENV, only : iargc, getarg
 #endif
 
@@ -18,7 +18,7 @@
 
 #include "common.fh"
 
-#ifndef NAGFortran
+#ifndef NAGFOR
       integer iargc
 #endif
       integer i, argc, ierr
@@ -46,19 +46,27 @@
          isArgvRight = .TRUE.
          argc = IARGC()   ! IARGC() does not count the executable name
          call getarg(0, executable)
-         if (argc .GT. 2) then
-            print *, &
-            'Usage: ',trim(executable),' [-q] <ouput file base name>'
-            isArgvRight = .FALSE.
-         else
+         if (argc .EQ. 0) then
             ! default file name prefix
             basenm = "flash_io_test_"
-            if (argc .EQ. 1) then
-               call getarg(1, basenm)
-            else if (argc .EQ. 2) then
+         else if (argc .EQ. 1) then
+            call getarg(1, basenm)
+            if (basenm(1:2) .EQ. '-q') then
                verbose = .FALSE.
-               call getarg(2, basenm)
+               basenm = "flash_io_test_"
             endif
+         else if (argc .EQ. 2) then
+            verbose = .FALSE.
+            call getarg(2, basenm)
+            if (basenm(1:2) .EQ. '-q') then
+                isArgvRight = .FALSE.
+            endif
+         else if (argc .GT. 2) then
+            isArgvRight = .FALSE.
+         endif
+         if (.NOT. isArgvRight) then
+            print *, &
+            'Usage: ',trim(executable),' [-q] <ouput file base name>'
          endif
       endif
 

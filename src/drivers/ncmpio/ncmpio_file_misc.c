@@ -319,17 +319,18 @@ ncmpio_inq_misc(void       *ncdp,
 
     /* obtain the number of fixed-size variables */
     if (num_fix_varsp != NULL) {
+        int num_rec_vars;
         if (NC_indef(ncp)) {
             /* if in define mode, recalculate the number of record variables */
-            *num_fix_varsp = 0;
+            num_rec_vars = 0;
             for (i=0; i<ncp->vars.ndefined; i++)
-                *num_fix_varsp += IS_RECVAR(ncp->vars.value[i]);
+                num_rec_vars += IS_RECVAR(ncp->vars.value[i]);
         }
         else
-            *num_fix_varsp = ncp->vars.num_rec_vars;
+            num_rec_vars = ncp->vars.num_rec_vars;
 
         /* no. fixed-size == ndefined - no. record variables */
-        *num_fix_varsp = ncp->vars.ndefined - *num_fix_varsp;
+        *num_fix_varsp = ncp->vars.ndefined - num_rec_vars;
     }
 
     /* obtain the number of record variables */
@@ -386,7 +387,15 @@ ncmpio_inq_misc(void       *ncdp,
         if (mpireturn != MPI_SUCCESS)
             return ncmpii_error_mpi2nc(mpireturn, "MPI_Info_dup");
 #if 0
-        /* PnetCDF hints have been added to ncp->mpiinfo at ncmpi_enddef */
+        /* PnetCDF hints have been added to ncp->mpiinfo at ncmpi_enddef.
+         *
+         * Note some MPI libraries, such as MPICH 3.3.1 and prior, fail to
+         * preserve user hints that are not recognized by the MPI libraries,
+         * which can result in the PnetCDF hints undefined in the info object
+         * returend from MPI_File_get_info(). We need to check if this is the
+         * case and add the PnbetCDF hints explicitly to the info object
+         * brefore returning it to user.
+         */
 
         sprintf(value, "%lld", ncp->h_align);
         MPI_Info_set(*info_used, "nc_header_align_size", value);
@@ -406,6 +415,9 @@ ncmpio_inq_misc(void       *ncdp,
             MPI_Info_set(*info_used, "nc_in_place_swap", "disable");
         else
             MPI_Info_set(*info_used, "nc_in_place_swap", "auto");
+
+        sprintf(value, "%lld", ncp->ibuf_size);
+        MPI_Info_set(*info_used, "nc_ibuf_size", value);
 
 #ifdef ENABLE_SUBFILING
         if (ncp->subfile_mode)

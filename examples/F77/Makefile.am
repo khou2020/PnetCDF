@@ -36,7 +36,7 @@ check_PROGRAMS = nonblocking_write \
 EXTRA_DIST = utils.F90
 
 utils.o: $(srcdir)/utils.F90
-	$(FC) $(FC_DEFS) -c -o $@ $(FCFLAGS) $<
+	$(FC) $(FC_DEFS) $(AM_FCFLAGS) $(FCFLAGS) -c -o $@ $<
 
 # parallel runs only
 # TESTS = $(check_PROGRAMS)

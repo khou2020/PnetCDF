@@ -6,7 +6,7 @@
 #
 # @configure_input@
 
-SUBDIRS = C tutorial
+SUBDIRS = C
 DIST_SUBDIRS = C tutorial CXX F77 F90 burst_buffer adios
 
 if HAS_MPICXX
@@ -19,6 +19,10 @@ if HAVE_MPI_MOD
 SUBDIRS += F90
 endif
 endif
+
+# There are FORTRAN programs in tutorial replying on F77/utils.o
+# Thus, keep folder tutorial after F77, allowing F77 build first.
+SUBDIRS += tutorial
 
 if ENABLE_BURST_BUFFER
 SUBDIRS += burst_buffer
@@ -54,6 +58,9 @@ ptests:
 
 # For VPATH build (parallel build), try delete all sub-directories
 distclean-local:
+	for d in $(DIST_SUBDIRS) ; do \
+	   if [ -d $$d/.deps ] ; then rmdir $$d/.deps || true ; fi ; \
+	done ; \
 	if [ "$(abs_builddir)" != "$(abs_srcdir)" ] ; then \
 	   for d in $(DIST_SUBDIRS) ; do \
 	       rmdir $$d || true ; \

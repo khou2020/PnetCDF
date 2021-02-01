@@ -35,11 +35,11 @@ ncmpio_create(MPI_Comm     comm,
               const char  *path,
               int          cmode,
               int          ncid,
-              MPI_Info     info, /* user's info and env info combined */
+              MPI_Info     user_info, /* user's and env info combined */
               void       **ncpp)
 {
-    char *env_str;
-    int rank, mpiomode, err, mpireturn, default_format;
+    char *env_str, *filename;
+    int rank, mpiomode, err, mpireturn, default_format, file_exist = 1;
     MPI_File fh;
     MPI_Info info_used;
     NC *ncp=NULL;
@@ -69,25 +69,27 @@ ncmpio_create(MPI_Comm     comm,
 
     mpiomode = MPI_MODE_RDWR | MPI_MODE_CREATE;
 
+#ifdef HAVE_ACCESS
+    /* if access() is available, use it to check whether file already exists
+     * rank 0 calls access() and broadcasts file_exist */
+    if (rank == 0) {
+        /* remove the file system type prefix name if there is any.
+         * For example, path=="lustre:/home/foo/testfile.nc",
+         * use "/home/foo/testfile.nc" when calling access()
+         */
+        filename = strchr(path, ':');
+        if (filename == NULL) filename = (char*)path; /* no prefix */
+        else                  filename++;
+
+        if (access(filename, F_OK) == -1) file_exist = 0;
+        errno = 0; /* reset errno */
+    }
+#endif
+
     if (fIsSet(cmode, NC_NOCLOBBER)) {
         /* check if file exists: NC_EEXIST is returned if the file already
          * exists and NC_NOCLOBBER mode is used in ncmpi_create */
 #ifdef HAVE_ACCESS
-        int file_exist;
-        /* if access() is available, use it to check whether file already exists
-         * rank 0 calls access() and broadcasts file_exist */
-        if (rank == 0) {
-            /* remove the file system type prefix name if there is any.
-             * For example, path=="lustre:/home/foo/testfile.nc",
-             * use "/home/foo/testfile.nc" when calling access()
-             */
-            char *filename = strchr(path, ':');
-            if (filename == NULL) filename = (char*)path; /* no prefix */
-            else                  filename++;
-
-            if (access(filename, F_OK) == 0) file_exist = 1;
-            else                             file_exist = 0;
-        }
         TRACE_COMM(MPI_Bcast)(&file_exist, 1, MPI_INT, 0, comm);
         if (file_exist) DEBUG_RETURN_ERROR(NC_EEXIST)
 #else
@@ -97,28 +99,44 @@ ncmpio_create(MPI_Comm     comm,
 #endif
     }
     else { /* NC_CLOBBER is the default mode in create */
-        /* rank 0 deletes the file and ignores error code.
+        /* rank 0 truncates or deletes the file and ignores error code.
          * Note calling MPI_File_set_size is expensive as it calls truncate()
          */
-        if (rank == 0) {
-#ifdef HAVE_UNLINK
-            char *filename = strchr(path, ':');
-            if (filename == NULL) filename = (char*)path; /* no prefix */
-            else                  filename++;
-
-            err = unlink(filename);
+        err = NC_NOERR;
+        if (rank == 0 && file_exist) {
+#ifdef HAVE_TRUNCATE
+            err = truncate(filename, 0);
             if (err < 0 && errno != ENOENT) /* ignore ENOENT: file not exist */
                 DEBUG_ASSIGN_ERROR(err, NC_EFILE) /* other error */
             else
                 err = NC_NOERR;
 #else
+            /* call MPI_File_set_size() to truncate the file. Note this can
+             * be expensive.
+             */
             err = NC_NOERR;
-            TRACE_IO(MPI_File_delete)((char*)path, MPI_INFO_NULL);
+            TRACE_IO(MPI_File_open)(MPI_COMM_SELF, (char *)path, MPI_MODE_RDWR,
+                                    MPI_INFO_NULL, &fh);
             if (mpireturn != MPI_SUCCESS) {
                 int errorclass;
                 MPI_Error_class(mpireturn, &errorclass);
-                if (errorclass != MPI_ERR_NO_SUCH_FILE) /* ignore this error */
-                    err = ncmpii_error_mpi2nc(mpireturn, "MPI_File_delete");
+                err = ncmpii_error_mpi2nc(mpireturn, "MPI_File_open");
+            }
+            else {
+                TRACE_IO(MPI_File_set_size)(fh, 0);
+                if (mpireturn != MPI_SUCCESS) {
+                    int errorclass;
+                    MPI_Error_class(mpireturn, &errorclass);
+                    err = ncmpii_error_mpi2nc(mpireturn, "MPI_File_set_size");
+                }
+                else {
+                    TRACE_IO(MPI_File_close)(fh);
+                    if (mpireturn != MPI_SUCCESS) {
+                        int errorclass;
+                        MPI_Error_class(mpireturn, &errorclass);
+                        err = ncmpii_error_mpi2nc(mpireturn, "MPI_File_close");
+                    }
+                }
             }
 #endif
             if (errno == ENOENT) errno = 0; /* reset errno */
@@ -129,7 +147,7 @@ ncmpio_create(MPI_Comm     comm,
     }
 
     /* create file collectively -------------------------------------------- */
-    TRACE_IO(MPI_File_open)(comm, (char *)path, mpiomode, info, &fh);
+    TRACE_IO(MPI_File_open)(comm, (char *)path, mpiomode, user_info, &fh);
     if (mpireturn != MPI_SUCCESS) {
 #ifndef HAVE_ACCESS
         if (fIsSet(cmode, NC_NOCLOBBER)) {
@@ -157,7 +175,7 @@ ncmpio_create(MPI_Comm     comm,
         /* reset errno, as MPI_File_open may change it, even for MPI_SUCCESS */
         errno = 0;
 
-    /* get the file info actually used by MPI-IO (may alter user's info) */
+    /* get the I/O hints used/modified by MPI-IO */
     mpireturn = MPI_File_get_info(fh, &info_used);
     if (mpireturn != MPI_SUCCESS)
         return ncmpii_error_mpi2nc(mpireturn, "MPI_File_get_info");
@@ -199,13 +217,17 @@ ncmpio_create(MPI_Comm     comm,
     /* buffer to pack noncontiguous user buffers when calling wait() */
     ncp->ibuf_size = NC_DEFAULT_IBUF_SIZE;
 
-    /* extract I/O hints from user info */
-    ncmpio_set_pnetcdf_hints(ncp, info);
+    /* Extract PnetCDF specific I/O hints from user_info and set default hint
+     * values into info_used. Note some MPI libraries, such as MPICH 3.3.1 and
+     * priors fail to preserve user hints that are not recogniozed by the MPI
+     * libraries.
+     */
+    ncmpio_set_pnetcdf_hints(ncp, user_info, info_used);
 
     /* For file create, ignore if NC_NOWRITE set in cmode by user */
     ncp->iomode         = cmode | NC_WRITE;
     ncp->comm           = comm;  /* reuse comm duplicated in dispatch layer */
-    ncp->mpiinfo        = info_used;
+    ncp->mpiinfo        = info_used; /* is not MPI_INFO_NULL */
     ncp->mpiomode       = mpiomode;
     ncp->collective_fh  = fh;
     ncp->independent_fh = MPI_FILE_NULL;

@@ -9,11 +9,11 @@
 #include <sys/types.h>  /* open() */
 #include <sys/stat.h>   /* open() */
 #include <fcntl.h>      /* open() */
-#include <unistd.h>     /* read() getopt() */
+#include <unistd.h>     /* read(), getopt() */
 #include <string.h>     /* strcpy(), strncpy() */
 #include <inttypes.h>   /* check for Endianness, uint32_t*/
 #include <assert.h>
-#include <errno.h>
+#include <errno.h>      /* errno */
 
 #define X_ALIGN         4
 #define X_INT_MAX       2147483647
@@ -45,7 +45,7 @@ static const char nada[4] = {0, 0, 0, 0};
 /* useful for aligning memory */
 #define _RNDUP(x, unit) ((((x) + (unit) - 1) / (unit)) * (unit))
 
-#define ERR_ADDR (((size_t) gbp->pos - (size_t) gbp->base) + gbp->offset - gbp->size)
+#define ERR_ADDR (((size_t)gbp->pos - (size_t)gbp->base) + (size_t)(gbp->offset - gbp->size))
 
 #define IS_RECVAR(vp) ((vp)->shape != NULL ? (*(vp)->shape == NC_UNLIMITED) : 0 )
 
@@ -92,6 +92,13 @@ typedef int nc_type;
 
 #define MIN_NC_XSZ 32
 #define NC_DEFAULT_CHUNKSIZE 1048576
+
+#define NC_FORMAT_UNKNOWN         -1
+#define NC_FORMAT_CLASSIC         1
+#define NC_FORMAT_CDF2            2
+#define NC_FORMAT_CDF5            5
+#define NC_FORMAT_NETCDF4         3
+#define NC_FORMAT_NETCDF4_CLASSIC 4
 
 typedef enum {
     NC_INVALID     = -1,  /* invalid */
@@ -212,7 +219,7 @@ static const char ncmagic[] = {'C', 'D', 'F', 0x01};
 
 static int check_little_endian(void)
 {
-    // return 0 for big endian, 1 for little endian.
+    /* return 0 for big endian, 1 for little endian */
     volatile uint32_t i=0x01234567;
     return (*((uint8_t*)(&i))) == 0x67;
 }
@@ -1031,6 +1038,8 @@ hdr_get_name(int          fd,
         if (err != NC_NOERR) {
             if (verbose) printf("Error @ [0x%8.8zx]:\n", err_addr);
             if (verbose) printf("\t%s - fetching name string padding\n", loc);
+            free(*namep);
+            *namep = NULL;
             return err;
         }
         memset(pad, 0, X_ALIGN-1);
@@ -1038,8 +1047,6 @@ hdr_get_name(int          fd,
             /* This is considered not a fatal error, we continue to validate */
             if (verbose) printf("Error @ [0x%8.8zx]:\n", err_addr);
             if (verbose) printf("\t%s \"%s\": name padding is non-null byte\n", loc, *namep);
-            // free(*namep);
-            // *namep = NULL;
             DEBUG_ASSIGN_ERROR(err, NC_ENULLPAD)
             if (repair) {
                 val_repair(fd, err_addr, (size_t)padding, (void*)nada);
@@ -1876,6 +1883,8 @@ val_NC_check_vlens(NC *ncp)
        and format 2. */
     long long ii, vlen_max, rec_vars_count;
     long long large_fix_vars_count, large_rec_vars_count;
+    long long first_large_fix_var, first_large_rec_var;
+    long long second_large_fix_var, second_large_rec_var;
     int last = 0;
 
     if (ncp->vars.ndefined == 0)
@@ -1902,6 +1911,8 @@ val_NC_check_vlens(NC *ncp)
                     if (verbose) printf("\tvar %s: variable size greater than max (%lld) allowable by CDF-%d\n",(*vpp)->name,vlen_max,ncp->format);
                     DEBUG_RETURN_ERROR(NC_EVARSIZE)
                 }
+                if (!large_fix_vars_count) first_large_fix_var = ii;
+                else if (large_fix_vars_count == 1) second_large_fix_var = ii;
                 large_fix_vars_count++;
                 last = 1;
             }
@@ -1912,15 +1923,30 @@ val_NC_check_vlens(NC *ncp)
     /* OK if last non-record variable size too large, since not used to
        compute an offset */
     if (large_fix_vars_count > 1) {  /* only one "too-large" variable allowed */
-        if (verbose) printf("Error:\n");
-        if (verbose) printf("\tCDF-%d format allows only one large fixed-size variable\n",ncp->format);
+        if (verbose) {
+            printf("Error:\n");
+            printf("\tInput file contains %lld large fixed-size variables\n",large_fix_vars_count);
+            printf("\tCDF-%d format allows only one large fixed-size variable\n",ncp->format);
+            printf("\tThe 1st large fixed-size variable is %s\n",ncp->vars.value[first_large_fix_var]->name);
+            printf("\tThe 2nd large fixed-size variable is %s\n",ncp->vars.value[second_large_fix_var]->name);
+            if (ncp->format == 1)
+                printf("\tSee: https://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#classic_format_limitations\n");
+            else if (ncp->format == 2)
+                printf("\tSee: http://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#offset_format_limitations\n");
+        }
         DEBUG_RETURN_ERROR(NC_EVARSIZE)
     }
 
     /* The only "too-large" variable must be the last one defined */
     if (large_fix_vars_count == 1 && last == 0) {
-        if (verbose) printf("Error:\n");
-        if (verbose) printf("\tCDF-%d format allows only one large fixed-size variable\n",ncp->format);
+        if (verbose) {
+            printf("Error:\n");
+            printf("\tCDF-%d format allows only one large fixed-size variable which must be defined last and there is no record variable\n",ncp->format);
+            if (ncp->format == 1)
+                printf("\tSee: https://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#classic_format_limitations\n");
+            else if (ncp->format == 2)
+                printf("\tSee: http://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#offset_format_limitations\n");
+        }
         DEBUG_RETURN_ERROR(NC_EVARSIZE)
     }
 
@@ -1929,8 +1955,15 @@ val_NC_check_vlens(NC *ncp)
     /* if there is a "too-large" fixed-size variable, no record variable is
      * allowed */
     if (large_fix_vars_count == 1) {
-        if (verbose) printf("Error:\n");
-        if (verbose) printf("\tCDF-%d format allows only one large fixed-size variable when there is no record variable defined\n",ncp->format);
+        if (verbose) {
+            printf("Error:\n");
+            printf("\tInput file contains 1 large fixed-size variables and %lld record variables\n", rec_vars_count);
+            printf("\tCDF-%d format allows only one large fixed-size variable which must be defined last and there is no record variable\n",ncp->format);
+            if (ncp->format == 1)
+                printf("\tSee: https://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#classic_format_limitations\n");
+            else if (ncp->format == 2)
+                printf("\tSee: http://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#offset_format_limitations\n");
+        }
         DEBUG_RETURN_ERROR(NC_EVARSIZE)
     }
 
@@ -1947,6 +1980,8 @@ val_NC_check_vlens(NC *ncp)
                     if (verbose) printf("\tvar %s: variable size greater than max (%lld) allowable by CDF-%d\n",(*vpp)->name,vlen_max,ncp->format);
                     DEBUG_RETURN_ERROR(NC_EVARSIZE)
                 }
+                if (!large_rec_vars_count) first_large_rec_var = ii;
+                else if (large_rec_vars_count == 1) second_large_rec_var = ii;
                 large_rec_vars_count++;
                 last = 1;
             }
@@ -1959,39 +1994,176 @@ val_NC_check_vlens(NC *ncp)
      * http://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#offset_format_limitations
      */
     if (large_rec_vars_count > 1) { /* only one "too-large" variable allowed */
-        if (verbose) printf("Error:\n");
-        if (verbose) printf("\tCDF-%d format allows only one large record variable\n",ncp->format);
+        if (verbose) {
+            printf("Error:\n");
+            printf("\tInput file contains %lld large record variables\n",large_rec_vars_count);
+            printf("\tThe 1st large record variable is %s\n",ncp->vars.value[first_large_rec_var]->name);
+            printf("\tThe 2nd large record variable is %s\n",ncp->vars.value[second_large_rec_var]->name);
+            printf("\tCDF-%d format allows only one large record variable\n",ncp->format);
+            if (ncp->format == 1)
+                printf("\tSee: https://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#classic_format_limitations\n");
+            else if (ncp->format == 2)
+                printf("\tSee: http://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#offset_format_limitations\n");
+        }
         DEBUG_RETURN_ERROR(NC_EVARSIZE)
     }
 
     /* and it has to be the last one */
     if (large_rec_vars_count == 1 && last == 0) {
-        if (verbose) printf("Error:\n");
-        if (verbose) printf("\tCDF-%d format allows only one large record variable and it must be the last one defined\n",ncp->format);
+        if (verbose) {
+            printf("Error:\n");
+            printf("\tThe 1st large record variable that is not defined last is %s\n",ncp->vars.value[first_large_rec_var]->name);
+            printf("\tCDF-%d format allows only one large record variable and it must be defined last\n",ncp->format);
+            if (ncp->format == 1)
+                printf("\tSee: https://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#classic_format_limitations\n");
+            else if (ncp->format == 2)
+                printf("\tSee: http://www.unidata.ucar.edu/software/netcdf/docs/file_structure_and_performance.html#offset_format_limitations\n");
+        }
         DEBUG_RETURN_ERROR(NC_EVARSIZE)
     }
 
     return NC_NOERR;
 }
 
+#ifdef VAR_BEGIN_IN_ARBITRARY_ORDER
+typedef struct {
+    long long off;      /* starting file offset of a variable */
+    long long len;      /* length in bytes of a variable */
+    int       ID;       /* variable index ID */
+} off_len;
+
+/*----< off_compare() >------------------------------------------------------*/
+/* used for sorting the offsets of the off_len array */
+static int
+off_compare(const void *a, const void *b)
+{
+    if (((off_len*)a)->off > ((off_len*)b)->off) return  1;
+    if (((off_len*)a)->off < ((off_len*)b)->off) return -1;
+    return 0;
+}
+#endif
+
 /*
- * Given a valid ncp, check all variables for their begins whether in an
- * increasing order.
+ * Given a valid ncp, check all variables for overlapping begins and lengths.
  */
 static int
 val_NC_check_voff(NC *ncp)
 {
-    int nerrs=0, status=NC_NOERR;
-    NC_var *varp;
-    long long i, prev, prev_off;
+    int i, num_fix_vars, nerrs=0, status=NC_NOERR;
 
     if (ncp->vars.ndefined == 0) return NC_NOERR;
 
+    num_fix_vars = ncp->vars.ndefined - ncp->vars.num_rec_vars;
+
+#ifdef VAR_BEGIN_IN_ARBITRARY_ORDER
+    int j;
+    off_len *var_off_len;
+    long long var_end, max_var_end;
+
+    if (num_fix_vars == 0) goto check_rec_var;
+
+    /* check non-record variables first */
+    var_off_len = (off_len*) malloc(num_fix_vars * sizeof(off_len));
+    for (i=0, j=0; i<ncp->vars.ndefined; i++) {
+        NC_var *varp = ncp->vars.value[i];
+        if (varp->begin < ncp->begin_var) {
+            if (verbose) {
+                printf("Error - variable begin offset:\n");
+                printf("\tvar \"%s\" begin offset (%lld) is less than file header extent (%lld)\n",
+                       varp->name, varp->begin, ncp->begin_var);
+            }
+            nerrs++;
+            DEBUG_ASSIGN_ERROR(status, NC_ENOTNC)
+        }
+        if (IS_RECVAR(varp)) continue;
+        var_off_len[j].off = varp->begin;
+        var_off_len[j].len = varp->len;
+        var_off_len[j].ID  = i;
+        j++;
+    }
+    assert(j == num_fix_vars);
+
+    for (i=1; i<num_fix_vars; i++) {
+        if (var_off_len[i].off < var_off_len[i-1].off)
+            break;
+    }
+
+    if (i < num_fix_vars)
+        /* sort the off-len array into an increasing order */
+        qsort(var_off_len, num_fix_vars, sizeof(off_len), off_compare);
+
+    max_var_end = var_off_len[0].off + var_off_len[0].len;
+    for (i=1; i<num_fix_vars; i++) {
+        if (var_off_len[i].off < var_off_len[i-1].off + var_off_len[i-1].len) {
+            if (verbose) {
+                NC_var *var_cur = ncp->vars.value[var_off_len[i].ID];
+                NC_var *var_prv = ncp->vars.value[var_off_len[i-1].ID];
+                printf("Error - variable begin offset:\n");
+                printf("\tvar \"%s\" begin offset (%lld) overlaps var %s (begin=%lld, length=%lld)\n",
+                       var_cur->name, var_cur->begin, var_prv->name, var_prv->begin, var_prv->len);
+            }
+            nerrs++;
+            DEBUG_ASSIGN_ERROR(status, NC_ENOTNC)
+        }
+        var_end = var_off_len[i].off + var_off_len[i].len;
+        max_var_end = MAX(max_var_end, var_end);
+    }
+
+    if (ncp->begin_rec < max_var_end) {
+        if (verbose) printf("Error:\n");
+        if (verbose) printf("\tRecord variable section begin offset (%lld) is less than fixed-size variable section end offset (%lld)\n", ncp->begin_rec, max_var_end);
+        nerrs++;
+        DEBUG_ASSIGN_ERROR(status, NC_ENOTNC)
+    }
+    free(var_off_len);
+
+check_rec_var:
+    if (ncp->vars.num_rec_vars == 0) return status;
+
+    /* check record variables */
+    var_off_len = (off_len*) malloc(ncp->vars.num_rec_vars * sizeof(off_len));
+    for (i=0, j=0; i<ncp->vars.ndefined; i++) {
+        NC_var *varp = ncp->vars.value[i];
+        if (!IS_RECVAR(varp)) continue;
+        var_off_len[j].off = varp->begin;
+        var_off_len[j].len = varp->len;
+        var_off_len[j].ID  = i;
+        j++;
+    }
+    assert(j == ncp->vars.num_rec_vars);
+
+    for (i=1; i<ncp->vars.num_rec_vars; i++) {
+        if (var_off_len[i].off < var_off_len[i-1].off)
+            break;
+    }
+
+    if (i < ncp->vars.num_rec_vars)
+        /* sort the off-len array into an increasing order */
+        qsort(var_off_len, ncp->vars.num_rec_vars, sizeof(off_len), off_compare);
+
+    for (i=1; i<ncp->vars.num_rec_vars; i++) {
+        if (var_off_len[i].off < var_off_len[i-1].off + var_off_len[i-1].len) {
+            if (verbose) {
+                NC_var *var_cur = ncp->vars.value[var_off_len[i].ID];
+                NC_var *var_prv = ncp->vars.value[var_off_len[i-1].ID];
+                printf("Error - variable begin offset:\n");
+                printf("\tvar \"%s\" begin offset (%lld) overlaps var %s (begin=%lld, length=%lld)\n",
+                       var_cur->name, var_cur->begin, var_prv->name, var_prv->begin, var_prv->len);
+            }
+            nerrs++;
+            DEBUG_ASSIGN_ERROR(status, NC_ENOTNC)
+        }
+    }
+    free(var_off_len);
+#else
     /* Loop through vars, first pass is for non-record variables */
+    if (num_fix_vars == 0) goto check_rec_var;
+
+    long long prev, prev_off;
     prev_off = ncp->begin_var;
     prev     = 0;
     for (i=0; i<ncp->vars.ndefined; i++) {
-        varp = ncp->vars.value[i];
+        NC_var *varp = ncp->vars.value[i];
         if (IS_RECVAR(varp)) continue;
 
         if (varp->begin < prev_off) {
@@ -2011,16 +2183,19 @@ val_NC_check_voff(NC *ncp)
 
     if (ncp->begin_rec < prev_off) {
         if (verbose) printf("Error:\n");
-        if (verbose) printf("\tRecord variable section begin offset (%lld) is less than fixed-size variable section end offset (%lld)\n", varp->begin, prev_off);
+        if (verbose) printf("\tRecord variable section begin offset (%lld) is less than fixed-size variable section end offset (%lld)\n", ncp->begin_rec, prev_off);
         nerrs++;
         DEBUG_ASSIGN_ERROR(status, NC_ENOTNC)
     }
+
+check_rec_var:
+    if (ncp->vars.num_rec_vars == 0) return status;
 
     /* Loop through vars, second pass is for record variables */
     prev_off = ncp->begin_rec;
     prev     = 0;
     for (i=0; i<ncp->vars.ndefined; i++) {
-        varp = ncp->vars.value[i];
+        NC_var *varp = ncp->vars.value[i];
         if (!IS_RECVAR(varp)) continue;
 
         if (varp->begin < prev_off) {
@@ -2037,6 +2212,7 @@ val_NC_check_voff(NC *ncp)
         prev_off = varp->begin + varp->len;
         prev = i;
     }
+#endif
 
     return status;
 }
@@ -2044,11 +2220,10 @@ val_NC_check_voff(NC *ncp)
 static int
 val_get_NC(int fd, NC *ncp)
 {
-    int err, status=NC_NOERR;
+    int i, err, status=NC_NOERR;
     bufferinfo getbuf;
     char magic[5];
     size_t err_addr, pos_addr, base_addr;
-    const char *hdf5_signature="\211HDF\r\n\032\n";
 
     /* find Endianness of the running machine */
     getbuf.is_little_endian = check_little_endian();
@@ -2063,19 +2238,9 @@ val_get_NC(int fd, NC *ncp)
     /* Fetch the next header chunk. The chunk is 'gbp->size' bytes big
      * netcdf_file = header data
      * header      = magic numrecs dim_list gatt_list var_list
-     */
+    */
     status = val_fetch(fd, &getbuf);
     if (status != NC_NOERR) goto fn_exit;
-
-    /* Check HDF file signature */
-    if (memcmp(getbuf.base, hdf5_signature, 8) == 0) {
-        if (verbose) {
-            printf("Error: Input file is in HDF format\n");
-            printf("       ncvalidator only validates NetCDF classic files\n");
-        }
-        status = NC_ENOTSUPPORT;
-        goto fn_exit;
-    }
 
     /* Check classic CDF file signature */
     magic[4] = '\0';
@@ -2182,6 +2347,11 @@ val_get_NC(int fd, NC *ncp)
         goto fn_exit;
     }
 
+    /* update the total number of record variables --------------------------*/
+    ncp->vars.num_rec_vars = 0;
+    for (i=0; i<ncp->vars.ndefined; i++)
+        ncp->vars.num_rec_vars += IS_RECVAR(ncp->vars.value[i]);
+
     err = val_NC_check_voff(ncp);
     if (err != NC_NOERR) {
         status = err;
@@ -2235,6 +2405,73 @@ fn_exit:
 
 /* End Of get NC */
 
+static int
+check_signature(char *filename)
+{
+    const char *cdf_signature="CDF";
+    const char *hdf5_signature="\211HDF\r\n\032\n";
+    char signature[8];
+    int fd, format = NC_FORMAT_UNKNOWN;
+    off_t offset=0;
+    ssize_t rlen;
+
+    if ((fd = open(filename, O_RDONLY, 00400)) == -1) { /* open for read */
+        fprintf(stderr,"Error at line %d on opening file %s (%s)\n",
+                __LINE__,filename,strerror(errno));
+        exit(1);
+    }
+
+    /* get first 8 bytes of file */
+    rlen = read(fd, signature, 8);
+    if (rlen == -1) {
+        fprintf(stderr,"Error at line %d on reading file %s (%s)\n",
+                __LINE__,filename,strerror(errno));
+        exit(1);
+    }
+    if (rlen != 8) { /* file size less than 8 bytes */
+        printf("Error at line %d: invalid file %s\n",__LINE__,filename);
+        close(fd); /* ignore error */
+        exit(1);
+    }
+
+    /* check NetCDF classic CDF signature */
+    if (memcmp(signature, cdf_signature, 3) == 0) {
+        if      (signature[3] == 5) format = NC_FORMAT_CDF5;
+        else if (signature[3] == 2) format = NC_FORMAT_CDF2;
+        else if (signature[3] == 1) format = NC_FORMAT_CLASSIC;
+
+        if (format != NC_FORMAT_UNKNOWN) {
+            close(fd); /* ignore error */
+            return format;
+        }
+    }
+
+    /* The HDF5 superblock is located by searching for the HDF5 format
+     * signature at byte offset 0, byte offset 512, and at successive locations
+     * in the file, each a multiple of two of the previous location; in other
+     * words, at these byte offsets: 0, 512, 1024, 2048, and so on. The space
+     * before the HDF5 superblock is referred as to "user block".
+     */
+    while (rlen == 8 && memcmp(signature, hdf5_signature, 8)) {
+        offset = (offset == 0) ? 512 : offset * 2;
+        lseek(fd, offset, SEEK_SET);
+        rlen = read(fd, signature, 8);
+    }
+    close(fd); /* ignore error */
+
+    if (rlen == 8) { /* HDF5 signature found */
+        if (verbose) {
+            printf("Error: Input file is in HDF format\n");
+            printf("       'ncvalidator' only validates NetCDF classic files\n");
+            printf("       Consider 'h5check', the HDF5 format checker\n");
+        }
+        return NC_FORMAT_NETCDF4;
+    }
+
+    return NC_FORMAT_UNKNOWN;
+}
+
+#ifndef BUILD_CDFDIFF
 static void
 usage(char *argv0)
 {
@@ -2289,6 +2526,15 @@ int main(int argc, char **argv)
     if (path == NULL) path = filename; /* no prefix */
     else              path++;
 
+    /* check file signature */
+    fmt = check_signature(path);
+    if (fmt != NC_FORMAT_CDF5 && fmt != NC_FORMAT_CDF2 &&
+        fmt != NC_FORMAT_CLASSIC) {
+        if (fmt == NC_FORMAT_UNKNOWN && verbose)
+            printf("File \"%s\" format is unknown\n",filename);
+        return EXIT_FAILURE;
+    }
+
     if (repair) omode = O_RDWR;
     else        omode = O_RDONLY;
 
@@ -2340,14 +2586,25 @@ int main(int argc, char **argv)
             }
         }
     }
-    else {
+    else { /* no record variable */
         long long expect_fsize;
         if (ncp->vars.ndefined == 0)
             expect_fsize = ncp->xsz;
-        else
+        else {
+#ifdef VAR_BEGIN_IN_ARBITRARY_ORDER
+            /* find max end offset among all varaibles */
+            long long var_end;
+            expect_fsize = ncp->xsz;
+            for (i=0; i<ncp->vars.ndefined; i++) {
+                var_end = ncp->vars.value[i]->begin + ncp->vars.value[i]->len;
+                expect_fsize = MAX(expect_fsize, var_end);
+            }
+#else
             /* find the size of last fixed-size variable */
             expect_fsize = ncp->vars.value[ncp->vars.ndefined-1]->begin +
                            ncp->vars.value[ncp->vars.ndefined-1]->len;
+#endif
+        }
         if (expect_fsize < ncfilestat.st_size) {
             if (verbose) printf("Error:\n");
             if (verbose) printf("\tfile size (%lld) is larger than expected (%lld)!\n",(long long)ncfilestat.st_size, expect_fsize);
@@ -2365,6 +2622,7 @@ int main(int argc, char **argv)
 
 prog_exit:
     if (ncp != NULL) {
+        fmt = ncp->format;
         free_NC_dimarray(&ncp->dims);
         free_NC_attrarray(&ncp->attrs);
         free_NC_vararray(&ncp->vars);
@@ -2386,3 +2644,4 @@ prog_exit:
 
     exit((status == NC_NOERR) ? EXIT_SUCCESS : EXIT_FAILURE);
 }
+#endif
