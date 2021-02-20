@@ -33,7 +33,7 @@ void nczipioi_write_chunk_ocnt (NC_zip *nczipp, NC_zip_var *varp, void *ocnt, si
 				FILE *pfile;
 				char fname[1024], ppath[1024];
 
-				ocnt_in = NCI_Malloc (ocnt_size * varp->nchunkrec);
+				ocnt_in = malloc (ocnt_size * varp->nchunkrec);
 
 				strcpy (fname, nczipp->path);
 				for (i = strlen (fname); i > 0; i--) {
@@ -85,7 +85,7 @@ void nczipioi_write_chunk_ocnt (NC_zip *nczipp, NC_zip_var *varp, void *ocnt, si
 				}
 
 				fclose (pfile);
-				NCI_Free (ocnt_in);
+				free (ocnt_in);
 			} else {
 				if (ocnt_size == sizeof (MPI_Offset)) {
 					MPI_Send (ocnt, varp->nchunk, MPI_LONG_LONG, 0, 0, nczipp->comm);
@@ -170,7 +170,7 @@ int nczipioi_calc_chunk_overlap (NC_zip *nczipp,
 		MPI_Op_create (max_osize_rank_op, 1, &(nczipp->max_cown_op));
 	}
 
-	ostart = (MPI_Offset *)NCI_Malloc (sizeof (MPI_Offset) * varp->ndim * 3);
+	ostart = (MPI_Offset *)malloc (sizeof (MPI_Offset) * varp->ndim * 3);
 	CHK_PTR (ostart)
 	osize = ostart + varp->ndim;
 	citr  = osize + varp->ndim;
@@ -233,7 +233,7 @@ int nczipioi_calc_chunk_overlap (NC_zip *nczipp,
 	nczipp->assigned_chunks += varp->nchunk;
 
 err_out:;
-	NCI_Free (ostart);
+	free (ostart);
 	return err;
 }
 
@@ -255,14 +255,14 @@ void nczipioi_assign_chunk_owner (NC_zip *nczipp,
 			if (varp->chunk_owner[j] == nczipp->rank) { varp->nmychunkrec++; }
 		}
 		varp->nmychunk = varp->nmychunkrec * varp->nrec;
-		varp->mychunks = (int *)NCI_Malloc (sizeof (int) * varp->nmychunkrec * varp->nrecalloc);
+		varp->mychunks = (int *)malloc (sizeof (int) * varp->nmychunkrec * varp->nrecalloc);
 		varp->nmychunk = 0;
 		for (j = 0; j < varp->nchunk; j++) {
 			if (varp->chunk_owner[j] == nczipp->rank) {
 				varp->mychunks[varp->nmychunk++] = j;
 				if (varp->isnew) {	// Only apply to new var, old var will be read when it is
 									// needed
-					// varp->chunk_cache[j] = (void*)NCI_Malloc(varp->chunksize);  // Allocate
+					// varp->chunk_cache[j] = (void*)malloc(varp->chunksize);  // Allocate
 					// buffer for blocks we own
 					// memset(varp->chunk_cache[j], 0 , varp->chunksize);
 				}
@@ -363,7 +363,7 @@ int nczipioi_sync_ocnt_gather_bcast (NC_zip *nczipp,
 	MPI_Offset *cown_size;
 
 	if (nczipp->rank == 0) {
-		cown_size = (MPI_Offset *)NCI_Malloc (sizeof (MPI_Offset) * nczipp->np);
+		cown_size = (MPI_Offset *)malloc (sizeof (MPI_Offset) * nczipp->np);
 		memset (cown_size, 0, sizeof (MPI_Offset) * nczipp->np);
 		for (i = 0; i < varp->nchunkrec; i++) {
 			ocnt_all[i].rank  = 0;
@@ -401,7 +401,7 @@ int nczipioi_calc_chunk_owner_reduce (
 
 	NC_ZIP_TIMER_START (NC_ZIP_TIMER_INIT_COWN)
 
-	ocnt = (nczipioi_chunk_overlap_t *)NCI_Malloc (sizeof (nczipioi_chunk_overlap_t) *
+	ocnt = (nczipioi_chunk_overlap_t *)malloc (sizeof (nczipioi_chunk_overlap_t) *
 												   varp->nchunkrec * 2);
 	CHK_PTR (ocnt)
 	ocnt_all = ocnt + varp->nchunkrec;
@@ -422,7 +422,7 @@ int nczipioi_calc_chunk_owner_reduce (
 
 	nczipioi_write_chunk_ocnt (nczipp, varp, ocnt, sizeof (nczipioi_chunk_overlap_t));
 
-	NCI_Free (ocnt);
+	free (ocnt);
 
 	NC_ZIP_TIMER_STOP (NC_ZIP_TIMER_INIT_COWN)
 
@@ -444,12 +444,12 @@ static inline int nczipioi_reduce_max_csize_n (
 	MPI_Request *bcast_reqs;
 	MPI_Status stat;
 
-	bcast_reqs = (MPI_Request *)NCI_Malloc (sizeof (MPI_Request) * nvar);
+	bcast_reqs = (MPI_Request *)malloc (sizeof (MPI_Request) * nvar);
 	CHK_PTR (bcast_reqs)
 
 	if (nczipp->rank == 0) {
 		// Size owned by each process
-		cown_size = (MPI_Offset *)NCI_Malloc (sizeof (MPI_Offset) * nczipp->np);
+		cown_size = (MPI_Offset *)malloc (sizeof (MPI_Offset) * nczipp->np);
 		CHK_PTR (cown_size)
 		memset (cown_size, 0, sizeof (MPI_Offset) * nczipp->np);
 
@@ -460,11 +460,11 @@ static inline int nczipioi_reduce_max_csize_n (
 			if (varp->nchunkrec > nchunk) { nchunk = varp->nchunkrec; }
 		}
 		// Allocate 2 set of ocnts_all
-		ocnts_all[0] = (MPI_Offset **)NCI_Malloc (sizeof (MPI_Offset *) * nczipp->np * 2);
+		ocnts_all[0] = (MPI_Offset **)malloc (sizeof (MPI_Offset *) * nczipp->np * 2);
 		CHK_PTR (ocnts_all[0])
 		ocnts_all[1] = ocnts_all[0] + nczipp->np;
 
-		ocnts_all[0][0] = (MPI_Offset *)NCI_Malloc (sizeof (MPI_Offset) * nchunk * nczipp->np * 2);
+		ocnts_all[0][0] = (MPI_Offset *)malloc (sizeof (MPI_Offset) * nchunk * nczipp->np * 2);
 		CHK_PTR (ocnts_all[0][0])
 		ocnts_all[1][0] = ocnts_all[0][0] + nchunk * nczipp->np;
 		for (i = 1; i < nczipp->np; i++) {
@@ -525,11 +525,11 @@ static inline int nczipioi_reduce_max_csize_n (
 	CHK_ERR
 
 	if (nczipp->rank == 0) {
-		NCI_Free (cown_size);
-		NCI_Free (ocnts_all[0][0]);
-		NCI_Free (ocnts_all[0]);
+		free (cown_size);
+		free (ocnts_all[0][0]);
+		free (ocnts_all[0]);
 	}
-	NCI_Free (bcast_reqs);
+	free (bcast_reqs);
 
 err_out:;
 	return err;
@@ -556,20 +556,20 @@ int nczipioi_calc_chunk_owner_gather (
 
 	// Allocate buffer for overlappinp structure
 	// Box of single overlap
-	ostart = (MPI_Offset *)NCI_Malloc (sizeof (MPI_Offset) * nczipp->max_ndim * 3);
+	ostart = (MPI_Offset *)malloc (sizeof (MPI_Offset) * nczipp->max_ndim * 3);
 	osize  = ostart + nczipp->max_ndim;
 	citr   = osize + nczipp->max_ndim;
 	// Calculate total number of chunks to assign
-	idmap	= (int *)NCI_Malloc (sizeof (int) * nczipp->vars.cnt);
+	idmap	= (int *)malloc (sizeof (int) * nczipp->vars.cnt);
 	nchunks = 0;
 	for (i = 0; i < nvar; i++) {
 		idmap[varps[i]->varid] = i;
 		nchunks += varps[i]->nchunkrec;
 	}
 	// Overlap count struct
-	ocnts	 = (MPI_Offset **)NCI_Malloc (sizeof (MPI_Offset *) * nvar);
-	ocnts[0] = (MPI_Offset *)NCI_Malloc (sizeof (MPI_Offset) * nchunks);
-	cowns	 = (int **)NCI_Malloc (sizeof (int *) * nvar);
+	ocnts	 = (MPI_Offset **)malloc (sizeof (MPI_Offset *) * nvar);
+	ocnts[0] = (MPI_Offset *)malloc (sizeof (MPI_Offset) * nchunks);
+	cowns	 = (int **)malloc (sizeof (int *) * nvar);
 	cowns[0] = varps[0]->chunk_owner;
 	for (i = 1; i < nvar; i++) {
 		ocnts[i] = ocnts[i - 1] + varps[i - 1]->nchunkrec;
@@ -603,11 +603,11 @@ int nczipioi_calc_chunk_owner_gather (
 		nczipioi_write_chunk_ocnt (nczipp, varp, ocnts[i], sizeof (MPI_Offset));
 	}
 
-	NCI_Free (ostart);
-	NCI_Free (ocnts[0]);
-	NCI_Free (ocnts);
-	NCI_Free (cowns);
-	NCI_Free (idmap);
+	free (ostart);
+	free (ocnts[0]);
+	free (ocnts);
+	free (cowns);
+	free (idmap);
 
 err_out:;
 

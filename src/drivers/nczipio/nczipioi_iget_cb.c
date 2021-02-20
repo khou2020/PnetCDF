@@ -52,7 +52,7 @@ int nczipioi_iget_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET_CB_INIT)
     
     // Count total number of request in per variable for packed varn request
-    nums = (int*)NCI_Malloc(sizeof(int) * nczipp->vars.cnt * 2);
+    nums = (int*)malloc(sizeof(int) * nczipp->vars.cnt * 2);
     nreqs = nums + nczipp->vars.cnt;
     memset(nums, 0, sizeof(int) * nczipp->vars.cnt);
     memset(nreqs, 0, sizeof(int) * nczipp->vars.cnt);
@@ -65,8 +65,8 @@ int nczipioi_iget_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     /* Allocate a skip list of reqids for each vriable
      * At the same time, we find out the number of starts and counts we need to allocate
      */
-    vreqids = (int**)NCI_Malloc(sizeof(int*) * nczipp->vars.cnt);
-    vreqids[0] = (int*)NCI_Malloc(sizeof(int) * nreq);
+    vreqids = (int**)malloc(sizeof(int*) * nczipp->vars.cnt);
+    vreqids[0] = (int*)malloc(sizeof(int) * nreq);
     maxnum = 0;
     i = 0;
     nvar = 0;
@@ -86,7 +86,7 @@ int nczipioi_iget_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         }
     }
 
-    varids = (int*)NCI_Malloc(sizeof(int) * nvar);
+    varids = (int*)malloc(sizeof(int) * nvar);
 
     // Fill up the skip list
     memset(nreqs, 0, sizeof(int) * nczipp->vars.cnt);
@@ -96,9 +96,9 @@ int nczipioi_iget_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     }
     
     // Allocate parameters
-    starts = (MPI_Offset**)NCI_Malloc(sizeof(MPI_Offset*) * maxnum * 2);
+    starts = (MPI_Offset**)malloc(sizeof(MPI_Offset*) * maxnum * 2);
     counts = starts + maxnum;
-    bufs =  (char**)NCI_Malloc(sizeof(char*) * maxnum);
+    bufs =  (char**)malloc(sizeof(char*) * maxnum);
 
     /* Pack requests variable by variable
      */
@@ -139,15 +139,15 @@ int nczipioi_iget_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     }
 
     // Free buffers
-    NCI_Free(nums);
+    free(nums);
 
-    NCI_Free(vreqids[0]);
-    NCI_Free(vreqids);
+    free(vreqids[0]);
+    free(vreqids);
 
-    NCI_Free(varids);
+    free(varids);
     
-    NCI_Free(starts);
-    NCI_Free(bufs);
+    free(starts);
+    free(bufs);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET_CB)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET_CB_INIT)
@@ -196,25 +196,25 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET_CB_INIT)
 
     // Allocate buffering for write count
-    rcnt_local = (int*)NCI_Malloc(sizeof(int) * nczipp->np * 3);
+    rcnt_local = (int*)malloc(sizeof(int) * nczipp->np * 3);
     rcnt_all = rcnt_local + nczipp->np;
     smap = rcnt_all + nczipp->np;
 
     // Intermediate buffer for our own data
-    tbuf = (char*)NCI_Malloc(nczipp->max_chunk_size);
+    tbuf = (char*)malloc(nczipp->max_chunk_size);
 
     // Allocate buffering for overlaping index
-    tsize = (int*)NCI_Malloc(sizeof(int) * nczipp->max_ndim * 3);
+    tsize = (int*)malloc(sizeof(int) * nczipp->max_ndim * 3);
     tssize = tsize + nczipp->max_ndim;
     tstart = tssize + nczipp->max_ndim;
-    ostart = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * nczipp->max_ndim * 3);
+    ostart = (MPI_Offset*)malloc(sizeof(MPI_Offset) * nczipp->max_ndim * 3);
     osize = ostart + nczipp->max_ndim;
 
     // Chunk iterator
     citr = osize + nczipp->max_ndim;
 
     // Access range
-    rlo_local = (int*)NCI_Malloc(sizeof(int) * nczipp->vars.cnt * 5);
+    rlo_local = (int*)malloc(sizeof(int) * nczipp->vars.cnt * 5);
     rhi_local = rlo_local + nczipp->vars.cnt;
     rlo_all = rhi_local + nczipp->vars.cnt;
     rhi_all = rlo_all + nczipp->vars.cnt;
@@ -282,18 +282,18 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET_CB_PACK_REQ)
 
     // Allocate data structure for messaging
-    sbuf = (char**)NCI_Malloc(sizeof(char*) * (nsend * 2 + nrecv));
+    sbuf = (char**)malloc(sizeof(char*) * (nsend * 2 + nrecv));
     sbufp = sbuf + (nsend + nrecv);
-    ssize = (int*)NCI_Malloc(sizeof(int) * (nsend * 2 + nrecv * 1));
+    ssize = (int*)malloc(sizeof(int) * (nsend * 2 + nrecv * 1));
     sdst = ssize + (nsend + nrecv);
-    sreq = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * (nsend + nrecv));
-    sstat = (MPI_Status*)NCI_Malloc(sizeof(MPI_Status) * (nsend + nrecv));
-    reqs = (int**)NCI_Malloc(sizeof(int*) * nsend);
+    sreq = (MPI_Request*)malloc(sizeof(MPI_Request) * (nsend + nrecv));
+    sstat = (MPI_Status*)malloc(sizeof(MPI_Status) * (nsend + nrecv));
+    reqs = (int**)malloc(sizeof(int*) * nsend);
 
-    rbuf = (char**)NCI_Malloc(sizeof(char*) * (nsend + nrecv * 2));
+    rbuf = (char**)malloc(sizeof(char*) * (nsend + nrecv * 2));
     rbufp = rbuf + (nsend + nrecv);
-    rsize = (int*)NCI_Malloc(sizeof(int) * (nsend + nrecv));
-    rreq = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * (nsend + nrecv));
+    rsize = (int*)malloc(sizeof(int) * (nsend + nrecv));
+    rreq = (MPI_Request*)malloc(sizeof(MPI_Request) * (nsend + nrecv));
 
     sbuf_re = sbuf + nsend;
     ssize_re = ssize + nsend;
@@ -336,10 +336,10 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     // Allocate buffer for send
     for(i = 0; i < nsend; i++){
         ssize[i] += sizeof(int);
-        sbuf[i] = sbufp[i] = (char*)NCI_Malloc(ssize[i]);
+        sbuf[i] = sbufp[i] = (char*)malloc(ssize[i]);
         *((int*)sbufp[i]) = rsize_re[i];    sbufp[i] += sizeof(int);
-        rbuf_re[i] = (char*)NCI_Malloc(rsize_re[i]);
-        reqs[i] = (int*)NCI_Malloc(sizeof(int) * rcnt_local[i] * 2);
+        rbuf_re[i] = (char*)malloc(rsize_re[i]);
+        reqs[i] = (int*)malloc(sizeof(int) * rcnt_local[i] * 2);
 #ifdef PNETCDF_PROFILING
         nczipp->sendsize += ssize[i];
         nczipp->recvsize += rsize_re[i];
@@ -407,7 +407,7 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         CHK_ERR_GET_COUNT(&rstat, MPI_BYTE, rsize + i);
 
         // Allocate buffer
-        rbuf[i] = rbufp[i] = (char*)NCI_Malloc(rsize[i]);
+        rbuf[i] = rbufp[i] = (char*)malloc(rsize[i]);
 #ifdef PNETCDF_PROFILING
         nczipp->recvsize += rsize[i];
 #endif
@@ -512,7 +512,7 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
         packoff = 0;
         ssize_re[j] = *((int*)rbufp[j]);    rbufp[j] += sizeof(int);
-        sbuf_re[j] = (char*)NCI_Malloc(ssize_re[j]);
+        sbuf_re[j] = (char*)malloc(ssize_re[j]);
         while(rbufp[j] < rbuf[j] + rsize[j]){
             NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET_CB_UNPACK_REQ)
 
@@ -623,32 +623,32 @@ int nczipioi_iget_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET_CB_SEND_REP)
 
     // Free buffers
-    NCI_Free(rcnt_local);
+    free(rcnt_local);
 
-    NCI_Free(tsize);
+    free(tsize);
 
-    NCI_Free(ostart);
+    free(ostart);
 
-    NCI_Free(tbuf);
+    free(tbuf);
 
-    NCI_Free(sreq);
-    NCI_Free(sstat);
-    NCI_Free(ssize);
+    free(sreq);
+    free(sstat);
+    free(ssize);
     for(i = 0; i < nsend; i++){
-        NCI_Free(reqs[i]);
+        free(reqs[i]);
     }
     for(i = 0; i < nsend + nrecv; i++){
-        NCI_Free(sbuf[i]);
-        NCI_Free(rbuf[i]);
+        free(sbuf[i]);
+        free(rbuf[i]);
     }
-    NCI_Free(sbuf);
-    NCI_Free(reqs);
+    free(sbuf);
+    free(reqs);
 
-    NCI_Free(rreq);
-    NCI_Free(rbuf);
-    NCI_Free(rsize);
+    free(rreq);
+    free(rbuf);
+    free(rsize);
     
-    NCI_Free(rlo_local);
+    free(rlo_local);
     
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET_CB)
 

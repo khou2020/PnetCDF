@@ -103,9 +103,9 @@ nczipio_def_var(void       *ncdp,
         if (err != NC_NOERR) return err;
         
         varp->varkind = NC_ZIP_VAR_COMPRESSED;
-        varp->dimids = (int*)NCI_Malloc(sizeof(int) * ndims);
+        varp->dimids = (int*)malloc(sizeof(int) * ndims);
         memcpy(varp->dimids, dimids, sizeof(int) * ndims);
-        varp->dimsize = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * ndims);
+        varp->dimsize = (MPI_Offset*)malloc(sizeof(MPI_Offset) * ndims);
         for(i = 0; i < ndims; i++){
             nczipp->driver->inq_dim(nczipp->ncp, dimids[i], NULL, varp->dimsize + i);
         }
@@ -300,7 +300,7 @@ nczipio_get_var(void             *ncdp,
             nelem *= count[i];
         }
 
-        xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+        xbuf = (char*)malloc(nelem * varp->esize);
     }
     else{
         xbuf = cbuf;
@@ -321,8 +321,8 @@ nczipio_get_var(void             *ncdp,
         if (err != NC_NOERR) return err;
     }
 
-    if (xbuf != cbuf) NCI_Free(xbuf);
-    if (cbuf != buf) NCI_Free(cbuf);
+    if (xbuf != cbuf) free(xbuf);
+    if (cbuf != buf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
@@ -432,7 +432,7 @@ err_check:
             nelem *= count[i];
         }
 
-        xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+        xbuf = (char*)malloc(nelem * varp->esize);
         err = nczipioiconvert(cbuf, xbuf, buftype, varp->etype, nelem);
         if (err != NC_NOERR) return err;
     }
@@ -441,10 +441,10 @@ err_check:
     }
 
     status = nczipioi_put_var(nczipp, varp, start, count, stride, xbuf);
-    if (cbuf != buf) NCI_Free(cbuf);
+    if (cbuf != buf) free(cbuf);
 
-    if (xbuf != cbuf) NCI_Free(xbuf);
-    if (cbuf != buf) NCI_Free(cbuf);
+    if (xbuf != cbuf) free(xbuf);
+    if (cbuf != buf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
@@ -597,7 +597,7 @@ err_check:
             nelem *= count[i];
         }
 
-        xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+        xbuf = (char*)malloc(nelem * varp->esize);
         err = nczipioiconvert(cbuf, xbuf, buftype, varp->etype, nelem);
         if (err != NC_NOERR) return err;
     }
@@ -610,7 +610,7 @@ err_check:
         (*reqid) *= 2;
     }
 
-    if (cbuf != buf && cbuf != xbuf) NCI_Free(cbuf);
+    if (cbuf != buf && cbuf != xbuf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
@@ -733,7 +733,7 @@ err_check:
         nelem *= count[i];
     }
 
-    xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+    xbuf = (char*)malloc(nelem * varp->esize);
 
     if (buftype != varp->etype){
         err = nczipioiconvert(cbuf, xbuf, buftype, varp->etype, nelem);
@@ -748,7 +748,7 @@ err_check:
         (*reqid) *= 2;
     }
 
-    if (cbuf != buf) NCI_Free(cbuf);
+    if (cbuf != buf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
@@ -850,7 +850,7 @@ nczipio_get_varn(void              *ncdp,
             nelem += tmp;
         }
 
-        xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+        xbuf = (char*)malloc(nelem * varp->esize);
     }
     else{
         xbuf = cbuf;
@@ -864,8 +864,8 @@ nczipio_get_varn(void              *ncdp,
         if (err != NC_NOERR) return err;
     }
 
-    if (xbuf != cbuf) NCI_Free(xbuf);
-    if (cbuf != buf) NCI_Free(cbuf);
+    if (xbuf != cbuf) free(xbuf);
+    if (cbuf != buf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
@@ -947,7 +947,7 @@ nczipio_put_varn(void              *ncdp,
             nelem += tmp;
         }
 
-        xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+        xbuf = (char*)malloc(nelem * varp->esize);
         err = nczipioiconvert(cbuf, xbuf, buftype, varp->etype, nelem);
         if (err != NC_NOERR) return err;
     }
@@ -958,8 +958,8 @@ nczipio_put_varn(void              *ncdp,
     err = nczipioi_put_varn(nczipp, varp, num, starts, counts, xbuf);
     if (err != NC_NOERR) return err;
 
-    if (xbuf != cbuf) NCI_Free(xbuf);
-    if (cbuf != buf) NCI_Free(cbuf);
+    if (xbuf != cbuf) free(xbuf);
+    if (cbuf != buf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
@@ -1086,7 +1086,7 @@ nczipio_iput_varn(void               *ncdp,
             nelem += tmp;
         }
 
-        xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+        xbuf = (char*)malloc(nelem * varp->esize);
         err = nczipioiconvert(cbuf, xbuf, buftype, varp->etype, nelem);
         if (err != NC_NOERR) return err;
     }
@@ -1099,7 +1099,7 @@ nczipio_iput_varn(void               *ncdp,
         (*reqid) *= 2;
     }
 
-    if (cbuf != buf && cbuf != xbuf) NCI_Free(cbuf);
+    if (cbuf != buf && cbuf != xbuf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
@@ -1168,7 +1168,7 @@ nczipio_bput_varn(void               *ncdp,
         }
         nelem += tmp;
     }
-    xbuf = (char*)NCI_Malloc(nelem * varp->esize);
+    xbuf = (char*)malloc(nelem * varp->esize);
 
     if (buftype != varp->etype){
         err = nczipioiconvert(cbuf, xbuf, buftype, varp->etype, nelem);
@@ -1183,7 +1183,7 @@ nczipio_bput_varn(void               *ncdp,
         (*reqid) *= 2;
     }
 
-    if (cbuf != buf && cbuf != xbuf) NCI_Free(cbuf);
+    if (cbuf != buf && cbuf != xbuf) free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)

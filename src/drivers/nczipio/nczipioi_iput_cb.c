@@ -49,7 +49,7 @@ int nczipioi_iput_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_INIT)
 
     // Count total number of request in per variable for packed varn request
-    nums = (int*)NCI_Malloc(sizeof(int) * nczipp->vars.cnt * 2);
+    nums = (int*)malloc(sizeof(int) * nczipp->vars.cnt * 2);
     nreqs = nums + nczipp->vars.cnt;
     memset(nums, 0, sizeof(int) * nczipp->vars.cnt);
     memset(nreqs, 0, sizeof(int) * nczipp->vars.cnt);
@@ -62,8 +62,8 @@ int nczipioi_iput_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     /* Allocate a skip list of reqids for each vriable
      * At the same time, we find out the number of starts and counts we need to allocate
      */
-    vreqids = (int**)NCI_Malloc(sizeof(int*) * nczipp->vars.cnt);
-    vreqids[0] = (int*)NCI_Malloc(sizeof(int) * nreq);
+    vreqids = (int**)malloc(sizeof(int*) * nczipp->vars.cnt);
+    vreqids[0] = (int*)malloc(sizeof(int) * nreq);
     maxnum = 0;
     i = 0;
     for(vid = 0; vid < nczipp->vars.cnt; vid++){
@@ -87,9 +87,9 @@ int nczipioi_iput_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     }
     
     // Allocate parameters
-    starts = (MPI_Offset**)NCI_Malloc(sizeof(MPI_Offset*) * maxnum * 2);
+    starts = (MPI_Offset**)malloc(sizeof(MPI_Offset*) * maxnum * 2);
     counts = starts + maxnum;
-    bufs =  (char**)NCI_Malloc(sizeof(char*) * maxnum);
+    bufs =  (char**)malloc(sizeof(char*) * maxnum);
 
     /* Pack requests variable by variable
      */
@@ -121,13 +121,13 @@ int nczipioi_iput_cb_chunk(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
 
     // Free buffers
-    NCI_Free(nums);
+    free(nums);
 
-    NCI_Free(vreqids[0]);
-    NCI_Free(vreqids);
+    free(vreqids[0]);
+    free(vreqids);
     
-    NCI_Free(starts);
-    NCI_Free(bufs);
+    free(starts);
+    free(bufs);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_INIT)
@@ -179,25 +179,25 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_INIT)
 
     // Allocate buffering for write count
-    wcnt_local = (int*)NCI_Malloc(sizeof(int) * nczipp->np * 3);
+    wcnt_local = (int*)malloc(sizeof(int) * nczipp->np * 3);
     wcnt_all = wcnt_local + nczipp->np;
     smap = wcnt_all + nczipp->np;
 
     // Intermediate buffer for our own data
-    tbuf = (char*)NCI_Malloc(nczipp->max_chunk_size);
+    tbuf = (char*)malloc(nczipp->max_chunk_size);
 
     // Allocate buffering for overlaping index
-    tstart = (int*)NCI_Malloc(sizeof(int) * nczipp->max_ndim * 3);
+    tstart = (int*)malloc(sizeof(int) * nczipp->max_ndim * 3);
     tssize = tstart + nczipp->max_ndim;
     tsize = tssize + nczipp->max_ndim;
-    ostart = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * nczipp->max_ndim * 3);
+    ostart = (MPI_Offset*)malloc(sizeof(MPI_Offset) * nczipp->max_ndim * 3);
     osize = ostart + nczipp->max_ndim;
 
     // Chunk iterator
     citr = osize + nczipp->max_ndim;
 
     // Access range
-    rlo_local = (int*)NCI_Malloc(sizeof(int) * nczipp->vars.cnt * 5);
+    rlo_local = (int*)malloc(sizeof(int) * nczipp->vars.cnt * 5);
     rhi_local = rlo_local + nczipp->vars.cnt;
     rlo_all = rhi_local + nczipp->vars.cnt;
     rhi_all = rlo_all + nczipp->vars.cnt;
@@ -260,17 +260,17 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_PACK_REQ)
 
     // Allocate data structure for messaging
-    sbuf = (char**)NCI_Malloc(sizeof(char*) * nsend * 2);
+    sbuf = (char**)malloc(sizeof(char*) * nsend * 2);
     sbufp = sbuf + nsend;
-    ssize = (int*)NCI_Malloc(sizeof(int) * nsend * 2);
+    ssize = (int*)malloc(sizeof(int) * nsend * 2);
     sdst = ssize + nsend;
-    sreq = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nsend);
-    sstat = (MPI_Status*)NCI_Malloc(sizeof(MPI_Status) * nsend);
+    sreq = (MPI_Request*)malloc(sizeof(MPI_Request) * nsend);
+    sstat = (MPI_Status*)malloc(sizeof(MPI_Status) * nsend);
 
-    rbuf = (char**)NCI_Malloc(sizeof(char*) * nrecv * 2);
+    rbuf = (char**)malloc(sizeof(char*) * nrecv * 2);
     rbufp = rbuf + nrecv;
-    rsize = (int*)NCI_Malloc(sizeof(int) * nrecv);
-    rreq = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nrecv);
+    rsize = (int*)malloc(sizeof(int) * nrecv);
+    rreq = (MPI_Request*)malloc(sizeof(MPI_Request) * nrecv);
 
     // Count size of each request
     memset(ssize, 0, sizeof(int) * nsend);
@@ -303,7 +303,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         totalsize += ssize[i];
     }
     if (nsend > 0){
-        sbuf[0] = sbufp[0] = (char*)NCI_Malloc(totalsize);
+        sbuf[0] = sbufp[0] = (char*)malloc(totalsize);
         for(i = 1; i < nsend; i++){
             sbuf[i] = sbufp[i] = sbuf[i - 1] + ssize[i - 1];
         }
@@ -385,7 +385,7 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
         CHK_ERR_GET_COUNT(&rstat, MPI_BYTE, rsize + i);
 
         // Allocate buffer
-        rbuf[i] = rbufp[i] = (char*)NCI_Malloc(rsize[i]);
+        rbuf[i] = rbufp[i] = (char*)malloc(rsize[i]);
 
 #ifdef PNETCDF_PROFILING
         nczipp->recvsize += rsize[i];
@@ -545,30 +545,30 @@ int nczipioi_iput_cb_proc(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
 
     // Free buffers
-    NCI_Free(wcnt_local);
+    free(wcnt_local);
 
-    NCI_Free(tstart);
+    free(tstart);
 
-    NCI_Free(ostart);
+    free(ostart);
 
-    NCI_Free(sreq);
-    NCI_Free(sstat);
-    NCI_Free(ssize);
+    free(sreq);
+    free(sstat);
+    free(ssize);
     if (nsend > 0){
-        NCI_Free(sbuf[0]);
+        free(sbuf[0]);
     }
-    NCI_Free(sbuf);
+    free(sbuf);
 
-    NCI_Free(rreq);
+    free(rreq);
     for(i = 0; i < nrecv; i++){
-        NCI_Free(rbuf[i]);
+        free(rbuf[i]);
     }
-    NCI_Free(rbuf);
-    NCI_Free(rsize);
+    free(rbuf);
+    free(rsize);
 
-    NCI_Free(tbuf);
+    free(tbuf);
 
-    NCI_Free(rlo_local);
+    free(rlo_local);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB)
 

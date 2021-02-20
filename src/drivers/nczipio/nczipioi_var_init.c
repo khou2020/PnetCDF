@@ -46,8 +46,8 @@ int nczipioi_var_init_core (
 			}
 
 			// Determine its block size
-			varp->chunkdim = (int *)NCI_Malloc (sizeof (int) * varp->ndim);
-			varp->nchunks  = (int *)NCI_Malloc (sizeof (int) * varp->ndim);
+			varp->chunkdim = (int *)malloc (sizeof (int) * varp->ndim);
+			varp->nchunks  = (int *)malloc (sizeof (int) * varp->ndim);
 
 			// First check attribute
 			valid = 1;
@@ -120,23 +120,23 @@ int nczipioi_var_init_core (
 			varp->nchunkalloc = varp->nrecalloc * varp->nchunkrec;
 
 			// Calculate number of chunks below each dimension
-			varp->cidsteps				   = (int *)NCI_Malloc (sizeof (int) * varp->ndim);
+			varp->cidsteps				   = (int *)malloc (sizeof (int) * varp->ndim);
 			varp->cidsteps[varp->ndim - 1] = 1;
 			for (i = varp->ndim - 2; i >= 0; i--) {
 				varp->cidsteps[i] = varp->cidsteps[i + 1] * varp->nchunks[i + 1];
 			}
 
 			// Determine block ownership
-			varp->dirty		  = (int *)NCI_Malloc (sizeof (int) * varp->nchunkalloc);
-			varp->chunk_cache = (NC_zip_cache **)NCI_Malloc (sizeof (char *) * varp->nchunkalloc);
+			varp->dirty		  = (int *)malloc (sizeof (int) * varp->nchunkalloc);
+			varp->chunk_cache = (NC_zip_cache **)malloc (sizeof (char *) * varp->nchunkalloc);
 			memset (varp->chunk_cache, 0, sizeof (char *) * varp->nchunkalloc);
 			memset (varp->dirty, 0, sizeof (int) * varp->nchunkalloc);
 
 			// Block ownership to be decisded later
-			varp->chunk_owner = (int *)NCI_Malloc (sizeof (int) * varp->nchunkalloc);
+			varp->chunk_owner = (int *)malloc (sizeof (int) * varp->nchunkalloc);
 
 			// Determine block offset
-			varp->chunk_index = (NC_zip_chunk_index_entry *)NCI_Malloc (
+			varp->chunk_index = (NC_zip_chunk_index_entry *)malloc (
 				sizeof (NC_zip_chunk_index_entry) * (varp->nchunkalloc + 1));
 
 			// Try if there are offset recorded in attributes, it can happen after opening a file
@@ -216,21 +216,21 @@ void nczipioi_var_free (NC_zip_var *varp) {
 	int i;
 
 	if (varp->chunkdim != NULL) {
-		NCI_Free (varp->dimsize);
-		NCI_Free (varp->chunkdim);
-		NCI_Free (varp->dimids);
-		NCI_Free (varp->nchunks);
-		NCI_Free (varp->cidsteps);
-		NCI_Free (varp->chunk_index);
-		NCI_Free (varp->chunk_owner);
-		NCI_Free (varp->dirty);
+		free (varp->dimsize);
+		free (varp->chunkdim);
+		free (varp->dimids);
+		free (varp->nchunks);
+		free (varp->cidsteps);
+		free (varp->chunk_index);
+		free (varp->chunk_owner);
+		free (varp->dirty);
 		// for(i = 0; i < varp->nmychunk; i++){
 		//    if (varp->chunk_cache[varp->mychunks[i]] != NULL){
-		//        NCI_Free(varp->chunk_cache[varp->mychunks[i]]);
+		//        free(varp->chunk_cache[varp->mychunks[i]]);
 		//    }
 		//}
-		NCI_Free (varp->chunk_cache);
-		NCI_Free (varp->mychunks);
+		free (varp->chunk_cache);
+		free (varp->mychunks);
 	}
 }
 
@@ -261,8 +261,8 @@ int nczipioi_init_nvar_core_gather (NC_zip *nczipp,
 
 		if (varp->nchunkrec > ocnt_size[j]) {
 			ocnt_size[j] = varp->nchunkrec;
-			NCI_Free (ocnt[j]);
-			ocnt[j] = (nczipioi_chunk_overlap_t *)NCI_Malloc (sizeof (nczipioi_chunk_overlap_t) *
+			free (ocnt[j]);
+			ocnt[j] = (nczipioi_chunk_overlap_t *)malloc (sizeof (nczipioi_chunk_overlap_t) *
 															  varp->nchunkrec * 2);
 			ocnt_all[j] = ocnt[j] + varp->nchunkrec;
 		}
@@ -285,8 +285,8 @@ int nczipioi_init_nvar_core_gather (NC_zip *nczipp,
 	nczipioi_write_chunk_ocnt (nczipp, varp, ocnt[(i - 1) & 1], sizeof (nczipioi_chunk_overlap_t));
 
 err_out:;
-	NCI_Free (ocnt[0]);
-	NCI_Free (ocnt[1]);
+	free (ocnt[0]);
+	free (ocnt[1]);
 	return err;
 }
 
@@ -317,8 +317,8 @@ int nczipioi_init_nvar_core_reduce (NC_zip *nczipp,
 
 		if (varp->nchunkrec > ocnt_size[j]) {
 			ocnt_size[j] = varp->nchunkrec;
-			NCI_Free (ocnt[j]);
-			ocnt[j] = (nczipioi_chunk_overlap_t *)NCI_Malloc (sizeof (nczipioi_chunk_overlap_t) *
+			free (ocnt[j]);
+			ocnt[j] = (nczipioi_chunk_overlap_t *)malloc (sizeof (nczipioi_chunk_overlap_t) *
 															  varp->nchunkrec * 2);
 			ocnt_all[j] = ocnt[j] + varp->nchunkrec;
 		}
@@ -341,8 +341,8 @@ int nczipioi_init_nvar_core_reduce (NC_zip *nczipp,
 	nczipioi_write_chunk_ocnt (nczipp, varp, ocnt[(i - 1) & 1], sizeof (nczipioi_chunk_overlap_t));
 
 err_out:;
-	NCI_Free (ocnt[0]);
-	NCI_Free (ocnt[1]);
+	free (ocnt[0]);
+	free (ocnt[1]);
 	return err;
 }
 
@@ -371,7 +371,7 @@ int nczipioi_init_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int *g
 
 	// Flag of touched vars
 	nflag = nczipp->vars.cnt / 32 + 1;
-	flag  = (unsigned int *)NCI_Malloc (sizeof (int) * nflag * 2);
+	flag  = (unsigned int *)malloc (sizeof (int) * nflag * 2);
 	CHK_PTR (flag)
 	flag_all = flag + nflag;
 	memset (flag, 0, sizeof (int) * nflag);
@@ -401,9 +401,9 @@ int nczipioi_init_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int *g
 			}
 		}
 	}
-	varps = (NC_zip_var **)NCI_Malloc (sizeof (NC_zip_var *) * nvar);
+	varps = (NC_zip_var **)malloc (sizeof (NC_zip_var *) * nvar);
 	CHK_PTR (varps)
-	vmap = (int *)NCI_Malloc (sizeof (int) * nczipp->vars.cnt);
+	vmap = (int *)malloc (sizeof (int) * nczipp->vars.cnt);
 	CHK_PTR (vmap)
 	nvar = 0;
 	for (i = 0; i < nczipp->vars.cnt; i++) {
@@ -414,9 +414,9 @@ int nczipioi_init_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int *g
 	}
 
 	// Count reqs for each var
-	roff = (int *)NCI_Malloc (sizeof (int) * (nvar + 1));
+	roff = (int *)malloc (sizeof (int) * (nvar + 1));
 	CHK_PTR (roff)
-	rcnt = (int *)NCI_Malloc (sizeof (int) * nvar);
+	rcnt = (int *)malloc (sizeof (int) * nvar);
 	CHK_PTR (rcnt)
 	memset (rcnt, 0, sizeof (int) * nvar);
 	for (i = 0; i < nput; i++) {
@@ -433,7 +433,7 @@ int nczipioi_init_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int *g
 	for (i = 0; i < nvar; i++) { roff[i + 1] = roff[i] + rcnt[i]; }
 
 	// Gather starts and counts
-	starts = (MPI_Offset **)NCI_Malloc (sizeof (MPI_Offset *) * roff[nvar] * 2);
+	starts = (MPI_Offset **)malloc (sizeof (MPI_Offset *) * roff[nvar] * 2);
 	CHK_PTR (starts)
 	counts = starts + roff[nvar];
 	memset (rcnt, 0, sizeof (int) * nvar);
@@ -469,9 +469,9 @@ int nczipioi_init_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int *g
 	}
 
 	// Buffer for index table type
-	lens = NCI_Malloc (sizeof (int) * nvar);
+	lens = malloc (sizeof (int) * nvar);
 	CHK_PTR (lens)
-	fdisps = NCI_Malloc (sizeof (MPI_Aint) * nvar * 2);
+	fdisps = malloc (sizeof (MPI_Aint) * nvar * 2);
 	CHK_PTR (fdisps)
 	mdisps = fdisps + nvar;
 	nread  = 0;
@@ -529,15 +529,15 @@ int nczipioi_init_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int *g
 		MPI_Type_free (&mtype);
 	}
 
-	NCI_Free (lens);
-	NCI_Free (fdisps);
+	free (lens);
+	free (fdisps);
 
-	NCI_Free (flag);
-	NCI_Free (varps);
-	NCI_Free (vmap);
-	NCI_Free (roff);
-	NCI_Free (rcnt);
-	NCI_Free (starts);
+	free (flag);
+	free (varps);
+	free (vmap);
+	free (roff);
+	free (rcnt);
+	free (starts);
 
 err_out:;
 

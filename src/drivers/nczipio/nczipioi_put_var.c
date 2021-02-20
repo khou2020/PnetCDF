@@ -68,14 +68,14 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_INIT)
 
     // Allocate buffering for write count
-    wcnt_local = (int*)NCI_Malloc(sizeof(int) * varp->nchunk * 2);
+    wcnt_local = (int*)malloc(sizeof(int) * varp->nchunk * 2);
     wcnt_all = wcnt_local + varp->nchunk;
 
     // Allocate buffering for overlaping index
-    tstart = (int*)NCI_Malloc(sizeof(int) * varp->ndim * 3);
+    tstart = (int*)malloc(sizeof(int) * varp->ndim * 3);
     tsize = tstart + varp->ndim;
     tssize = tsize + varp->ndim;
-    ostart = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * varp->ndim * 3);
+    ostart = (MPI_Offset*)malloc(sizeof(MPI_Offset) * varp->ndim * 3);
     osize = ostart + varp->ndim;
 
     // Chunk iterator
@@ -105,9 +105,9 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
     } while (nczipioi_chunk_itr_next(varp, start, count, citr, &cid));
 
     // Allocate buffer for sending
-    sbufs = (char**)NCI_Malloc(sizeof(char*) * nsend);
-    sreqs = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nsend);
-    sstats = (MPI_Status*)NCI_Malloc(sizeof(MPI_Status) * nsend);
+    sbufs = (char**)malloc(sizeof(char*) * nsend);
+    sreqs = (MPI_Request*)malloc(sizeof(MPI_Request) * nsend);
+    sstats = (MPI_Status*)malloc(sizeof(MPI_Status) * nsend);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_INIT)
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_SYNC)
@@ -126,10 +126,10 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
         // We don't need message for our own data
         nrecv += wcnt_all[cid] - wcnt_local[cid];
     }
-    rreqs = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nrecv);
-    rstats = (MPI_Status*)NCI_Malloc(sizeof(MPI_Status) * nrecv);
-    rbufs = (char**)NCI_Malloc(sizeof(char*) * nrecv);
-    rsizes = (int*)NCI_Malloc(sizeof(int) * nrecv);
+    rreqs = (MPI_Request*)malloc(sizeof(MPI_Request) * nrecv);
+    rstats = (MPI_Status*)malloc(sizeof(MPI_Status) * nrecv);
+    rbufs = (char**)malloc(sizeof(char*) * nrecv);
+    rsizes = (int*)malloc(sizeof(int) * nrecv);
 
     // Post send
     nsend = 0;
@@ -145,7 +145,7 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
             }
 
             // Allocate buffer
-            sbufs[nsend] = (char*)NCI_Malloc(overlapsize + sizeof(int) * varp->ndim * 2);
+            sbufs[nsend] = (char*)malloc(overlapsize + sizeof(int) * varp->ndim * 2);
             
             // Metadata
             packoff = 0;
@@ -195,7 +195,7 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
             CHK_ERR_GET_COUNT(rstats, MPI_BYTE, rsizes + nrecv);
 
             // Allocate buffer
-            rbufs[nrecv] = (char*)NCI_Malloc(rsizes[nrecv]);
+            rbufs[nrecv] = (char*)malloc(rsizes[nrecv]);
 
             // Post irecv
             CHK_ERR_IMRECV(rbufs[nrecv], rsizes[nrecv], MPI_BYTE, &rmsg, rreqs + nrecv);
@@ -223,14 +223,14 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
             }
         }
     }
-    rids = (int*)NCI_Malloc(sizeof(int) * nread);
+    rids = (int*)malloc(sizeof(int) * nread);
     nread = 0;
     for(i = 0; i < varp->nmychunk; i++){
         cid = varp->mychunks[i];
         if (wcnt_all[cid] || wcnt_local[cid]){
             if (varp->chunk_cache[cid] == NULL){
                 err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                //varp->chunk_cache[cid] = (NC_zip_cache*)NCI_Malloc(varp->chunksize);
+                //varp->chunk_cache[cid] = (NC_zip_cache*)malloc(varp->chunksize);
                 if (varp->chunk_index[cid].len > 0){
                     rids[nread++] = cid;
                 }
@@ -250,7 +250,7 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
 
     // Allocate intermediate buffer
     if (max_tbuf > 0){
-        tbuf = (char*)NCI_Malloc(max_tbuf);
+        tbuf = (char*)malloc(max_tbuf);
     }
 
     // For each chunk we own, we need to receive incoming data
@@ -340,33 +340,33 @@ nczipioi_put_var_cb_chunk(NC_zip          *nczipp,
     }
 
     // Free buffers
-    NCI_Free(wcnt_local);
+    free(wcnt_local);
 
-    NCI_Free(tstart);
+    free(tstart);
     
-    NCI_Free(ostart);
+    free(ostart);
 
-    NCI_Free(sreqs);
-    NCI_Free(sstats);
+    free(sreqs);
+    free(sstats);
     for(i = 0; i < nsend; i++){
-        NCI_Free(sbufs[i]);
+        free(sbufs[i]);
     }
-    NCI_Free(sbufs);
+    free(sbufs);
 
-    NCI_Free(rreqs);
-    NCI_Free(rstats);
+    free(rreqs);
+    free(rstats);
     for(i = 0; i < nrecv; i++){
-        NCI_Free(rbufs[i]);
+        free(rbufs[i]);
     }
-    NCI_Free(rbufs);
-    NCI_Free(rsizes);
+    free(rbufs);
+    free(rsizes);
 
     if (tbuf != NULL){
-        NCI_Free(tbuf);
+        free(tbuf);
     }
 
     if (rids != NULL){
-        NCI_Free(rids);
+        free(rids);
     }
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB)
@@ -417,17 +417,17 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_INIT)
 
     // Allocate buffering for write count
-    wcnt_local = (int*)NCI_Malloc(sizeof(int) * nczipp->np * 3);
+    wcnt_local = (int*)malloc(sizeof(int) * nczipp->np * 3);
     CHK_PTR(wcnt_local)
     wcnt_all = wcnt_local + nczipp->np;
     smap = wcnt_all + nczipp->np;
 
     // Allocate buffering for overlaping index
-    tstart = (int*)NCI_Malloc(sizeof(int) * varp->ndim * 3);
+    tstart = (int*)malloc(sizeof(int) * varp->ndim * 3);
     CHK_PTR(tstart)
     tssize = tstart + varp->ndim;
     tsize = tssize + varp->ndim;
-    ostart = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * varp->ndim * 3);
+    ostart = (MPI_Offset*)malloc(sizeof(MPI_Offset) * varp->ndim * 3);
     CHK_PTR(ostart)
     osize = ostart + varp->ndim;
 
@@ -478,17 +478,17 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_PACK_REQ)
 
     // Allocate data structure for messaging
-    sbuf = (char**)NCI_Malloc(sizeof(char*) * nsend * 2);
+    sbuf = (char**)malloc(sizeof(char*) * nsend * 2);
     sbufp = sbuf + nsend;
-    ssize = (int*)NCI_Malloc(sizeof(int) * nsend * 2);
+    ssize = (int*)malloc(sizeof(int) * nsend * 2);
     sdst = ssize + nsend;
-    sreq = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nsend);
-    sstat = (MPI_Status*)NCI_Malloc(sizeof(MPI_Status) * nsend);
+    sreq = (MPI_Request*)malloc(sizeof(MPI_Request) * nsend);
+    sstat = (MPI_Status*)malloc(sizeof(MPI_Status) * nsend);
 
-    rbuf = (char**)NCI_Malloc(sizeof(char*) * nrecv * 2);
+    rbuf = (char**)malloc(sizeof(char*) * nrecv * 2);
     rbufp = rbuf + nrecv;
-    rsize = (int*)NCI_Malloc(sizeof(int) * nrecv);
-    rreq = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nrecv);
+    rsize = (int*)malloc(sizeof(int) * nrecv);
+    rreq = (MPI_Request*)malloc(sizeof(MPI_Request) * nrecv);
 
     // Count size of each request
     memset(ssize, 0, sizeof(int) * nsend);
@@ -514,7 +514,7 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
     for(i = 0; i < nsend; i++){
         bsize+=ssize[i];
     }
-    sbuf[0] = sbufp[0] = (char*)NCI_Malloc(bsize);
+    sbuf[0] = sbufp[0] = (char*)malloc(bsize);
     for(i = 1; i < nsend; i++){
         sbuf[i] = sbufp[i] = sbuf[0]+ssize[i];
     }
@@ -569,7 +569,7 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
         CHK_ERR_GET_COUNT(&rstat, MPI_BYTE, rsize + i);
 
         // Allocate buffer
-        rbuf[i] = rbufp[i] = (char*)NCI_Malloc(rsize[i]);
+        rbuf[i] = rbufp[i] = (char*)malloc(rsize[i]);
 
         // Post irecv
         CHK_ERR_IMRECV(rbuf[i], rsize[i], MPI_BYTE, &rmsg, rreq + i);
@@ -581,14 +581,14 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
     // Preparing chunk cache
     for(j = 0; j < varp->nmychunk && varp->mychunks[j] < wrange_all[0]; j++);
     for(k = j; k < varp->nmychunk && varp->mychunks[k] <= wrange_all[1]; k++);
-    rids = (int*)NCI_Malloc(sizeof(int) * (k - j));
+    rids = (int*)malloc(sizeof(int) * (k - j));
     nread = 0;
     for(i = j; i < k; i++){
         cid = varp->mychunks[i];
         if (varp->chunk_cache[cid] == NULL){
             err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
             CHK_ERR
-            //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+            //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
             if (varp->chunk_index[cid].len > 0){
                 rids[nread++] = cid;
             }
@@ -607,7 +607,7 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_CB_SELF)
 
-    tbuf = (char*)NCI_Malloc(varp->chunksize);
+    tbuf = (char*)malloc(varp->chunksize);
 
     // Handle our own data
     nczipioi_chunk_itr_init_ex(varp, start, count, citr, &cid, ostart, osize); // Initialize chunk iterator
@@ -689,29 +689,29 @@ nczipioi_put_var_cb_proc(   NC_zip          *nczipp,
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_CB_SEND_REQ)
 
     // Free buffers
-    NCI_Free(wcnt_local);
+    free(wcnt_local);
 
-    NCI_Free(tstart);
+    free(tstart);
 
-    NCI_Free(ostart);
+    free(ostart);
 
-    NCI_Free(sreq);
-    NCI_Free(sstat);
-    NCI_Free(ssize);
+    free(sreq);
+    free(sstat);
+    free(ssize);
 
-    NCI_Free(sbuf[0]);
-    NCI_Free(sbuf);
+    free(sbuf[0]);
+    free(sbuf);
 
-    NCI_Free(rreq);
+    free(rreq);
     for(i = 0; i < nrecv; i++){
-        NCI_Free(rbuf[i]);
+        free(rbuf[i]);
     }
-    NCI_Free(rbuf);
-    NCI_Free(rsize);
+    free(rbuf);
+    free(rsize);
 
-    NCI_Free(tbuf);
+    free(tbuf);
 
-    NCI_Free(rids);
+    free(rids);
 
 err_out:;
 

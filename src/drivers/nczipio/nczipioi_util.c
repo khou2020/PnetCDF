@@ -260,7 +260,7 @@ int nczipioi_print_buffer_int(char *prefix, int* buf, int len){
     rlen = sprintf(rankstr, "Rank %d: ", rank);
 
     plen = strlen(prefix);
-    out = outp = (char*)NCI_Malloc(len * 12 + 2 + plen + rlen);
+    out = outp = (char*)malloc(len * 12 + 2 + plen + rlen);
 
     rlen = sprintf(outp, "%s ", rankstr);   outp += rlen;
     plen = sprintf(outp, "%s ", prefix);   outp += plen;
@@ -270,7 +270,7 @@ int nczipioi_print_buffer_int(char *prefix, int* buf, int len){
 
     printf("%s\n", out);    fflush(stdout);
 
-    NCI_Free(out);
+    free(out);
 
     return NC_NOERR;
 }
@@ -288,7 +288,7 @@ int nczipioi_print_buffer_int64(char *prefix, long long* buf, int len){
     rlen = sprintf(rankstr, "Rank %d: ", rank);
 
     plen = strlen(prefix);
-    out = outp = (char*)NCI_Malloc(len * 18 + 2 + plen + rlen);
+    out = outp = (char*)malloc(len * 18 + 2 + plen + rlen);
 
     rlen = sprintf(outp, "%s ", rankstr);   outp += rlen;
     plen = sprintf(outp, "%s ", prefix);   outp += plen;
@@ -298,7 +298,7 @@ int nczipioi_print_buffer_int64(char *prefix, long long* buf, int len){
 
     printf("%s\n", out);    fflush(stdout);
 
-    NCI_Free(out);
+    free(out);
 
     return NC_NOERR;
 }

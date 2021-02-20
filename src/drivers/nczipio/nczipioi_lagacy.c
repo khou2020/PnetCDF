@@ -58,9 +58,9 @@ nczipioi_get_var_old(NC_zip        *nczipp,
     MPI_Offset **starts, **counts;
 
     // Boundary of chunks involved
-    cstart = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
-    ccord = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
-    cend = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
+    cstart = (int*)malloc(sizeof(int) * varp->ndim);
+    ccord = (int*)malloc(sizeof(int) * varp->ndim);
+    cend = (int*)malloc(sizeof(int) * varp->ndim);
     for(i = 0; i < varp->ndim; i++){
         cstart[i] = start[i] / varp->chunkdim[i];
         if (stride == NULL){
@@ -81,9 +81,9 @@ nczipioi_get_var_old(NC_zip        *nczipp,
      * Generate one request for each chunk
      */
 
-    bidx = (int*)NCI_Malloc(sizeof(int) * nb);
-    starts = (MPI_Offset**)NCI_Malloc(sizeof(MPI_Offset*) * nb);
-    counts = (MPI_Offset**)NCI_Malloc(sizeof(MPI_Offset*) * nb);
+    bidx = (int*)malloc(sizeof(int) * nb);
+    starts = (MPI_Offset**)malloc(sizeof(MPI_Offset*) * nb);
+    counts = (MPI_Offset**)malloc(sizeof(MPI_Offset*) * nb);
     // Iterate through all chunks involved
     i = 0;
     cbsize = 0;
@@ -106,7 +106,7 @@ nczipioi_get_var_old(NC_zip        *nczipp,
     }
 
     // Allocate buffers
-    cbuffer = (char*)NCI_Malloc(cbsize);  // Compressed data
+    cbuffer = (char*)malloc(cbsize);  // Compressed data
 
     // Locate data var
     err = nczipp->driver->get_var(nczipp->ncp, varp->varid, NULL, NULL, NULL, NULL, &datavarid, 1, MPI_INT, reqMode); 
@@ -130,7 +130,7 @@ nczipioi_get_var_old(NC_zip        *nczipp,
     }
 
     // Allocate buffers
-    rbuffer = NCI_Malloc(bsize * nb);  // Decompressed data
+    rbuffer = malloc(bsize * nb);  // Decompressed data
 
     // Decompress chunks
     cbsize = 0;
@@ -148,9 +148,9 @@ nczipioi_get_var_old(NC_zip        *nczipp,
     // Copy data into user buffer
 
     // Create datatype of querying domain in the decompressed domain
-    tsize = NCI_Malloc(sizeof(int) * varp->ndim);
-    tssize = NCI_Malloc(sizeof(int) * varp->ndim);
-    tstart = NCI_Malloc(sizeof(int) * varp->ndim);
+    tsize = malloc(sizeof(int) * varp->ndim);
+    tssize = malloc(sizeof(int) * varp->ndim);
+    tstart = malloc(sizeof(int) * varp->ndim);
     for(i = 0; i < varp->ndim; i++){
         tsize[i] = (cend[i] - cstart[i]) * varp->chunkdim[i];
         tssize[i] = (int)count[i];
@@ -214,9 +214,9 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     }
 
     // Allocate buffering for overlaping index
-    tsize = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
-    tssize = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
-    tstart = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
+    tsize = (int*)malloc(sizeof(int) * varp->ndim);
+    tssize = (int*)malloc(sizeof(int) * varp->ndim);
+    tstart = (int*)malloc(sizeof(int) * varp->ndim);
 
     /*
      * Gather start, count, stride to all processes
@@ -224,13 +224,13 @@ nczipioi_put_var_old(NC_zip        *nczipp,
 
     // Allocate buffer
 
-    start_all = NCI_Malloc(sizeof(MPI_Offset*) * nczipp->np);
-    count_all = NCI_Malloc(sizeof(MPI_Offset*) * nczipp->np);
-    stride_all = NCI_Malloc(sizeof(MPI_Offset*) * nczipp->np);
+    start_all = malloc(sizeof(MPI_Offset*) * nczipp->np);
+    count_all = malloc(sizeof(MPI_Offset*) * nczipp->np);
+    stride_all = malloc(sizeof(MPI_Offset*) * nczipp->np);
 
-    start_all[0] = NCI_Malloc(sizeof(MPI_Offset) * nczipp->np * varp->ndim);
-    count_all[0] = NCI_Malloc(sizeof(MPI_Offset) * nczipp->np * varp->ndim);
-    stride_all[0] = NCI_Malloc(sizeof(MPI_Offset) * nczipp->np * varp->ndim);
+    start_all[0] = malloc(sizeof(MPI_Offset) * nczipp->np * varp->ndim);
+    count_all[0] = malloc(sizeof(MPI_Offset) * nczipp->np * varp->ndim);
+    stride_all[0] = malloc(sizeof(MPI_Offset) * nczipp->np * varp->ndim);
 
     for(i = 1; i < nczipp->np; i++){
         start_all[i] = start_all[0] + i * varp->ndim;
@@ -267,9 +267,9 @@ nczipioi_put_var_old(NC_zip        *nczipp,
      */
 
     // First, compute chunk boundary, find overlapping chunks
-    cstart = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
-    ccord = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
-    cend = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
+    cstart = (int*)malloc(sizeof(int) * varp->ndim);
+    ccord = (int*)malloc(sizeof(int) * varp->ndim);
+    cend = (int*)malloc(sizeof(int) * varp->ndim);
     for(i = 0; i < varp->ndim; i++){
         cstart[i] = start[i] / varp->chunkdim[i];
         if (stride == NULL){
@@ -281,9 +281,9 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     }
 
     // Calculate the amount we need to send to other process
-    sendcounts = (int*)NCI_Malloc(sizeof(int) * nczipp->np);
-    sdispls = (int*)NCI_Malloc(sizeof(int) * nczipp->np);
-    packoff = (int*)NCI_Malloc(sizeof(int) * nczipp->np);
+    sendcounts = (int*)malloc(sizeof(int) * nczipp->np);
+    sdispls = (int*)malloc(sizeof(int) * nczipp->np);
+    packoff = (int*)malloc(sizeof(int) * nczipp->np);
     memset(sendcounts, 0, sizeof(int) * nczipp->np);
     memset(packoff, 0, sizeof(int) * nczipp->np);
 
@@ -315,7 +315,7 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     }
 
     // Allocate send buffer
-    sbuf = (char*)NCI_Malloc(sdispls[nczipp->np - 1] + sendcounts[nczipp->np - 1]);
+    sbuf = (char*)malloc(sdispls[nczipp->np - 1] + sendcounts[nczipp->np - 1]);
 
     // Pack data into send buffer
     
@@ -367,7 +367,7 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     }
 
     // Gather chunk id this process handled to prevent a search in the future
-    mychunks = (int*)NCI_Malloc(sizeof(int) * nmychunks);
+    mychunks = (int*)malloc(sizeof(int) * nmychunks);
     nmychunks = 0;
     for(i = 0; i < varp->nchunk; i++){
         if (varp->chunk_owner[i] == nczipp->rank){
@@ -382,8 +382,8 @@ nczipioi_put_var_old(NC_zip        *nczipp,
      */
 
     // Calculate the amount we need to receive from other process
-    recvcounts = (int*)NCI_Malloc(sizeof(int) * nczipp->np);
-    rdispls = (int*)NCI_Malloc(sizeof(int) * nczipp->np);
+    recvcounts = (int*)malloc(sizeof(int) * nczipp->np);
+    rdispls = (int*)malloc(sizeof(int) * nczipp->np);
     memset(recvcounts, 0, sizeof(int) * nczipp->np);
     memset(packoff, 0, sizeof(int) * nczipp->np);
     for(i = 0; i < varp->nchunk; i++){
@@ -410,7 +410,7 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     }
 
     // Allocate receive buffer
-    rbuf = (char*)NCI_Malloc(rdispls[nczipp->np - 1] + recvcounts[nczipp->np - 1]);
+    rbuf = (char*)malloc(rdispls[nczipp->np - 1] + recvcounts[nczipp->np - 1]);
 
     // Send the data to destination
     MPI_Alltoallv(sbuf, sendcounts, sdispls, MPI_BYTE, rbuf, recvcounts, rdispls, MPI_BYTE, nczipp->comm);
@@ -453,7 +453,7 @@ nczipioi_put_var_old(NC_zip        *nczipp,
      */
 
     // Allocate buffer
-    xbuf = (char*)NCI_Malloc(nmychunks * bsize);
+    xbuf = (char*)malloc(nmychunks * bsize);
 
     // Main array is the whole chunk
     for(i = 0; i < varp->ndim; i++){
@@ -512,8 +512,8 @@ nczipioi_put_var_old(NC_zip        *nczipp,
      */
 
     // compressed size and displacement
-    zipsize = (int*)NCI_Malloc(sizeof(int) * nmychunks);
-    zdispls = (int*)NCI_Malloc(sizeof(int) * (nmychunks + 1));
+    zipsize = (int*)malloc(sizeof(int) * nmychunks);
+    zdispls = (int*)malloc(sizeof(int) * (nmychunks + 1));
     memset(zipsize, 0, sizeof(int) * nmychunks);
     memset(zdispls, 0, sizeof(int) * (nmychunks + 1));
 
@@ -530,7 +530,7 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     }
 
     // Allocate buffer
-    zbuf = (char*)NCI_Malloc(zdispls[0]);
+    zbuf = (char*)malloc(zdispls[0]);
 
     // Perform real compression
     for(i = 0; i < nmychunks; i++){
@@ -575,9 +575,9 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     // An alternative is to allgather and unpack the info
 
     // Allocate buffer
-    zsize_local = (int*)NCI_Malloc(sizeof(int) * varp->nchunk);
-    zsize_all = (int*)NCI_Malloc(sizeof(int) * varp->nchunk);
-    zdispls_all = (int*)NCI_Malloc(sizeof(int) * varp->nchunk);
+    zsize_local = (int*)malloc(sizeof(int) * varp->nchunk);
+    zsize_all = (int*)malloc(sizeof(int) * varp->nchunk);
+    zdispls_all = (int*)malloc(sizeof(int) * varp->nchunk);
     memset(zsize_local, 0, sizeof(int) * varp->nchunk);
     memset(zsize_all, 0, sizeof(int) * varp->nchunk);
     memset(zdispls_all, 0, sizeof(int) * varp->nchunk);
@@ -637,10 +637,10 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     if (err != NC_NOERR) return err;
 
     //Now, we generate a varn call to write out compressed data
-    zstarts = (MPI_Offset**)NCI_Malloc(sizeof(MPI_Offset*) * nmychunks);
-    zcounts = (MPI_Offset**)NCI_Malloc(sizeof(MPI_Offset*) * nmychunks);
-    zstarts[0] = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * nmychunks);
-    zcounts[0] = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * nmychunks);
+    zstarts = (MPI_Offset**)malloc(sizeof(MPI_Offset*) * nmychunks);
+    zcounts = (MPI_Offset**)malloc(sizeof(MPI_Offset*) * nmychunks);
+    zstarts[0] = (MPI_Offset*)malloc(sizeof(MPI_Offset) * nmychunks);
+    zcounts[0] = (MPI_Offset*)malloc(sizeof(MPI_Offset) * nmychunks);
     for(i = 0; i < nmychunks; i++){
         zstarts[i] = zstarts[0] + i;
         zcounts[i] = zcounts[0] + i;
@@ -655,37 +655,37 @@ nczipioi_put_var_old(NC_zip        *nczipp,
     if (err != NC_NOERR) return err;
     
     //  Free up buffers
-    NCI_Free(cstart);
-    NCI_Free(cend);
-    NCI_Free(ccord);
-    NCI_Free(tsize);
-    NCI_Free(tssize);
-    NCI_Free(tstart);
-    NCI_Free(mychunks);
-    NCI_Free(sendcounts);
-    NCI_Free(sdispls);
-    NCI_Free(recvcounts);
-    NCI_Free(rdispls);
-    NCI_Free(packoff);
-    NCI_Free(zipsize);
-    NCI_Free(zdispls);
-    NCI_Free(zsize_local);
-    NCI_Free(zsize_all);
-    NCI_Free(zdispls_all);
-    NCI_Free(zbuf);
-    NCI_Free(xbuf);
-    NCI_Free(sbuf);
-    NCI_Free(rbuf);
-    NCI_Free(start_all[0]);
-    NCI_Free(count_all[0]);
-    NCI_Free(stride_all[0]);
-    NCI_Free(start_all);
-    NCI_Free(count_all);
-    NCI_Free(stride_all);
-    NCI_Free(zstarts[0]);
-    NCI_Free(zcounts[0]);
-    NCI_Free(zstarts);
-    NCI_Free(zcounts);
+    free(cstart);
+    free(cend);
+    free(ccord);
+    free(tsize);
+    free(tssize);
+    free(tstart);
+    free(mychunks);
+    free(sendcounts);
+    free(sdispls);
+    free(recvcounts);
+    free(rdispls);
+    free(packoff);
+    free(zipsize);
+    free(zdispls);
+    free(zsize_local);
+    free(zsize_all);
+    free(zdispls_all);
+    free(zbuf);
+    free(xbuf);
+    free(sbuf);
+    free(rbuf);
+    free(start_all[0]);
+    free(count_all[0]);
+    free(stride_all[0]);
+    free(start_all);
+    free(count_all);
+    free(stride_all);
+    free(zstarts[0]);
+    free(zcounts[0]);
+    free(zstarts);
+    free(zcounts);
 
     return NC_NOERR;
 }

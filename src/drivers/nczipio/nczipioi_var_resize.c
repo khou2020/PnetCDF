@@ -99,7 +99,7 @@ int nczipioi_var_resize (NC_zip *nczipp, NC_zip_var *varp) {
 					if (varp->chunk_owner[i] == nczipp->rank) { varp->nmychunkrec++; }
 				}
 				varp->mychunks =
-					(int *)NCI_Malloc (sizeof (int) * varp->nmychunkrec * varp->nrecalloc);
+					(int *)malloc (sizeof (int) * varp->nmychunkrec * varp->nrecalloc);
 
 				if (nczipp->cache_limit_hint == -1) {
 					nczipp->cache_limit +=
@@ -111,7 +111,7 @@ int nczipioi_var_resize (NC_zip *nczipp, NC_zip_var *varp) {
 			for (i = oldnchunk; i < varp->nchunk; i++) {
 				if (varp->chunk_owner[i] == nczipp->rank) {
 					varp->mychunks[varp->nmychunk++] = i;
-					// varp->chunk_cache[i] = (void*)NCI_Malloc(varp->chunksize);  // Allocate
+					// varp->chunk_cache[i] = (void*)malloc(varp->chunksize);  // Allocate
 					// buffer for blocks we own memset(varp->chunk_cache[i], 0 , varp->chunksize);
 				}
 			}
@@ -143,7 +143,7 @@ int nczipioi_resize_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int 
 
 	// Flag of touched vars
 	nflag	 = nczipp->vars.cnt / 32 + 1;
-	flag	 = (unsigned int *)NCI_Malloc (sizeof (int) * nflag * 2);
+	flag	 = (unsigned int *)malloc (sizeof (int) * nflag * 2);
 	flag_all = flag + nflag;
 	memset (flag, 0, sizeof (int) * nflag);
 	for (i = 0; i < nput; i++) {
@@ -169,7 +169,7 @@ int nczipioi_resize_nvar (NC_zip *nczipp, int nput, int *putreqs, int nget, int 
 		}
 	}
 
-	NCI_Free (flag);
+	free (flag);
 
 	return NC_NOERR;
 }

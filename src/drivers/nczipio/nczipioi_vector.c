@@ -24,7 +24,7 @@ int nczipioi_vector_init(NC_zip_vector *v, int esize){
     v->esize = esize;
     v->nalloc = STARTSIZE;
     v->size = 0;
-    v->data = (char*)NCI_Malloc(esize * v->nalloc);
+    v->data = (char*)malloc(esize * v->nalloc);
     if (v->data == NULL){
         DEBUG_RETURN_ERROR(NC_ENOMEM);
     }
@@ -34,14 +34,14 @@ int nczipioi_vector_init_ex(NC_zip_vector *v, int esize, int size){
     v->esize = esize;
     v->nalloc = size;
     v->size = 0;
-    v->data = (char*)NCI_Malloc(esize * v->nalloc);
+    v->data = (char*)malloc(esize * v->nalloc);
     if (v->data == NULL){
        DEBUG_RETURN_ERROR(NC_ENOMEM);
     }
 }
 
 void nczipioi_vector_free(NC_zip_vector *v){
-    NCI_Free(v->data);
+    free(v->data);
 }
 
 int nczipioi_vector_append(NC_zip_vector *v, void *item){

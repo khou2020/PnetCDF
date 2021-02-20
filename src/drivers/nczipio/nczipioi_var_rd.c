@@ -58,10 +58,10 @@ int nczipioi_load_var(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids) {
     }
 
     // Allocate buffer for I/O
-    lens = (int*)NCI_Malloc(sizeof(int) * nchunk);
-    fdisps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * nchunk * 2);
+    lens = (int*)malloc(sizeof(int) * nchunk);
+    fdisps = (MPI_Aint*)malloc(sizeof(MPI_Aint) * nchunk * 2);
     mdisps = fdisps + nchunk;
-    zbufs = (char**)NCI_Malloc(sizeof(char*) * nchunk);
+    zbufs = (char**)malloc(sizeof(char*) * nchunk);
 
     /* Carry our coll I/O
      * OpenMPI will fail when set view or do I/O on type created with MPI_Type_create_hindexed when count is 0
@@ -81,7 +81,7 @@ int nczipioi_load_var(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids) {
         }
 
         // Allocate buffer for compressed data
-        zbufs[0] = (char*)NCI_Malloc(bsize);
+        zbufs[0] = (char*)malloc(bsize);
         for(i = 1; i < nchunk; i++){
             zbufs[i] = zbufs[i - 1] + varp->chunk_index[cids[i - 1]].len; 
         }
@@ -137,7 +137,7 @@ int nczipioi_load_var(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids) {
             cid = cids[i];
             if (varp->chunk_cache[cid] == NULL){
                 err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
             }
             else{
                 nczipioi_cache_visit(nczipp, varp->chunk_cache[cid]);
@@ -158,7 +158,7 @@ int nczipioi_load_var(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids) {
             cid = cids[i];
             if (varp->chunk_cache[cid] == NULL){
                 err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
 
                 NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET_IO_DECOM)
                 memcpy(varp->chunk_cache[cid]->buf, zbufs[i], lens[i]);
@@ -174,12 +174,12 @@ int nczipioi_load_var(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids) {
 
     // Free buffers
     if (nchunk > 0){
-        NCI_Free(zbufs[0]);
+        free(zbufs[0]);
     }
-    NCI_Free(zbufs);
+    free(zbufs);
 
-    NCI_Free(lens);
-    NCI_Free(fdisps);
+    free(lens);
+    free(fdisps);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET_IO)
 
@@ -225,10 +225,10 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids, int *lo, int *hi) 
     }
 
     // Allocate buffer for I/O
-    lens = (int*)NCI_Malloc(sizeof(int) * nchunk);
-    fdisps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * nchunk * 2);
+    lens = (int*)malloc(sizeof(int) * nchunk);
+    fdisps = (MPI_Aint*)malloc(sizeof(MPI_Aint) * nchunk * 2);
     mdisps = fdisps + nchunk;
-    zbufs = (char**)NCI_Malloc(sizeof(char*) * nchunk);
+    zbufs = (char**)malloc(sizeof(char*) * nchunk);
 
     /* Carry our coll I/O
      * OpenMPI will fail when set view or do I/O on type created with MPI_Type_create_hindexed when count is 0
@@ -258,7 +258,7 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids, int *lo, int *hi) 
 
         // Allocate buffer for compressed data
         // We allocate it continuously so no mem type needed
-        zbufs[0] = (char*)NCI_Malloc(bsize);
+        zbufs[0] = (char*)malloc(bsize);
         for(j = 1; j < nchunk; j++){
             zbufs[j] = zbufs[j - 1] + lens[j - 1];
         }    
@@ -309,7 +309,7 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids, int *lo, int *hi) 
                     // Allocate chunk cache if not allocated
                     if (varp->chunk_cache[cid] == NULL){
                         err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                        //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                        //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
 
                         // Perform decompression
                         if (varp->chunk_index[cid].len > 0){
@@ -338,7 +338,7 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids, int *lo, int *hi) 
                     // Allocate chunk cache if not allocated
                     if (varp->chunk_cache[cid] == NULL){
                         err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                        //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                        //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
 
                         if (varp->chunk_index[cid].len > 0){
                             NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET_IO_DECOM)
@@ -369,7 +369,7 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids, int *lo, int *hi) 
                 // Allocate chunk cache if not allocated
                 if (varp->chunk_cache[cid] == NULL){
                     err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                    //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                    //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
                     memset(varp->chunk_cache[cid]->buf, 0, varp->chunksize);
                 }
                 else{
@@ -390,12 +390,12 @@ int nczipioi_load_nvar(NC_zip *nczipp, int nvar, int *varids, int *lo, int *hi) 
 
     // Free buffers
     if (nchunk > 0){
-        NCI_Free(zbufs[0]);
+        free(zbufs[0]);
     }
-    NCI_Free(zbufs);
+    free(zbufs);
 
-    NCI_Free(lens);
-    NCI_Free(fdisps);
+    free(lens);
+    free(fdisps);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET_IO)
 
@@ -430,10 +430,10 @@ int nczipioi_load_var_bg(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids
     }
 
     // Allocate buffer for I/O
-    lens = (int*)NCI_Malloc(sizeof(int) * nchunk);
-    fdisps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * nchunk * 2);
+    lens = (int*)malloc(sizeof(int) * nchunk);
+    fdisps = (MPI_Aint*)malloc(sizeof(MPI_Aint) * nchunk * 2);
     mdisps = fdisps + nchunk;
-    zbufs = (char**)NCI_Malloc(sizeof(char*) * nchunk);
+    zbufs = (char**)malloc(sizeof(char*) * nchunk);
 
     /* Carry our coll I/O
      * OpenMPI will fail when set view or do I/O on type created with MPI_Type_create_hindexed when count is 0
@@ -453,7 +453,7 @@ int nczipioi_load_var_bg(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids
         }
 
         // Allocate buffer for compressed data
-        zbufs[0] = (char*)NCI_Malloc(bsize);
+        zbufs[0] = (char*)malloc(bsize);
         for(i = 1; i < nchunk; i++){
             zbufs[i] = zbufs[i - 1] + varp->chunk_index[cids[i - 1]].len; 
         }
@@ -513,7 +513,7 @@ int nczipioi_load_var_bg(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids
             cid = cids[i];
             if (varp->chunk_cache[cid] == NULL){
                 err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
             }
             else{
                 nczipioi_cache_visit(nczipp, varp->chunk_cache[cid]);
@@ -532,7 +532,7 @@ int nczipioi_load_var_bg(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids
             cid = cids[i];
             if (varp->chunk_cache[cid] == NULL){
                 err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
             }
             else{
                 nczipioi_cache_visit(nczipp, varp->chunk_cache[cid]);
@@ -546,12 +546,12 @@ int nczipioi_load_var_bg(NC_zip *nczipp, NC_zip_var *varp, int nchunk, int *cids
 
     // Free buffers
     if (nchunk > 0){
-        NCI_Free(zbufs[0]);
+        free(zbufs[0]);
     }
-    NCI_Free(zbufs);
+    free(zbufs);
 
-    NCI_Free(lens);
-    NCI_Free(fdisps);
+    free(lens);
+    free(fdisps);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO)
 
@@ -597,10 +597,10 @@ int nczipioi_load_nvar_bg(NC_zip *nczipp, int nvar, int *varids, int *lo, int *h
     }
 
     // Allocate buffer for I/O
-    lens = (int*)NCI_Malloc(sizeof(int) * nchunk);
-    fdisps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * nchunk * 2);
+    lens = (int*)malloc(sizeof(int) * nchunk);
+    fdisps = (MPI_Aint*)malloc(sizeof(MPI_Aint) * nchunk * 2);
     mdisps = fdisps + nchunk;
-    zbufs = (char**)NCI_Malloc(sizeof(char*) * nchunk);
+    zbufs = (char**)malloc(sizeof(char*) * nchunk);
 
     /* Carry our coll I/O
      * OpenMPI will fail when set view or do I/O on type created with MPI_Type_create_hindexed when count is 0
@@ -630,7 +630,7 @@ int nczipioi_load_nvar_bg(NC_zip *nczipp, int nvar, int *varids, int *lo, int *h
 
         // Allocate buffer for compressed data
         // We allocate it continuously so no mem type needed
-        zbufs[0] = (char*)NCI_Malloc(bsize);
+        zbufs[0] = (char*)malloc(bsize);
         for(j = 1; j < nchunk; j++){
             zbufs[j] = zbufs[j - 1] + lens[j - 1];
         }    
@@ -681,7 +681,7 @@ int nczipioi_load_nvar_bg(NC_zip *nczipp, int nvar, int *varids, int *lo, int *h
                     // Allocate chunk cache if not allocated
                     if (varp->chunk_cache[cid] == NULL){
                         err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                        //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                        //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
 
                         // Perform decompression
                         if (varp->chunk_index[cid].len > 0){
@@ -711,7 +711,7 @@ int nczipioi_load_nvar_bg(NC_zip *nczipp, int nvar, int *varids, int *lo, int *h
                     // Allocate chunk cache if not allocated
                     if (varp->chunk_cache[cid] == NULL){
                         err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                        //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                        //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
 
                         if (varp->chunk_index[cid].len > 0){
                             NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO_DECOM)
@@ -743,7 +743,7 @@ int nczipioi_load_nvar_bg(NC_zip *nczipp, int nvar, int *varids, int *lo, int *h
                 // Allocate chunk cache if not allocated
                 if (varp->chunk_cache[cid] == NULL){
                     err = nczipioi_cache_alloc(nczipp, varp->chunksize, varp->chunk_cache + cid);
-                    //varp->chunk_cache[cid] = (char*)NCI_Malloc(varp->chunksize);
+                    //varp->chunk_cache[cid] = (char*)malloc(varp->chunksize);
                     memset(varp->chunk_cache[cid]->buf, 0, varp->chunksize);
                 }
                 else{
@@ -764,12 +764,12 @@ int nczipioi_load_nvar_bg(NC_zip *nczipp, int nvar, int *varids, int *lo, int *h
 
     // Free buffers
     if (nchunk > 0){
-        NCI_Free(zbufs[0]);
+        free(zbufs[0]);
     }
-    NCI_Free(zbufs);
+    free(zbufs);
 
-    NCI_Free(lens);
-    NCI_Free(fdisps);
+    free(lens);
+    free(fdisps);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO)
 

@@ -73,10 +73,10 @@ int nczipioi_calc_chunk_size(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Off
      * If we set chunk dim to gcd of all access boundary, no communication required
      * If the pattern is completely randomized, the result will likely be 1
      */
-    chunkdim = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * varp->ndim);
+    chunkdim = (MPI_Offset*)malloc(sizeof(MPI_Offset) * varp->ndim);
     if (nreq > 0){
-        candidates = (MPI_Offset**)NCI_Malloc(sizeof(MPI_Offset*) * varp->ndim);
-        candidates[0] = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * varp->ndim * nreq);
+        candidates = (MPI_Offset**)malloc(sizeof(MPI_Offset*) * varp->ndim);
+        candidates[0] = (MPI_Offset*)malloc(sizeof(MPI_Offset) * varp->ndim * nreq);
         for(i = 1; i < varp->ndim; i++){
             candidates[i] = candidates[i - 1] + nreq;
         }
@@ -154,7 +154,7 @@ int nczipioi_calc_chunk_size(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Off
         int hsize;
 
         // Build heap of smallest chunk dim
-        heap = (int*)NCI_Malloc(sizeof(int) * varp->ndim);
+        heap = (int*)malloc(sizeof(int) * varp->ndim);
         for(i = 0; i < varp->ndim; i++){
             heap[i] = i;
             j = i;
@@ -209,7 +209,7 @@ int nczipioi_calc_chunk_size(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Off
                 j = r * 2 + 2;
             }
         }
-        NCI_Free(heap);
+        free(heap);
 
         // Still not enough after doing everything, just set to entire var
         if (chunksize < lb){
@@ -228,10 +228,10 @@ int nczipioi_calc_chunk_size(NC_zip *nczipp, NC_zip_var *varp, int nreq, MPI_Off
         varp->chunkdim[i] = (int)chunkdim[i];
     }
 
-    NCI_Free(chunkdim);
+    free(chunkdim);
     if(nreq > 0){
-        NCI_Free(candidates[0]);
-        NCI_Free(candidates);
+        free(candidates[0]);
+        free(candidates);
     }
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_CSIZE)

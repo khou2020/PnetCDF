@@ -44,7 +44,7 @@ int nczipioi_wait_put_reqs(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
     // Flag of touched vars
     nflag = nczipp->vars.cnt / 32 + 1;
-    flag = (unsigned int*)NCI_Malloc(sizeof(int) * nflag * 2);
+    flag = (unsigned int*)malloc(sizeof(int) * nflag * 2);
     flag_all = flag + nflag;
     memset(flag, 0, sizeof(int) * nflag);
     for(i = 0; i < nreq; i++){
@@ -62,7 +62,7 @@ int nczipioi_wait_put_reqs(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             nvar++;
         }
     }
-    vids = (int*)NCI_Malloc(sizeof(int) * nvar);
+    vids = (int*)malloc(sizeof(int) * nvar);
     nvar = 0;
     for(i = 0; i < nczipp->vars.cnt; i++){
         if (flag_all[i >> 5] & (1u << (i % 32))) {
@@ -88,8 +88,8 @@ int nczipioi_wait_put_reqs(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_WAIT)
 
     // Free buffers
-    NCI_Free(vids);
-    NCI_Free(flag);
+    free(vids);
+    free(flag);
 
     return NC_NOERR;
 }
@@ -108,7 +108,7 @@ int nczipioi_wait_get_reqs(NC_zip *nczipp, int nreq, int *reqids, int *stats){
 
     // Flag of touched vars
     nflag = nczipp->vars.cnt / 32 + 1;
-    flag = (unsigned int*)NCI_Malloc(sizeof(int) * nflag * 2);
+    flag = (unsigned int*)malloc(sizeof(int) * nflag * 2);
     flag_all = flag + nflag;
     memset(flag, 0, sizeof(int) * nflag);
     for(i = 0; i < nreq; i++){
@@ -126,7 +126,7 @@ int nczipioi_wait_get_reqs(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             nvar++;
         }
     }
-    vids = (int*)NCI_Malloc(sizeof(int) * nvar);
+    vids = (int*)malloc(sizeof(int) * nvar);
     nvar = 0;
     for(i = 0; i < nczipp->vars.cnt; i++){
         if (flag_all[i >> 5] & (1u << (i % 32))) {
@@ -157,7 +157,7 @@ int nczipioi_wait_get_reqs(NC_zip *nczipp, int nreq, int *reqids, int *stats){
             err = nczipioiconvert(req->xbuf, cbuf, nczipp->vars.data[req->varid].etype, req->buftype, req->bufcount);
             if (err != NC_NOERR) return err;
 
-            if (cbuf != req->buf) NCI_Free(cbuf);
+            if (cbuf != req->buf) free(cbuf);
         }
     }
 
@@ -165,8 +165,8 @@ int nczipioi_wait_get_reqs(NC_zip *nczipp, int nreq, int *reqids, int *stats){
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_WAIT)
     
     // Free buffers
-    NCI_Free(vids);
-    NCI_Free(flag);
+    free(vids);
+    free(flag);
 
     return NC_NOERR;
 }
@@ -181,12 +181,12 @@ nczipioi_wait(NC_zip *nczipp, int nreqs, int *reqids, int *stats, int reqMode){
 
     if (nreqs == NC_REQ_ALL || nreqs == NC_PUT_REQ_ALL){
         nput = nczipp->putlist.nused;
-        putreqs = (int*)NCI_Malloc(sizeof(int) * nput);
+        putreqs = (int*)malloc(sizeof(int) * nput);
         memcpy(putreqs, nczipp->putlist.ids, nput * sizeof(int));
     }
     if(nreqs == NC_REQ_ALL || nreqs == NC_GET_REQ_ALL){
         nget = nczipp->getlist.nused;
-        getreqs = (int*)NCI_Malloc(sizeof(int) * nget);
+        getreqs = (int*)malloc(sizeof(int) * nget);
         memcpy(getreqs, nczipp->getlist.ids, nget * sizeof(int));
     }
 
@@ -200,8 +200,8 @@ nczipioi_wait(NC_zip *nczipp, int nreqs, int *reqids, int *stats, int reqMode){
 
         // Allocate buffer
         nget = nreqs - nput;
-        putreqs = (int*)NCI_Malloc(sizeof(int) * nput);
-        getreqs = (int*)NCI_Malloc(sizeof(int) * nget);
+        putreqs = (int*)malloc(sizeof(int) * nput);
+        getreqs = (int*)malloc(sizeof(int) * nget);
         
         // Build put and get req list
         nput = nget = 0;
@@ -248,8 +248,8 @@ nczipioi_wait(NC_zip *nczipp, int nreqs, int *reqids, int *stats, int reqMode){
     }
 
     if (stats != NULL){
-        putstats = (int*)NCI_Malloc(sizeof(int) * nput);
-        getstats = (int*)NCI_Malloc(sizeof(int) * nget);
+        putstats = (int*)malloc(sizeof(int) * nput);
+        getstats = (int*)malloc(sizeof(int) * nget);
         memset(putstats, 0, sizeof(int) * nput);
         memset(getstats, 0, sizeof(int) * nget);
     }
@@ -282,8 +282,8 @@ nczipioi_wait(NC_zip *nczipp, int nreqs, int *reqids, int *stats, int reqMode){
             }
         }
 
-        NCI_Free(putstats);
-        NCI_Free(getstats);
+        free(putstats);
+        free(getstats);
     }
     
     // Remove from req list
@@ -294,8 +294,8 @@ nczipioi_wait(NC_zip *nczipp, int nreqs, int *reqids, int *stats, int reqMode){
         nczipioi_req_list_remove(&(nczipp->getlist), getreqs[i]);
     }
 
-    NCI_Free(putreqs);
-    NCI_Free(getreqs);
+    free(putreqs);
+    free(getreqs);
     
     return NC_NOERR;
 }

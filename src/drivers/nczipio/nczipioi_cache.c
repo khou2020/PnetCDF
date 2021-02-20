@@ -39,8 +39,8 @@ static int nczipioi_cache_evict(NC_zip *nczipp){
     nczipp->cache_head = target->next;
 
     *(target->ref) = NULL;  // Mark as evicted
-    NCI_Free(target->buf);
-    NCI_Free(target);
+    free(target->buf);
+    free(target);
 }
 
 int nczipioi_cache_alloc(NC_zip *nczipp, MPI_Offset size, NC_zip_cache **ref){
@@ -56,7 +56,7 @@ int nczipioi_cache_alloc(NC_zip *nczipp, MPI_Offset size, NC_zip_cache **ref){
     nczipp->cache_used += size;
 
     // Prepare cache entry
-    target = (NC_zip_cache*)NCI_Malloc(sizeof(NC_zip_cache));
+    target = (NC_zip_cache*)malloc(sizeof(NC_zip_cache));
     if (target == NULL){
         DEBUG_RETURN_ERROR(NC_ENOMEM)
     }
@@ -65,7 +65,7 @@ int nczipioi_cache_alloc(NC_zip *nczipp, MPI_Offset size, NC_zip_cache **ref){
     target->prev = nczipp->cache_tail;
     target->ref = ref;
     target->serial = nczipp->cache_serial;
-    target->buf = NCI_Malloc(size);
+    target->buf = malloc(size);
 #ifdef PNETCDF_DEBUG
     memset(target->buf, 0, size);
 #endif
@@ -108,7 +108,7 @@ void nczipioi_cache_free(NC_zip *nczipp){
     while(cur != NULL){
         pre = cur;
         cur = cur->next;
-        NCI_Free(pre->buf);
-        NCI_Free(pre);
+        free(pre->buf);
+        free(pre);
     }
 }

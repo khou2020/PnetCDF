@@ -30,7 +30,7 @@ int nczipioi_var_list_free(NC_zip_var_list *list) {
         for(i = 0; i < list->cnt; i++){
             nczipioi_var_free(list->data + i);
         }
-        NCI_Free(list->data);
+        free(list->data);
     }
     return NC_NOERR;
 }
@@ -38,7 +38,7 @@ int nczipioi_var_list_free(NC_zip_var_list *list) {
 int nczipioi_var_list_add(NC_zip_var_list *list) {
     if (list->nalloc == 0){
         list->nalloc = 16;
-        list->data = NCI_Malloc(list->nalloc * sizeof(NC_zip_var));
+        list->data = malloc(list->nalloc * sizeof(NC_zip_var));
         CHK_ALLOC(list->data)
     }
     else if (list->nalloc == list->cnt){

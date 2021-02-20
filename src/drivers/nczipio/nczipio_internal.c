@@ -116,8 +116,8 @@ int nczipioi_parse_var_info (NC_zip *nczipp) {
 												   MPI_INT);  // Original dimensions
 					if (err != NC_NOERR) return err;
 
-					varp->dimids  = (int *)NCI_Malloc (sizeof (int) * varp->ndim);
-					varp->dimsize = (MPI_Offset *)NCI_Malloc (sizeof (MPI_Offset) * varp->ndim);
+					varp->dimids  = (int *)malloc (sizeof (int) * varp->ndim);
+					varp->dimsize = (MPI_Offset *)malloc (sizeof (MPI_Offset) * varp->ndim);
 
 					err = nczipp->driver->get_att (nczipp->ncp, varp->varid, "_dimids",
 												   varp->dimids, MPI_INT);	// Dimensiona IDs
@@ -149,8 +149,8 @@ int nczipioi_parse_var_info (NC_zip *nczipp) {
 
 		// Collective read index table
 		if (!(nczipp->delay_init)) {
-			lens   = NCI_Malloc (sizeof (int) * nvar);
-			fdisps = NCI_Malloc (sizeof (MPI_Aint) * nvar * 2);
+			lens   = malloc (sizeof (int) * nvar);
+			fdisps = malloc (sizeof (MPI_Aint) * nvar * 2);
 			mdisps = fdisps + nvar;
 
 			nread = 0;
@@ -205,8 +205,8 @@ int nczipioi_parse_var_info (NC_zip *nczipp) {
 				MPI_Type_free (&mtype);
 			}
 
-			NCI_Free (lens);
-			NCI_Free (fdisps);
+			free (lens);
+			free (fdisps);
 		}
 	}
 

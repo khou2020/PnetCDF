@@ -70,12 +70,12 @@ int nczipio_create (
 	if (err != NC_NOERR) return err;
 
 	/* Create a NC_zip object and save its driver pointer */
-	nczipp = (NC_zip *)NCI_Malloc (sizeof (NC_zip));
+	nczipp = (NC_zip *)malloc (sizeof (NC_zip));
 	if (nczipp == NULL) DEBUG_RETURN_ERROR (NC_ENOMEM)
 
-	nczipp->path = (char *)NCI_Malloc (strlen (path) + 1);
+	nczipp->path = (char *)malloc (strlen (path) + 1);
 	if (nczipp->path == NULL) {
-		NCI_Free (nczipp);
+		free (nczipp);
 		DEBUG_RETURN_ERROR (NC_ENOMEM)
 	}
 	strcpy (nczipp->path, path);
@@ -132,15 +132,15 @@ int nczipio_open (
 	if (err != NC_NOERR) goto errout;
 
 	/* Create a NC_zip object and save its driver pointer */
-	nczipp = (NC_zip *)NCI_Malloc (sizeof (NC_zip));
+	nczipp = (NC_zip *)malloc (sizeof (NC_zip));
 	if (nczipp == NULL) {
 		DEBUG_ASSIGN_ERROR (err, NC_ENOMEM)
 		goto errout;
 	}
 
-	nczipp->path = (char *)NCI_Malloc (strlen (path) + 1);
+	nczipp->path = (char *)malloc (strlen (path) + 1);
 	if (nczipp->path == NULL) {
-		NCI_Free (nczipp);
+		free (nczipp);
 		DEBUG_ASSIGN_ERROR (err, NC_ENOMEM)
 		goto errout;
 	}
@@ -169,8 +169,8 @@ int nczipio_open (
 
 	// Not compressed file
 	if (one != 1) {
-		NCI_Free (nczipp->path);
-		NCI_Free (nczipp);
+		free (nczipp->path);
+		free (nczipp);
 		DEBUG_RETURN_ERROR (NC_EINVAL)
 	}
 
@@ -195,8 +195,8 @@ int nczipio_open (
 errout:
 	if (ncp != NULL) { driver->close (nczipp->ncp); }
 	if (nczipp != NULL) {
-		if (nczipp->path != NULL) { NCI_Free (nczipp->path); }
-		NCI_Free (nczipp);
+		if (nczipp->path != NULL) { free (nczipp->path); }
+		free (nczipp);
 	}
 
 	return err;
@@ -265,7 +265,7 @@ int nczipio_close (void *ncdp) {
 	nczipioi_req_list_free (&(nczipp->putlist));
 	nczipioi_req_list_free (&(nczipp->getlist));
 
-	NCI_Free (nczipp->chunkdim);
+	free (nczipp->chunkdim);
 
 	if (nczipp->overlaptype != MPI_DATATYPE_NULL) { MPI_Type_free (&(nczipp->overlaptype)); }
 	if (nczipp->max_cown_op != MPI_OP_NULL) { MPI_Op_free (&(nczipp->max_cown_op)); }
@@ -277,9 +277,9 @@ int nczipio_close (void *ncdp) {
 	if (_env_str != NULL && *_env_str != '0') { nczipioi_print_profile (nczipp); }
 #endif
 
-	NCI_Free (nczipp->path);
+	free (nczipp->path);
 
-	NCI_Free (nczipp);
+	free (nczipp);
 
 	return err;
 }
@@ -342,8 +342,8 @@ int nczipio_enddef (void *ncdp) {
 
 		NC_ZIP_TIMER_START (NC_ZIP_TIMER_INIT_META)
 
-		lens   = NCI_Malloc (sizeof (int) * nczipp->vars.cnt);
-		fdisps = NCI_Malloc (sizeof (MPI_Aint) * nczipp->vars.cnt * 2);
+		lens   = malloc (sizeof (int) * nczipp->vars.cnt);
+		fdisps = malloc (sizeof (MPI_Aint) * nczipp->vars.cnt * 2);
 		mdisps = fdisps + nczipp->vars.cnt;
 
 		nread = 0;
@@ -399,8 +399,8 @@ int nczipio_enddef (void *ncdp) {
 			MPI_Type_free (&mtype);
 		}
 
-		NCI_Free (lens);
-		NCI_Free (fdisps);
+		free (lens);
+		free (fdisps);
 
 		NC_ZIP_TIMER_STOP (NC_ZIP_TIMER_INIT_META)
 	}
@@ -473,8 +473,8 @@ int nczipio__enddef (void *ncdp,
 
 		NC_ZIP_TIMER_START (NC_ZIP_TIMER_INIT_META)
 
-		lens   = NCI_Malloc (sizeof (int) * nczipp->vars.cnt);
-		fdisps = NCI_Malloc (sizeof (MPI_Aint) * nczipp->vars.cnt * 2);
+		lens   = malloc (sizeof (int) * nczipp->vars.cnt);
+		fdisps = malloc (sizeof (MPI_Aint) * nczipp->vars.cnt * 2);
 		mdisps = fdisps + nczipp->vars.cnt;
 
 		nread = 0;
@@ -528,8 +528,8 @@ int nczipio__enddef (void *ncdp,
 			MPI_Type_free (&mtype);
 		}
 
-		NCI_Free (lens);
-		NCI_Free (fdisps);
+		free (lens);
+		free (fdisps);
 
 		NC_ZIP_TIMER_STOP (NC_ZIP_TIMER_INIT_META)
 	}
@@ -578,8 +578,8 @@ int nczipio_abort (void *ncdp) {
 
 	err = nczipp->driver->abort (nczipp->ncp);
 
-	NCI_Free (nczipp->path);
-	NCI_Free (nczipp);
+	free (nczipp->path);
+	free (nczipp);
 
 	return err;
 }
@@ -669,8 +669,8 @@ int nczipio_wait (void *ncdp, int num_reqs, int *req_ids, int *statuses, int req
 
 		// Allocate buffer
 		ncom	= num_reqs - nraw;
-		rawreqs = (int *)NCI_Malloc (sizeof (int) * nraw);
-		comreqs = (int *)NCI_Malloc (sizeof (int) * ncom);
+		rawreqs = (int *)malloc (sizeof (int) * nraw);
+		comreqs = (int *)malloc (sizeof (int) * ncom);
 
 		// Build put and get req list
 		nraw = ncom = 0;
@@ -684,8 +684,8 @@ int nczipio_wait (void *ncdp, int num_reqs, int *req_ids, int *statuses, int req
 	}
 
 	if (statuses != NULL) {
-		rawstats = (int *)NCI_Malloc (sizeof (int) * nraw);
-		comstats = (int *)NCI_Malloc (sizeof (int) * ncom);
+		rawstats = (int *)malloc (sizeof (int) * nraw);
+		comstats = (int *)malloc (sizeof (int) * ncom);
 	} else {
 		rawstats = NULL;
 		comstats = NULL;
@@ -712,12 +712,12 @@ int nczipio_wait (void *ncdp, int num_reqs, int *req_ids, int *statuses, int req
 			}
 		}
 
-		NCI_Free (rawstats);
-		NCI_Free (comstats);
+		free (rawstats);
+		free (comstats);
 	}
 
-	NCI_Free (rawreqs);
-	NCI_Free (comreqs);
+	free (rawreqs);
+	free (comreqs);
 
 done:
 

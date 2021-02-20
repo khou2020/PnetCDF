@@ -68,9 +68,9 @@ int nczipioi_req_list_init(NC_zip_req_list *lp) {
     /* Initialize parameter and allocate the array  */
     lp->nused = 0;
     lp->nalloc = PUT_ARRAY_SIZE;
-    lp->reqs = (NC_zip_req*)NCI_Malloc(lp->nalloc * sizeof(NC_zip_req));
-    lp->ids = (int*)NCI_Malloc(lp->nalloc * SIZEOF_INT);
-    lp->pos = (int*)NCI_Malloc(lp->nalloc * SIZEOF_INT);
+    lp->reqs = (NC_zip_req*)malloc(lp->nalloc * sizeof(NC_zip_req));
+    lp->ids = (int*)malloc(lp->nalloc * SIZEOF_INT);
+    lp->pos = (int*)malloc(lp->nalloc * SIZEOF_INT);
     if (lp->reqs == NULL || lp->ids == NULL) {
         DEBUG_RETURN_ERROR(NC_ENOMEM);
     }
@@ -132,9 +132,9 @@ static int nczipioi_req_list_resize(NC_zip_req_list *lp)
  */
 int nczipioi_req_list_free(NC_zip_req_list *lp)
 {
-    NCI_Free(lp->reqs);
-    NCI_Free(lp->ids);
-    NCI_Free(lp->pos);
+    free(lp->reqs);
+    free(lp->ids);
+    free(lp->pos);
 
     return NC_NOERR;
 }
@@ -172,25 +172,25 @@ int nczipioi_req_list_remove(NC_zip_req_list *lp, int reqid) {
 
     /* Clean up request */
     if (req->start != NULL){
-        NCI_Free(req->start);
+        free(req->start);
     }
     if (req->count != NULL){
-        NCI_Free(req->count);
+        free(req->count);
     }
     if (req->starts != NULL){
-        NCI_Free(req->starts);
+        free(req->starts);
     }
     if (req->counts != NULL){
-        NCI_Free(req->counts);
+        free(req->counts);
     }
     if (req->stride != NULL){
-        NCI_Free(req->stride);
+        free(req->stride);
     }
     if (req->xbufs != NULL){
-        NCI_Free(req->xbufs);
+        free(req->xbufs);
     }
     if (req->xbuf != req->buf){
-        NCI_Free(req->xbuf);
+        free(req->xbuf);
     }
 
     /* Return id to the list */

@@ -49,10 +49,10 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT_IO)
 
     // Allocate buffer for compression
-    zsizes = (int*)NCI_Malloc(sizeof(int) * varp->nchunk);
-    zbufs = (void**)NCI_Malloc(sizeof(void*) * varp->nmychunk);
-    zsizes_all = (int*)NCI_Malloc(sizeof(int) * varp->nchunk);
-    zoffs = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * (varp->nchunk + 1));
+    zsizes = (int*)malloc(sizeof(int) * varp->nchunk);
+    zbufs = (void**)malloc(sizeof(void*) * varp->nmychunk);
+    zsizes_all = (int*)malloc(sizeof(int) * varp->nchunk);
+    zoffs = (MPI_Offset*)malloc(sizeof(MPI_Offset) * (varp->nchunk + 1));
 
     // Allocate buffer for I/O
     wcnt = 0;
@@ -65,8 +65,8 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     if (nczipp->rank == varp->chunk_owner[0]){
         wcnt += 1;
     }
-    lens = (int*)NCI_Malloc(sizeof(int) * wcnt);
-    disps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * wcnt);
+    lens = (int*)malloc(sizeof(int) * wcnt);
+    disps = (MPI_Aint*)malloc(sizeof(MPI_Aint) * wcnt);
 
     memset(zsizes, 0, sizeof(int) * varp->nchunk);
 
@@ -274,9 +274,9 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
     }
 
     // Free buffers
-    NCI_Free(zsizes);
-    NCI_Free(zsizes_all);
-    NCI_Free(zoffs);
+    free(zsizes);
+    free(zsizes_all);
+    free(zoffs);
     for(l = 0; l < varp->nmychunk; l++){
         k = varp->mychunks[l];
         if (varp->dirty[k]){
@@ -287,10 +287,10 @@ int nczipioi_save_var(NC_zip *nczipp, NC_zip_var *varp) {
             varp->dirty[k] = 0;
         }
     }
-    NCI_Free(zbufs);
+    free(zbufs);
 
-    NCI_Free(lens);
-    NCI_Free(disps);
+    free(lens);
+    free(disps);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO)
 
@@ -344,19 +344,19 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO_INIT)
 
     // Allocate reqid for metadata
-    reqs = (MPI_Request*)NCI_Malloc(sizeof(MPI_Request) * nvar);
+    reqs = (MPI_Request*)malloc(sizeof(MPI_Request) * nvar);
 
     // Allocate buffer for compression
-    zsizes = (int*)NCI_Malloc(sizeof(int) * total_nchunks);
-    zsizes_all = (int*)NCI_Malloc(sizeof(int) * total_nchunks);
-    zbufs = (void**)NCI_Malloc(sizeof(void*) * ccnt);
-    zdels = (int*)NCI_Malloc(sizeof(int) * ccnt);
-    zoffs = (MPI_Offset*)NCI_Malloc(sizeof(MPI_Offset) * (total_nchunks + 1));
+    zsizes = (int*)malloc(sizeof(int) * total_nchunks);
+    zsizes_all = (int*)malloc(sizeof(int) * total_nchunks);
+    zbufs = (void**)malloc(sizeof(void*) * ccnt);
+    zdels = (int*)malloc(sizeof(int) * ccnt);
+    zoffs = (MPI_Offset*)malloc(sizeof(MPI_Offset) * (total_nchunks + 1));
 
     // Allocate buffer file type
-    mdisps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * wcnt);
-    lens = (int*)NCI_Malloc(sizeof(int) * wcnt);
-    fdisps = (MPI_Aint*)NCI_Malloc(sizeof(MPI_Aint) * wcnt);
+    mdisps = (MPI_Aint*)malloc(sizeof(MPI_Aint) * wcnt);
+    lens = (int*)malloc(sizeof(int) * wcnt);
+    fdisps = (MPI_Aint*)malloc(sizeof(MPI_Aint) * wcnt);
 
     ccur = 0;
     zsizesp = zsizes + nvar;
@@ -612,23 +612,23 @@ int nczipioi_save_nvar(NC_zip *nczipp, int nvar, int *varids) {
     }
 
     // Free buffers
-    NCI_Free(zsizes);
-    NCI_Free(zsizes_all);
-    NCI_Free(zoffs);
+    free(zsizes);
+    free(zsizes_all);
+    free(zoffs);
     ccur = 0;
     for(i = 0; i < ccnt; i++){
         if (zdels[i]){
             free(zbufs[i]);
         }
     }
-    NCI_Free(zbufs);
-    NCI_Free(zdels);
+    free(zbufs);
+    free(zdels);
 
-    NCI_Free(lens);
-    NCI_Free(fdisps);
-    NCI_Free(mdisps);
+    free(lens);
+    free(fdisps);
+    free(mdisps);
 
-    NCI_Free(reqs);
+    free(reqs);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT_IO)
 
