@@ -146,6 +146,7 @@ void ncmpii_del_mem_entry(void *buf)
         if (ret == NULL) {
             fprintf(stderr, "Error at line %d file %s: tfind() buf=%p\n",
                     __LINE__,__FILE__,buf);
+            abort();
             goto fn_exit;
         }
         /* free space for func and filename */
