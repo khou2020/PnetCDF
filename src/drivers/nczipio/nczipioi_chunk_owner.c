@@ -219,6 +219,7 @@ int nczipioi_calc_chunk_overlap (NC_zip *nczipp,
 	// Noise to break tie
 	j = (nczipp->rank - nczipp->assigned_chunks) % nczipp->np;
 	if (j < 0) j += nczipp->np;
+	if (j > varp->nchunkrec) { j = varp->nchunkrec; }
 	k = nczipp->np - 1;	 // noise from 0 ~ np-1
 	for (i = j; i < varp->nchunkrec; i++) {
 		ocnt[i].osize += k;
@@ -401,8 +402,8 @@ int nczipioi_calc_chunk_owner_reduce (
 
 	NC_ZIP_TIMER_START (NC_ZIP_TIMER_INIT_COWN)
 
-	ocnt = (nczipioi_chunk_overlap_t *)malloc (sizeof (nczipioi_chunk_overlap_t) *
-												   varp->nchunkrec * 2);
+	ocnt = (nczipioi_chunk_overlap_t *)malloc (sizeof (nczipioi_chunk_overlap_t) * varp->nchunkrec *
+											   2);
 	CHK_PTR (ocnt)
 	ocnt_all = ocnt + varp->nchunkrec;
 
@@ -410,9 +411,9 @@ int nczipioi_calc_chunk_owner_reduce (
 	CHK_ERR
 
 	if (nczipp->exact_cown) {
-		//err = nczipioi_sync_ocnt_gather (nczipp, varp->nchunkrec, ocnt, ocnt_all, NULL);
-		//CHK_ERR
-		RET_ERR(NC_ENOTSUPPORT)
+		// err = nczipioi_sync_ocnt_gather (nczipp, varp->nchunkrec, ocnt, ocnt_all, NULL);
+		// CHK_ERR
+		RET_ERR (NC_ENOTSUPPORT)
 	} else {
 		err = nczipioi_sync_ocnt_reduce (nczipp, varp->nchunkrec, ocnt, ocnt_all, NULL);
 		CHK_ERR
