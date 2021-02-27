@@ -70,7 +70,7 @@ nczipio_def_var(void       *ncdp,
     NC_zip_var *varp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT)
 
     err = nczipioi_var_list_add(&(nczipp->vars));
     if (err < 0) return err;
@@ -126,7 +126,7 @@ nczipio_def_var(void       *ncdp,
         if (err != NC_NOERR) return err;
     }
 
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT)
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
 
     return NC_NOERR;
@@ -255,9 +255,9 @@ nczipio_get_var(void             *ncdp,
     }
 
     if (nczipp->delay_init && (varp->chunkdim == NULL)){
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        NC_ZIP_TIMER_PAUSE(NC_ZIP_TIMER_GET)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT_META)
 
         nczipioi_var_init(nczipp, varp, 1, (MPI_Offset**)&start, (MPI_Offset**)&count);
 
@@ -277,19 +277,19 @@ nczipio_get_var(void             *ncdp,
             }
         }
 
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT_META)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET)
     }
 
     if (varp->isrec && (varp->dimsize[0] < nczipp->recsize) && (start[0] + count[0] >= varp->dimsize[0])){
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_RESIZE)
+        NC_ZIP_TIMER_PAUSE(NC_ZIP_TIMER_GET)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_RESIZE)
 
         nczipioi_var_resize(nczipp, varp);
 
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_RESIZE)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET)
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_RESIZE)
     }
 
     if (buftype != varp->etype){
@@ -365,9 +365,9 @@ nczipio_put_var(void             *ncdp,
     }
 
     if (nczipp->delay_init && (varp->chunkdim == NULL)){
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        NC_ZIP_TIMER_PAUSE(NC_ZIP_TIMER_PUT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT_META)
 
         nczipioi_var_init(nczipp, varp, 1, (MPI_Offset**)&start, (MPI_Offset**)&count);
 
@@ -387,8 +387,8 @@ nczipio_put_var(void             *ncdp,
             }
         }
 
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT_META)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT)
     }
 
@@ -473,8 +473,8 @@ nczipio_iget_var(void             *ncdp,
     NC_zip *nczipp = (NC_zip*)ncdp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IGET)
 
     if (reqMode == NC_REQ_INDEP){
         DEBUG_RETURN_ERROR(NC_ENOTSUPPORT);
@@ -502,8 +502,8 @@ nczipio_iget_var(void             *ncdp,
     }
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IGET)
 
     return NC_NOERR;
 }
@@ -528,8 +528,8 @@ nczipio_iput_var(void             *ncdp,
     NC_zip *nczipp = (NC_zip*)ncdp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IPUT)
 
     if (reqMode == NC_REQ_INDEP){
         DEBUG_RETURN_ERROR(NC_ENOTSUPPORT);
@@ -613,8 +613,8 @@ err_check:
     if (cbuf != buf && cbuf != xbuf) NCI_Free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IPUT)
 
     return (err == NC_NOERR) ? status : err; /* first error encountered */
 
@@ -668,8 +668,8 @@ nczipio_bput_var(void             *ncdp,
     NC_zip *nczipp = (NC_zip*)ncdp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IPUT)
 
     if (reqMode == NC_REQ_INDEP){
         DEBUG_RETURN_ERROR(NC_ENOTSUPPORT);
@@ -751,8 +751,8 @@ err_check:
     if (cbuf != buf) NCI_Free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IPUT)
 
     return (err == NC_NOERR) ? status : err; /* first error encountered */
 
@@ -794,9 +794,9 @@ nczipio_get_varn(void              *ncdp,
     }
 
     if (nczipp->delay_init && (varp->chunkdim == NULL)){
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        NC_ZIP_TIMER_PAUSE(NC_ZIP_TIMER_GET)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT_META)
 
         nczipioi_var_init(nczipp, varp, num, (MPI_Offset**)starts, (MPI_Offset**)counts);
 
@@ -816,20 +816,20 @@ nczipio_get_varn(void              *ncdp,
             }
         }
 
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT_META)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET)
     }
 
     if (varp->isrec && (varp->dimsize[0] < nczipp->recsize)){
         for(i = 0; i < num; i++){
             if (starts[i][0] + counts[i][0] >= varp->dimsize[0]){
-                NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_GET)
-                NC_ZIP_TIMER_START(NC_ZIP_TIMER_RESIZE)
+                NC_ZIP_TIMER_PAUSE(NC_ZIP_TIMER_GET)
+                NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_RESIZE)
 
                 nczipioi_var_resize(nczipp, varp);
                 
-                NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_RESIZE)
+                NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_RESIZE)
                 NC_ZIP_TIMER_START(NC_ZIP_TIMER_GET)
                 
                 break;
@@ -907,9 +907,9 @@ nczipio_put_varn(void              *ncdp,
     }
 
     if (nczipp->delay_init && (varp->chunkdim == NULL)){
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_PUT)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT)
-        NC_ZIP_TIMER_START(NC_ZIP_TIMER_INIT_META)
+        NC_ZIP_TIMER_PAUSE(NC_ZIP_TIMER_PUT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT)
+        NC_ZIP_TIMER_START(NC_ZIP_TIMER_VAR_INIT_META)
         
         nczipioi_var_init(nczipp, varp, num, (MPI_Offset**)starts, (MPI_Offset**)counts);
 
@@ -929,8 +929,8 @@ nczipio_put_varn(void              *ncdp,
             }
         }
 
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT_META)
-        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_INIT)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT_META)
+        NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_VAR_INIT)
         NC_ZIP_TIMER_START(NC_ZIP_TIMER_PUT)
     }
     
@@ -986,8 +986,8 @@ nczipio_iget_varn(void               *ncdp,
     NC_zip *nczipp = (NC_zip*)ncdp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IGET)
 
     if (reqMode == NC_REQ_INDEP){
         DEBUG_RETURN_ERROR(NC_ENOTSUPPORT);
@@ -1016,8 +1016,8 @@ nczipio_iget_varn(void               *ncdp,
     }
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IGET)
 
     return NC_NOERR;
 }
@@ -1042,8 +1042,8 @@ nczipio_iput_varn(void               *ncdp,
     NC_zip *nczipp = (NC_zip*)ncdp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IPUT)
 
     if (reqMode == NC_REQ_INDEP){
         DEBUG_RETURN_ERROR(NC_ENOTSUPPORT);
@@ -1102,8 +1102,8 @@ nczipio_iput_varn(void               *ncdp,
     if (cbuf != buf && cbuf != xbuf) NCI_Free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IPUT)
 
     return NC_NOERR;
 }
@@ -1129,8 +1129,8 @@ nczipio_bput_varn(void               *ncdp,
     NC_zip *nczipp = (NC_zip*)ncdp;
 
     NC_ZIP_TIMER_START(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_START(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_START(NC_ZIP_TIMER_IPUT)
 
     if (reqMode == NC_REQ_INDEP){
         DEBUG_RETURN_ERROR(NC_ENOTSUPPORT);
@@ -1186,8 +1186,8 @@ nczipio_bput_varn(void               *ncdp,
     if (cbuf != buf && cbuf != xbuf) NCI_Free(cbuf);
 
     NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_TOTAL)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB)
-    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_NB_POST)
+    
+    NC_ZIP_TIMER_STOP(NC_ZIP_TIMER_IPUT)
 
     return NC_NOERR;
 }
